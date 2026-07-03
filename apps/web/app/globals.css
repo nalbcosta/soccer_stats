@@ -1,0 +1,128 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+  --color-bg: #f6faf7;
+  --color-canvas: #f6faf7;
+  --color-surface: #ffffff;
+  --color-surface-raised: #ffffff;
+  --color-elevated: #ffffff;
+  --color-text: #102421;
+  --color-muted: #63746f;
+  --color-text-muted: #63746f;
+  --color-border: rgba(16, 36, 33, 0.12);
+  --color-primary: #00a8a3;
+  --color-primary-hover: #00938f;
+  --color-primary-active: #08716d;
+  --color-primary-pressed: #075f5c;
+  --color-primary-strong: #08716d;
+  --color-primary-soft: #e3f7f4;
+  --color-accent: #1fb6a6;
+  --color-accent-soft: #e5f8f3;
+  --color-field: #2f8f46;
+  --color-field-soft: #e6f4e9;
+  --color-marker: #f2c94c;
+  --color-marker-soft: #fff4cb;
+  --color-success: #1e9f57;
+  --color-success-soft: #e6f6ec;
+  --color-warning: #d89b17;
+  --color-warning-soft: #fff4d6;
+  --color-error: #d94a3d;
+  --color-error-soft: #fdecea;
+  --color-info: #1f7bd7;
+  --color-info-soft: #e8f2ff;
+  --modal-overlay: rgba(7, 18, 15, 0.58);
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --bottom-sheet-radius: 20px;
+  --shadow-sm: 0 1px 2px rgba(16, 36, 33, 0.08);
+  --shadow-md: 0 14px 34px rgba(16, 36, 33, 0.13);
+  --nav-height: 68px;
+  --touch-target-min: 44px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 32px;
+  --space-8: 40px;
+  --font-family-base: "Satoshi Variable", "Satoshi", ui-sans-serif, system-ui, sans-serif;
+  --font-size-caption: 12px;
+  --font-size-body: 15px;
+  --font-size-score: 34px;
+  --hero-gradient: linear-gradient(180deg, #f6faf7 0%, #edf7f3 100%);
+}
+
+.dark {
+  color-scheme: dark;
+  --color-bg: #07120f;
+  --color-canvas: #07120f;
+  --color-surface: #0d1c18;
+  --color-surface-raised: #13241f;
+  --color-elevated: #13241f;
+  --color-text: #edf9f4;
+  --color-muted: #9fb8af;
+  --color-text-muted: #9fb8af;
+  --color-border: rgba(237, 249, 244, 0.1);
+  --color-primary: #25c7bd;
+  --color-primary-hover: #41d7ce;
+  --color-primary-active: #8cf3e6;
+  --color-primary-pressed: #bafbf3;
+  --color-primary-strong: #8cf3e6;
+  --color-primary-soft: rgba(37, 199, 189, 0.14);
+  --color-accent: #45d18a;
+  --color-accent-soft: rgba(69, 209, 138, 0.14);
+  --color-field: #57c86b;
+  --color-field-soft: rgba(87, 200, 107, 0.14);
+  --color-marker: #ffd866;
+  --color-marker-soft: rgba(255, 216, 102, 0.16);
+  --color-success: #5fdb8d;
+  --color-success-soft: rgba(95, 219, 141, 0.14);
+  --color-warning: #ffd866;
+  --color-warning-soft: rgba(255, 216, 102, 0.16);
+  --color-error: #ff7a6f;
+  --color-error-soft: rgba(255, 122, 111, 0.14);
+  --color-info: #70b8ff;
+  --color-info-soft: rgba(112, 184, 255, 0.14);
+  --modal-overlay: rgba(0, 0, 0, 0.68);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.22);
+  --shadow-md: 0 16px 42px rgba(0, 0, 0, 0.32);
+  --hero-gradient: linear-gradient(180deg, #07120f 0%, #0b1915 100%);
+}
+
+* {
+  border-color: var(--color-border);
+}
+
+body {
+  min-height: 100vh;
+  background: var(--hero-gradient);
+  color: var(--color-text);
+  font-family: var(--font-family-base);
+  font-size: var(--font-size-body);
+}
+
+.glass-panel {
+  background: var(--color-surface);
+}
+
+::selection {
+  background: var(--color-marker);
+  color: #102421;
+}
+
+.field-grid {
+  background-image:
+    linear-gradient(var(--color-border) 1px, transparent 1px),
+    linear-gradient(90deg, var(--color-border) 1px, transparent 1px);
+  background-size: 28px 28px;
+}
+
+.touch-target {
+  min-height: var(--touch-target-min);
+  min-width: var(--touch-target-min);
+}

@@ -1,0 +1,53 @@
+services:
+  mongo:
+    image: mongo:8
+    restart: unless-stopped
+    volumes:
+      - mongo-prod:/data/db
+    networks:
+      - internal
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+      target: prod
+    restart: unless-stopped
+    depends_on:
+      - mongo
+    environment:
+      PORT: 4000
+      MONGODB_URI: mongodb://mongo:27017
+      MONGODB_DB: soccer_stats
+      WEB_ORIGIN: ${WEB_ORIGIN}
+      SESSION_SECRET: ${SESSION_SECRET}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      COOKIE_DOMAIN: ${COOKIE_DOMAIN:-}
+      NODE_ENV: production
+    expose:
+      - "4000"
+    networks:
+      - internal
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      target: prod
+    restart: unless-stopped
+    depends_on:
+      - api
+    environment:
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
+      NEXT_PUBLIC_GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+    ports:
+      - "3000:3000"
+    networks:
+      - internal
+
+volumes:
+  mongo-prod:
+
+networks:
+  internal:
+    name: soccer-stats-prod

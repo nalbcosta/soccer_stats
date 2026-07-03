@@ -1,0 +1,76 @@
+services:
+  mongo:
+    image: mongo:8
+    container_name: soccer-stats-mongo-dev
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - ./mongo-data:/data/db
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+      target: dev
+    container_name: soccer-stats-api-dev
+    depends_on:
+      - mongo
+    environment:
+      CI: "true"
+      PORT: 4000
+      MONGODB_URI: mongodb://mongo:27017
+      MONGODB_DB: soccer_stats
+      WEB_ORIGIN: http://localhost:3000
+      SESSION_SECRET: dev-secret
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      NODE_ENV: development
+      CHOKIDAR_USEPOLLING: "true"
+      CHOKIDAR_INTERVAL: "300"
+    ports:
+      - "4000:4000"
+    volumes:
+      - .:/app
+      - api_root_node_modules:/app/node_modules
+      - api_app_node_modules:/app/apps/api/node_modules
+      - api_shared_node_modules:/app/packages/shared/node_modules
+      - pnpm_store:/pnpm/store
+    working_dir: /app/apps/api
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      target: dev
+    container_name: soccer-stats-web-dev
+    depends_on:
+      - api
+    environment:
+      CI: "true"
+      NEXT_PUBLIC_API_URL: http://localhost:4000/v1
+      NEXT_PUBLIC_GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      WATCHPACK_POLLING: "true"
+      CHOKIDAR_USEPOLLING: "true"
+      CHOKIDAR_INTERVAL: "300"
+    ports:
+      - "3000:3000"
+    volumes:
+      - .:/app
+      - web_root_node_modules:/app/node_modules
+      - web_app_node_modules:/app/apps/web/node_modules
+      - web_shared_node_modules:/app/packages/shared/node_modules
+      - pnpm_store:/pnpm/store
+    working_dir: /app/apps/web
+
+networks:
+  default:
+    name: soccer-stats-dev
+
+volumes:
+  api_root_node_modules:
+  api_app_node_modules:
+  api_shared_node_modules:
+  pnpm_store:
+  web_root_node_modules:
+  web_app_node_modules:
+  web_shared_node_modules:
