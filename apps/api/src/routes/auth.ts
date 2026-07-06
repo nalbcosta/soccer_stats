@@ -3,11 +3,13 @@ import { googleAuthInputSchema, publicUserSchema, signInInputSchema, signUpInput
 import { authRouteSchemas } from "../docs/openapi.js";
 
 export const authRoutes: FastifyPluginAsync = async (app) => {
-  app.post("/auth/signup", { schema: authRouteSchemas.signUp }, async (request, reply) => {
+  app.post("/auth/signup", { schema: authRouteSchemas.signUp, config: { rateLimit: { max: 8, timeWindow: "1 minute" } } }, async (request, reply) => {
     const payload = signUpInputSchema.parse(request.body);
+    const email = payload.email.trim().toLowerCase();
+    const username = payload.username.trim().toLowerCase();
 
     try {
-      const user = await app.auth.registerWithCredentials(payload.email, payload.username, payload.password, payload.locale);
+      const user = await app.auth.registerWithCredentials(email, username, payload.password, payload.locale);
       await app.auth.createSession(reply, user.id);
       return { user: publicUserSchema.parse(user) };
     } catch (error) {
@@ -16,25 +18,26 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
     }
   });
 
-  app.post("/auth/signin", { schema: authRouteSchemas.signIn }, async (request, reply) => {
+  app.post("/auth/signin", { schema: authRouteSchemas.signIn, config: { rateLimit: { max: 10, timeWindow: "1 minute" } } }, async (request, reply) => {
     const payload = signInInputSchema.parse(request.body);
-    const user = await app.auth.signInWithCredentials(payload.email, payload.password);
+    const email = payload.email.trim().toLowerCase();
+    const user = await app.auth.signInWithCredentials(email, payload.password);
 
     if (!user) {
       reply.code(401);
       return { message: "Credenciais invalidas." };
     }
 
-    await app.auth.createSession(reply, user.id);
+    await app.auth.createSession(reply, user.id, payload.rememberMe);
     return { user: publicUserSchema.parse(user) };
   });
 
-  app.post("/auth/google", { schema: authRouteSchemas.google }, async (request, reply) => {
+  app.post("/auth/google", { schema: authRouteSchemas.google, config: { rateLimit: { max: 10, timeWindow: "1 minute" } } }, async (request, reply) => {
     const payload = googleAuthInputSchema.parse(request.body);
 
     try {
       const user = await app.auth.signInWithGoogleCredential(payload.credential, payload.locale);
-      await app.auth.createSession(reply, user.id);
+      await app.auth.createSession(reply, user.id, payload.rememberMe);
       return { user: publicUserSchema.parse(user) };
     } catch (error) {
       reply.code(400);

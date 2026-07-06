@@ -81,6 +81,25 @@ export const playerRouteSchemas = {
       401: { $ref: "messageResponse#" },
       404: { $ref: "messageResponse#" }
     }
+  } satisfies FastifySchema,
+  uploadPhoto: {
+    tags: ["players"],
+    summary: "Faz upload da foto do jogador autenticado",
+    security: authSecurity,
+    consumes: ["multipart/form-data"],
+    body: {
+      type: "object",
+      properties: {
+        photo: { type: "string", format: "binary" }
+      },
+      required: ["photo"]
+    },
+    response: {
+      200: { $ref: "playerProfileEnvelope#" },
+      400: { $ref: "messageResponse#" },
+      401: { $ref: "messageResponse#" },
+      404: { $ref: "messageResponse#" }
+    }
   } satisfies FastifySchema
 };
 
@@ -265,6 +284,9 @@ const schemas = [
     properties: {
       userId: id,
       displayName: { type: "string" },
+      shirtNumber: { type: "integer", minimum: 1, maximum: 99 },
+      photoUrl: { type: "string", format: "uri" },
+      teamName: { type: "string", minLength: 2, maxLength: 40 },
       preferredFoot: { type: "string", enum: ["right", "left", "both"] },
       preferredPosition: { type: "string", enum: ["goalkeeper", "defender", "midfielder", "forward"] },
       bio: { type: "string" },
@@ -322,9 +344,19 @@ const schemas = [
       minute: { type: "integer", minimum: 0, maximum: 130 },
       type: { type: "string", enum: ["goal", "assist", "yellow-card", "red-card"] },
       playerId: id,
-      teamId: id
+      teamId: id,
+      assistPlayerId: id
     },
     required: ["minute", "type", "playerId", "teamId"]
+  },
+  {
+    $id: "matchVenue",
+    type: "object",
+    properties: {
+      name: { type: "string", minLength: 2, maxLength: 80 },
+      address: { type: "string", minLength: 2, maxLength: 120 },
+      surface: { type: "string", enum: ["grass", "synthetic", "court", "sand", "other"] }
+    }
   },
   {
     $id: "matchSide",
@@ -353,6 +385,8 @@ const schemas = [
         type: "array",
         items: { $ref: "matchEvent#" }
       },
+      durationMinutes: { type: "integer", minimum: 1, maximum: 180 },
+      venue: { $ref: "matchVenue#" },
       tournamentId: id,
       playedAt: isoDate,
       createdAt: isoDate,
@@ -411,7 +445,8 @@ const schemas = [
     type: "object",
     properties: {
       email: { type: "string", format: "email" },
-      password: { type: "string", minLength: 8, maxLength: 72 }
+      password: { type: "string", minLength: 8, maxLength: 72 },
+      rememberMe: { type: "boolean", default: false }
     },
     required: ["email", "password"]
   },
@@ -420,7 +455,8 @@ const schemas = [
     type: "object",
     properties: {
       credential: { type: "string" },
-      locale: { type: "string", enum: ["pt-BR", "en"] }
+      locale: { type: "string", enum: ["pt-BR", "en"] },
+      rememberMe: { type: "boolean", default: false }
     },
     required: ["credential"]
   },
@@ -429,6 +465,9 @@ const schemas = [
     type: "object",
     properties: {
       displayName: { type: "string", minLength: 2, maxLength: 40 },
+      shirtNumber: { type: "integer", minimum: 1, maximum: 99 },
+      photoUrl: { type: "string", format: "uri", maxLength: 500 },
+      teamName: { type: "string", minLength: 2, maxLength: 40 },
       preferredFoot: { type: "string", enum: ["right", "left", "both"] },
       preferredPosition: { type: "string", enum: ["goalkeeper", "defender", "midfielder", "forward"] },
       bio: { type: "string", maxLength: 160 }
@@ -462,6 +501,8 @@ const schemas = [
       home: { $ref: "matchSide#" },
       away: { $ref: "matchSide#" },
       tournamentId: id,
+      durationMinutes: { type: "integer", minimum: 1, maximum: 180 },
+      venue: { $ref: "matchVenue#" },
       playedAt: isoDate
     },
     required: ["type", "home", "away", "playedAt"]
@@ -473,6 +514,8 @@ const schemas = [
       id,
       homeScore: { type: "integer", minimum: 0 },
       awayScore: { type: "integer", minimum: 0 },
+      durationMinutes: { type: "integer", minimum: 1, maximum: 180 },
+      venue: { $ref: "matchVenue#" },
       eventLog: {
         type: "array",
         items: { $ref: "matchEvent#" }

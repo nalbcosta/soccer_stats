@@ -17,6 +17,7 @@ export const statsSchema = z.object({
   losses: z.number().int().nonnegative(),
   goals: z.number().int().nonnegative(),
   assists: z.number().int().nonnegative(),
+  saves: z.number().int().nonnegative(),
   cleanSheets: z.number().int().nonnegative(),
   goalDifference: z.number().int(),
   points: z.number().int().nonnegative(),
@@ -38,6 +39,9 @@ export const publicUserSchema = z.object({
 export const playerProfileSchema = z.object({
   userId: z.string(),
   displayName: z.string().min(2).max(40),
+  shirtNumber: z.number().int().positive().max(99).optional(),
+  photoUrl: z.url().max(500).optional(),
+  teamName: z.string().min(2).max(40).optional(),
   preferredFoot: preferredFootSchema,
   preferredPosition: playerPositionSchema,
   bio: z.string().max(160).optional(),
@@ -65,7 +69,14 @@ export const matchEventSchema = z.object({
   minute: z.number().int().min(0).max(130),
   type: z.enum(["goal", "assist", "yellow-card", "red-card"]),
   playerId: z.string(),
-  teamId: z.string()
+  teamId: z.string(),
+  assistPlayerId: z.string().optional()
+});
+
+export const matchVenueSchema = z.object({
+  name: z.string().min(2).max(80).optional(),
+  address: z.string().min(2).max(120).optional(),
+  surface: z.enum(["grass", "synthetic", "court", "sand", "other"]).optional()
 });
 
 export const matchSideSchema = z.object({
@@ -82,6 +93,8 @@ export const matchSchema = z.object({
   home: matchSideSchema,
   away: matchSideSchema,
   eventLog: z.array(matchEventSchema),
+  durationMinutes: z.number().int().positive().max(180).optional(),
+  venue: matchVenueSchema.optional(),
   tournamentId: z.string().optional(),
   playedAt: z.string(),
   createdAt: z.string(),
@@ -126,16 +139,21 @@ export const signUpInputSchema = z.object({
 
 export const signInInputSchema = z.object({
   email: z.email(),
-  password: z.string().min(8).max(72)
+  password: z.string().min(8).max(72),
+  rememberMe: z.boolean().default(false)
 });
 
 export const googleAuthInputSchema = z.object({
   credential: z.string().min(1),
-  locale: localeSchema.default("pt-BR")
+  locale: localeSchema.default("pt-BR"),
+  rememberMe: z.boolean().default(false)
 });
 
 export const updateProfileInputSchema = z.object({
   displayName: z.string().min(2).max(40),
+  shirtNumber: z.number().int().positive().max(99).optional(),
+  photoUrl: z.url().max(500).optional(),
+  teamName: z.string().min(2).max(40).optional(),
   preferredFoot: preferredFootSchema,
   preferredPosition: playerPositionSchema,
   bio: z.string().max(160).optional()
@@ -157,6 +175,8 @@ export const createMatchInputSchema = z.object({
   home: matchSideSchema,
   away: matchSideSchema,
   tournamentId: z.string().optional(),
+  durationMinutes: z.number().int().positive().max(180).optional(),
+  venue: matchVenueSchema.optional(),
   playedAt: z.string()
 });
 
@@ -164,6 +184,8 @@ export const completeMatchInputSchema = z.object({
   id: z.string(),
   homeScore: z.number().int().nonnegative(),
   awayScore: z.number().int().nonnegative(),
+  durationMinutes: z.number().int().positive().max(180).optional(),
+  venue: matchVenueSchema.optional(),
   eventLog: z.array(matchEventSchema)
 });
 

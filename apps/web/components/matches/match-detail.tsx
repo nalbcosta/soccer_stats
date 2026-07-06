@@ -7,6 +7,7 @@ import { useSession } from "../app/session-provider";
 import { LoadingState } from "../feedback/loading-state";
 import { NotFoundPanel } from "../feedback/not-found-panel";
 import { Card } from "../ui/card";
+import { ScoreboardCard } from "../sports/scoreboard-card";
 import { CompleteMatchForm } from "./complete-match-form";
 
 export function MatchDetail() {
@@ -25,18 +26,21 @@ export function MatchDetail() {
   const match = result.entity;
   const home = dashboard?.teams.find((team) => team.id === match.home.teamId)?.name ?? "Casa";
   const away = dashboard?.teams.find((team) => team.id === match.away.teamId)?.name ?? "Fora";
+  const tournament = match.tournamentId ? dashboard?.tournaments.find((item) => item.id === match.tournamentId) : undefined;
 
   return (
     <>
       <PageHeading eyebrow="Jogo" title={`${home} x ${away}`} />
       <div className="grid gap-4 lg:grid-cols-[1fr_0.7fr]">
-        <Card className="p-5">
-          <p className="text-sm font-bold uppercase text-muted">Placar</p>
-          <p className="mt-3 text-5xl font-black">
-            {match.home.score} x {match.away.score}
-          </p>
-          <p className="mt-3 text-sm text-muted">{new Date(match.playedAt).toLocaleString("pt-BR")}</p>
-        </Card>
+        <ScoreboardCard
+          awayName={away}
+          awayScore={match.away.score}
+          homeName={home}
+          homeScore={match.home.score}
+          match={match}
+          status={match.status}
+          {...(tournament ? { tournament } : {})}
+        />
         <Card className="p-5">
           <p className="mb-3 font-bold">Fechamento</p>
           <CompleteMatchForm match={match} />

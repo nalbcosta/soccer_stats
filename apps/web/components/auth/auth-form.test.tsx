@@ -18,7 +18,8 @@ describe("AuthForm", () => {
   it("renderiza formulario dedicado de login", () => {
     render(<AuthForm />);
 
-    expect(screen.getByText("Entrar no vestiario")).toBeInTheDocument();
+    expect(screen.getByText("Entrar no vestiário")).toBeInTheDocument();
+    expect(screen.getByText("Lembrar de mim neste dispositivo")).toBeInTheDocument();
     expect(screen.getByPlaceholderText("email@exemplo.com")).toBeInTheDocument();
   });
 });

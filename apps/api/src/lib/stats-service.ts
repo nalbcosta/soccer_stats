@@ -83,7 +83,9 @@ export const calculatePlayerStats = (playerId: string, matches: Match[]): Aggreg
 
     stats = applyMatchResultWithoutScoring(stats, side.score, opponent.score);
     stats.goals += match.eventLog.filter((event) => event.type === "goal" && event.playerId === playerId).length;
-    assists += match.eventLog.filter((event) => event.type === "assist" && event.playerId === playerId).length;
+    assists += match.eventLog.filter(
+      (event) => (event.type === "assist" && event.playerId === playerId) || (event.type === "goal" && event.assistPlayerId === playerId)
+    ).length;
   }
 
   return withDerivedStats({
