@@ -26,7 +26,38 @@ Regras:
 - Sessao usa cookie `soccer_stats_session`.
 - Cookie e `httpOnly`, assinado, `sameSite=lax`.
 - Em producao, cookie usa `secure`.
-- `requireUser` valida cookie, sessao, expiracao e usuario.
+- `requireUser` valida cookie, sessao, expiracao, revogacao e usuario.
+- Sessao registra `userAgent`, `ipHash`, `lastSeenAt` e `revokedAt`.
+- `GET /v1/auth/sessions` lista sessoes do usuario.
+- `DELETE /v1/auth/sessions/:sessionId` revoga uma sessao.
+- `POST /v1/auth/signout-all` revoga as outras sessoes.
+
+## CSRF em mutacoes
+
+```mermaid
+sequenceDiagram
+  actor U as Usuario
+  participant API as Fastify
+  participant CSRF as csrf helper
+
+  U->>API: GET /v1/auth/csrf
+  API->>CSRF: issue token
+  CSRF-->>U: csrfToken + cookie assinado
+  U->>API: POST/PUT/PATCH/DELETE com x-csrf-token
+  API->>CSRF: valida hash do header contra cookie
+  alt Token invalido
+    API-->>U: 403
+  else Token valido
+    API->>API: executa rota
+  end
+```
+
+Regras:
+
+- Double-submit token para rotas mutaveis sob `/v1`.
+- Header exigido: `x-csrf-token`.
+- Rotas de signup/signin/google/csrf sao excecoes para permitir bootstrap da sessao.
+- O frontend chama `/auth/csrf` automaticamente antes de mutacoes autenticadas.
 
 ## Criacao de time
 
@@ -121,6 +152,7 @@ sequenceDiagram
     API->>API: valida visibilidade do local
   end
   API->>Repo: matches.create(status=scheduled)
+  API->>Repo: cria presences pending
   API->>Notif: notifyUsers(match-scheduled)
   API-->>Admin: match
 ```
@@ -130,7 +162,57 @@ Regras:
 - Criacao exige permissao de owner/admin nos dois times.
 - Partida de campeonato precisa ter os dois times no campeonato.
 - `eventLog` inicia vazio.
+- `presences` inicia com status `pending` para jogadores de `home.playerIds` e `away.playerIds`.
 - Notifica membros dos times envolvidos.
+
+## Presenca em partida
+
+```mermaid
+sequenceDiagram
+  actor Player as Jogador
+  actor Admin as Owner/Admin
+  participant API as Matches route
+  participant Repo as Repositories
+  participant Notif as NotificationService
+
+  Player->>API: PUT /v1/matches/:id/presences/me
+  API->>Repo: matches.findById()
+  API->>API: valida jogador relacionado
+  API->>Repo: matches.update(status=confirming, presences)
+  API->>Notif: presence-updated para criador
+
+  Admin->>API: PUT /v1/matches/:id/presences/:userId
+  API->>API: valida owner/admin de home ou away
+  API->>Repo: matches.update(presences)
+  API->>Notif: presence-updated para jogador
+```
+
+Regras:
+
+- Status possiveis: `pending`, `confirmed`, `declined`, `maybe`.
+- Primeira atualizacao muda partida `scheduled` para `confirming`.
+- Usuario comum so altera a propria presenca.
+- Owner/admin pode alterar presenca de jogador relacionado a partida.
+
+## Cancelamento de partida
+
+```mermaid
+flowchart TD
+  Request["POST /v1/matches/:matchId/cancel"] --> Auth["requireUser"]
+  Auth --> Find["Busca partida"]
+  Find --> Completed{"Ja completed?"}
+  Completed -- Sim --> Conflict["409"]
+  Completed -- Nao --> Role{"Owner/admin em home ou away?"}
+  Role -- Nao --> Forbidden["403"]
+  Role -- Sim --> Update["status=cancelled + cancelledAt/by/reason"]
+  Update --> Notify["match-cancelled para membros"]
+  Notify --> Audit["audit_logs match.cancel"]
+```
+
+Regras:
+
+- Partida concluida nao pode ser cancelada.
+- Partida cancelada nao pode ser encerrada depois.
 
 ## Encerramento de partida
 
@@ -145,8 +227,10 @@ sequenceDiagram
   Admin->>API: POST /v1/matches/complete
   API->>Repo: matches.findById()
   API->>API: bloqueia se ja completed
+  API->>API: bloqueia se cancelled
   API->>Repo: teams.findById(home/away)
   API->>API: verifica admin dos dois times
+  API->>Stats: validateMatchEventLog()
   API->>Stats: validateScoreAgainstGoalEvents()
   alt Sumula invalida
     API-->>Admin: 400
@@ -169,6 +253,8 @@ sequenceDiagram
 Regras:
 
 - Partida concluida nao pode ser encerrada novamente.
+- Partida cancelada nao pode ser encerrada.
+- Sumula rejeita jogador fora da partida, time fora da partida, minuto maior que `durationMinutes` e assistente igual ao autor.
 - Placar final deve bater com a quantidade de eventos `goal` por time.
 - Stats de time usam placar.
 - Stats de jogador usam participacao + eventos de gol/assistencia.
@@ -181,12 +267,14 @@ flowchart TB
   Completed["Partidas completed"] --> TeamStats["calculateTeamStats"]
   Completed --> PlayerStats["calculatePlayerStats"]
   Completed --> Standings["calculateStandings"]
+  Presences["matches.presences"] --> Rankings["rankings/players"]
 
   TeamStats --> TeamCache["teams.stats"]
   PlayerStats --> PlayerCache["player_profiles.stats"]
   Standings --> TournamentCache["tournaments.standings"]
 
-  PlayerStats --> Card["NaBola Card ratings no shared"]
+  PlayerStats --> Card["NaBola Card ratings v1 no shared"]
+  Rankings --> Card
 ```
 
 Fonte de verdade:
@@ -196,14 +284,44 @@ Fonte de verdade:
 - Gols: eventos `goal`.
 - Assistencias: eventos `assist` ou `goal.assistPlayerId`.
 - Campeonatos: partidas concluidas do `tournamentId`.
+- Ranking considera stats reais, presenca confirmada e `ratingVersion = v1`.
+
+## Rankings e heuristica
+
+```mermaid
+flowchart LR
+  Matches["matches completed"] --> PlayerStats["calculatePlayerStats"]
+  Presences["matches.presences"] --> PresenceRate["presenceRate"]
+  PlayerStats --> Snapshot["buildPlayerFeatureSnapshot"]
+  PresenceRate --> Snapshot
+  PlayerStats --> Ratings["buildPlayerCardRatings v1"]
+  Ratings --> Ranking["GET /v1/rankings/players"]
+  Ranking --> Scorers["/tournaments/:id/scorers"]
+  Ranking --> Assists["/tournaments/:id/assists"]
+```
+
+Metricas:
+
+- `overall`
+- `goals`
+- `assists`
+- `presence`
+- `winning`
+- `form`
+
+Observacao: ML real ainda nao foi implementado. O backend ja gera snapshot de features para preparar dataset futuro.
 
 ## Notificacoes
 
 ```mermaid
 flowchart LR
   Invite["invite-created"] --> Notifications["notifications"]
+  Accepted["invite-accepted"] --> Notifications
   Scheduled["match-scheduled"] --> Notifications
   Completed["match-completed"] --> Notifications
+  Cancelled["match-cancelled"] --> Notifications
+  Presence["presence-updated"] --> Notifications
+  Member["team-member-added"] --> Notifications
   Tournament["tournament-updated"] --> Notifications
   Notifications --> List["GET /v1/notifications"]
   List --> Read["PATCH /v1/notifications/:id/read"]

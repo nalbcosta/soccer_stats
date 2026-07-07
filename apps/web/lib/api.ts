@@ -9,15 +9,42 @@ import type {
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/v1";
 const API_BASE_URL = API_URL.replace(/\/v1$/, "");
+const mutatingMethods = new Set(["POST", "PUT", "PATCH", "DELETE"]);
+const csrfExemptPaths = new Set(["/auth/signup", "/auth/signin", "/auth/google", "/auth/csrf"]);
+
+let csrfTokenCache: string | null = null;
+
+async function getCsrfToken(): Promise<string> {
+  if (csrfTokenCache) {
+    return csrfTokenCache;
+  }
+
+  const response = await fetch(`${API_URL}/auth/csrf`, {
+    credentials: "include"
+  });
+
+  if (!response.ok) {
+    throw new Error("Nao foi possivel preparar a seguranca da requisicao.");
+  }
+
+  const body = (await response.json()) as { csrfToken: string };
+  csrfTokenCache = body.csrfToken;
+  return body.csrfToken;
+}
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const hasJsonBody = init?.body !== undefined && !(init.body instanceof FormData);
+  const method = (init?.method ?? "GET").toUpperCase();
+  const csrfHeaders = mutatingMethods.has(method) && !csrfExemptPaths.has(path)
+    ? { "x-csrf-token": await getCsrfToken() }
+    : {};
 
   const response = await fetch(`${API_URL}${path}`, {
     ...init,
     credentials: "include",
     headers: {
       ...(hasJsonBody ? { "Content-Type": "application/json" } : {}),
+      ...csrfHeaders,
       ...(init?.headers ?? {})
     }
   });
@@ -59,7 +86,10 @@ export const api = {
     const response = await fetch(`${API_URL}/players/me/photo`, {
       method: "POST",
       body: formData,
-      credentials: "include"
+      credentials: "include",
+      headers: {
+        "x-csrf-token": await getCsrfToken()
+      }
     });
 
     if (!response.ok) {

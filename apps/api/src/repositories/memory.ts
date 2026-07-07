@@ -1,5 +1,6 @@
-import type { Invite, Match, Notification, PlayerProfile, Team, Tournament, Venue } from "@soccer-stats/shared";
+import type { AuditLog, Invite, Match, Notification, PlayerProfile, Team, Tournament, Venue } from "@soccer-stats/shared";
 import type {
+  AuditLogRepository,
   InviteRepository,
   MatchRepository,
   NotificationRepository,
@@ -184,6 +185,14 @@ class MemoryInviteRepository implements InviteRepository {
     return invite;
   }
 
+  async findById(id: string): Promise<Invite | null> {
+    return this.items.get(id) ?? null;
+  }
+
+  async findByToken(token: string): Promise<Invite | null> {
+    return [...this.items.values()].find((invite) => invite.token === token) ?? null;
+  }
+
   async findPendingByEmail(email: string): Promise<Invite[]> {
     return [...this.items.values()].filter((invite) => invite.email === email && invite.status === "pending");
   }
@@ -242,12 +251,54 @@ class MemorySessionRepository implements SessionRepository {
     return session;
   }
 
+  async update(session: SessionRecord): Promise<SessionRecord> {
+    this.items.set(session.id, session);
+    return session;
+  }
+
   async findById(id: string): Promise<SessionRecord | null> {
     return this.items.get(id) ?? null;
   }
 
+  async listByUser(userId: string): Promise<SessionRecord[]> {
+    return [...this.items.values()].filter((session) => session.userId === userId);
+  }
+
+  async revokeById(id: string, userId: string, revokedAt: string): Promise<SessionRecord | null> {
+    const session = this.items.get(id);
+
+    if (!session || session.userId !== userId) {
+      return null;
+    }
+
+    const revoked = { ...session, revokedAt };
+    this.items.set(id, revoked);
+    return revoked;
+  }
+
+  async revokeAllByUser(userId: string, revokedAt: string, exceptSessionId?: string): Promise<void> {
+    for (const session of this.items.values()) {
+      if (session.userId === userId && session.id !== exceptSessionId && !session.revokedAt) {
+        this.items.set(session.id, { ...session, revokedAt });
+      }
+    }
+  }
+
   async deleteById(id: string): Promise<void> {
     this.items.delete(id);
+  }
+}
+
+class MemoryAuditLogRepository implements AuditLogRepository {
+  private readonly items = new Map<string, AuditLog>();
+
+  async create(auditLog: AuditLog): Promise<AuditLog> {
+    this.items.set(auditLog.id, auditLog);
+    return auditLog;
+  }
+
+  async listByActor(actorUserId: string): Promise<AuditLog[]> {
+    return [...this.items.values()].filter((auditLog) => auditLog.actorUserId === actorUserId);
   }
 }
 
@@ -260,5 +311,6 @@ export const createMemoryRepositories = (): Repositories => ({
   invites: new MemoryInviteRepository(),
   venues: new MemoryVenueRepository(),
   notifications: new MemoryNotificationRepository(),
+  auditLogs: new MemoryAuditLogRepository(),
   sessions: new MemorySessionRepository()
 });

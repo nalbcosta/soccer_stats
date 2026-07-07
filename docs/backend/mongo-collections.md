@@ -14,6 +14,7 @@ erDiagram
   USERS ||--o{ VENUES : owns
   USERS ||--o{ NOTIFICATIONS : receives
   USERS ||--o{ INVITES : sends
+  USERS ||--o{ AUDIT_LOGS : performs
 
   TEAMS ||--o{ TEAM_MEMBERS : embeds
   TEAMS ||--o{ MATCHES : home_or_away
@@ -41,6 +42,7 @@ erDiagram
     string displayName
     number shirtNumber
     string photoUrl
+    object photoMetadata
     string preferredFoot
     string preferredPosition
     object stats
@@ -78,9 +80,13 @@ erDiagram
     object home
     object away
     object[] eventLog
+    object[] presences
     string venueId
     object venue
     string tournamentId
+    string cancelledAt
+    string cancelledBy
+    string cancelReason
     string playedAt
   }
 
@@ -122,6 +128,20 @@ erDiagram
     string _id
     string userId
     string expiresAt
+    string createdAt
+    string userAgent
+    string ipHash
+    string lastSeenAt
+    string revokedAt
+  }
+
+  AUDIT_LOGS {
+    string _id
+    string actorUserId
+    string action
+    string resourceType
+    string resourceId
+    object metadata
     string createdAt
   }
 ```
@@ -205,6 +225,31 @@ Regras:
 - Gols oficiais para stats saem de eventos `type = goal`.
 - Assistencias podem vir de evento `assist` ou de `goal.assistPlayerId`.
 - O placar de encerramento deve bater com os eventos de gol.
+- O jogador precisa estar em `home.playerIds` ou `away.playerIds`.
+- O time precisa ser `home.teamId` ou `away.teamId`.
+- `assistPlayerId` nao pode ser igual a `playerId`.
+- Quando `durationMinutes` existe, `minute` nao pode passar da duracao.
+
+### `matchPresence`
+
+Embutido em `matches.presences`.
+
+```mermaid
+classDiagram
+  class MatchPresence {
+    string userId
+    "pending|confirmed|declined|maybe" status
+    string updatedAt
+    string updatedBy
+  }
+```
+
+Regras:
+
+- Criacao de partida inicializa presencas como `pending` para os jogadores relacionados.
+- Jogador pode alterar a propria presenca em `/matches/:matchId/presences/me`.
+- Owner/admin de um dos times pode alterar presenca de outro jogador relacionado.
+- Presenca alimenta rankings e heuristica do NaBola Card.
 
 ### `matchVenue`
 
@@ -261,6 +306,7 @@ Campos:
 | `displayName` | string | Sim | Nome publico |
 | `shirtNumber` | number | Nao | Camisa |
 | `photoUrl` | string | Nao | URL ou `/uploads/...` |
+| `photoMetadata` | object | Nao | Nome salvo, MIME, tamanho e data do upload |
 | `teamName` | string | Nao | Texto livre |
 | `preferredFoot` | enum | Sim | `right`, `left`, `both` |
 | `preferredPosition` | enum | Sim | `goalkeeper`, `defender`, `midfielder`, `forward` |
@@ -337,15 +383,19 @@ Campos:
 |---|---|---:|---|
 | `_id` | string | Sim | ID de dominio |
 | `type` | enum | Sim | `casual` ou `tournament` |
-| `status` | enum | Sim | `scheduled` ou `completed` |
+| `status` | enum | Sim | `scheduled`, `confirming`, `completed`, `cancelled` |
 | `createdBy` | string | Sim | Usuario que criou |
 | `home` | object | Sim | `MatchSide` |
 | `away` | object | Sim | `MatchSide` |
 | `eventLog` | array | Sim | Sumula |
+| `presences` | array | Sim | `MatchPresence[]` |
 | `durationMinutes` | number | Nao | Duracao |
 | `venueId` | string | Nao | Referencia a `venues` |
 | `venue` | object | Nao | Snapshot do local |
 | `tournamentId` | string | Nao | Referencia a `tournaments` |
+| `cancelledAt` | string ISO | Nao | Data de cancelamento |
+| `cancelledBy` | string | Nao | Usuario que cancelou |
+| `cancelReason` | string | Nao | Motivo livre |
 | `playedAt` | string ISO | Sim | Data/hora do jogo |
 | `createdAt` | string ISO | Sim | Data de criacao |
 | `updatedAt` | string ISO | Sim | Data de atualizacao |
@@ -432,8 +482,12 @@ Campos:
 Tipos:
 
 - `invite-created`
+- `invite-accepted`
 - `match-scheduled`
 - `match-completed`
+- `match-cancelled`
+- `presence-updated`
+- `team-member-added`
 - `tournament-updated`
 
 Indices:
@@ -454,13 +508,42 @@ Campos:
 | `userId` | string | Sim | Usuario |
 | `expiresAt` | string ISO | Sim | Expiracao |
 | `createdAt` | string ISO | Sim | Criacao |
+| `userAgent` | string | Nao | Navegador/dispositivo |
+| `ipHash` | string | Nao | Hash do IP com segredo da sessao |
+| `lastSeenAt` | string ISO | Nao | Ultimo uso da sessao |
+| `revokedAt` | string ISO | Nao | Revogacao logica |
 
 Indices:
 
 - `userId`.
 - `expiresAt`.
+- `revokedAt`.
 
 Observacao: a expiracao tambem e validada pela API em `authPlugin.requireUser`.
+
+### `audit_logs`
+
+Registra acoes sensiveis para auditoria operacional.
+
+Campos:
+
+| Campo | Tipo | Obrigatorio | Observacao |
+|---|---|---:|---|
+| `_id` | string | Sim | ID do log |
+| `actorUserId` | string | Sim | Usuario que executou |
+| `action` | string | Sim | Ex: `auth.signin`, `match.complete` |
+| `resourceType` | string | Sim | Tipo do recurso |
+| `resourceId` | string | Sim | ID do recurso |
+| `metadata` | map string-string | Nao | Contexto adicional |
+| `createdAt` | string ISO | Sim | Data do evento |
+
+Indices:
+
+- `actorUserId`.
+- `action`.
+- `resourceType`.
+- `resourceId`.
+- `createdAt`.
 
 ## Estrategia de IDs
 

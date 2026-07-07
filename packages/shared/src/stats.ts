@@ -1,6 +1,9 @@
-import type { AggregatedStats } from "./domain";
+import type { AggregatedStats, PlayerFeatureSnapshot, RatingVersion } from "./domain";
+
+export const CURRENT_RATING_VERSION: RatingVersion = "v1";
 
 export interface PlayerCardRatings {
+  ratingVersion: RatingVersion;
   overall: number;
   attack: number;
   pass: number;
@@ -101,6 +104,7 @@ export const buildPlayerCardRatings = (stats: AggregatedStats): PlayerCardRating
   const overall = clampRating(attack * 0.2 + pass * 0.14 + presence * 0.18 + regularity * 0.16 + winning * 0.18 + form * 0.14);
 
   return {
+    ratingVersion: CURRENT_RATING_VERSION,
     overall,
     attack,
     pass,
@@ -123,5 +127,46 @@ export const buildPerformanceMetrics = (stats: AggregatedStats): PerformanceMetr
     consistency,
     pointsPerMatch,
     resultBalance
+  };
+};
+
+export const buildPlayerRatingExplanation = (stats: AggregatedStats): string => {
+  if (stats.matchesPlayed === 0) {
+    return "Sem partidas suficientes para leitura competitiva.";
+  }
+
+  if (stats.goals + stats.assists >= stats.matchesPlayed) {
+    return "Alta participacao ofensiva por jogo.";
+  }
+
+  if (stats.winRate >= 65) {
+    return "Aproveitamento forte nas partidas recentes.";
+  }
+
+  if (recentFormScore(stats.form) >= 75) {
+    return "Forma recente acima da media.";
+  }
+
+  return "Score equilibrado por presenca, forma e resultados.";
+};
+
+export const buildPlayerFeatureSnapshot = (
+  playerId: string,
+  stats: AggregatedStats,
+  presenceRate = 0,
+  createdAt = new Date().toISOString()
+): PlayerFeatureSnapshot => {
+  const matches = Math.max(stats.matchesPlayed, 1);
+
+  return {
+    playerId,
+    ratingVersion: CURRENT_RATING_VERSION,
+    matchesPlayed: stats.matchesPlayed,
+    goalsPerMatch: stats.goalsPerMatch,
+    assistsPerMatch: Number((stats.assists / matches).toFixed(2)),
+    presenceRate,
+    winRate: stats.winRate,
+    recentFormScore: recentFormScore(stats.form),
+    createdAt
   };
 };

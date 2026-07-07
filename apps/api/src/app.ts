@@ -18,8 +18,11 @@ import { matchRoutes } from "./routes/matches.js";
 import { playerRoutes } from "./routes/players.js";
 import { teamRoutes } from "./routes/teams.js";
 import { tournamentRoutes } from "./routes/tournaments.js";
+import { inviteRoutes } from "./routes/invites.js";
+import { rankingRoutes } from "./routes/rankings.js";
 import { notificationRoutes } from "./modules/notifications/notification.routes.js";
 import { venueRoutes } from "./modules/venues/venue.routes.js";
+import { validateCsrfToken } from "./modules/auth/csrf.js";
 
 declare module "fastify" {
   interface FastifyInstance {
@@ -74,6 +77,19 @@ export const createApp = async (config: AppConfig, repositories: Repositories) =
   });
   await app.register(authPlugin, { repositories, config });
 
+  app.addHook("preHandler", async (request, reply) => {
+    const mutatingMethods = new Set(["POST", "PUT", "PATCH", "DELETE"]);
+    const csrfExemptPaths = new Set(["/v1/auth/signup", "/v1/auth/signin", "/v1/auth/google", "/v1/auth/csrf"]);
+
+    if (!mutatingMethods.has(request.method) || csrfExemptPaths.has(request.url.split("?")[0] ?? request.url)) {
+      return;
+    }
+
+    if (request.url.startsWith("/v1/") && !validateCsrfToken(request)) {
+      return reply.code(403).send({ message: "Token CSRF invalido." });
+    }
+  });
+
   app.get("/health", async () => ({ ok: true }));
 
   await app.register(
@@ -81,9 +97,11 @@ export const createApp = async (config: AppConfig, repositories: Repositories) =
       await v1.register(authRoutes);
       await v1.register(playerRoutes);
       await v1.register(teamRoutes);
+      await v1.register(inviteRoutes);
       await v1.register(venueRoutes);
       await v1.register(matchRoutes);
       await v1.register(tournamentRoutes);
+      await v1.register(rankingRoutes);
       await v1.register(notificationRoutes);
       await v1.register(dashboardRoutes);
     },

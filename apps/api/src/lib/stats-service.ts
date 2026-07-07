@@ -64,6 +64,35 @@ export const validateScoreAgainstGoalEvents = (
   return null;
 };
 
+export const validateMatchEventLog = (match: Match, eventLog: Match["eventLog"], durationMinutes?: number): string | null => {
+  const teamIds = new Set([match.home.teamId, match.away.teamId]);
+  const playerIds = new Set([...match.home.playerIds, ...match.away.playerIds]);
+
+  for (const event of eventLog) {
+    if (!teamIds.has(event.teamId)) {
+      return "A sumula contem evento de um time fora da partida.";
+    }
+
+    if (!playerIds.has(event.playerId)) {
+      return "A sumula contem jogador fora da partida.";
+    }
+
+    if (event.assistPlayerId && !playerIds.has(event.assistPlayerId)) {
+      return "A sumula contem assistente fora da partida.";
+    }
+
+    if (event.assistPlayerId && event.assistPlayerId === event.playerId) {
+      return "Autor do gol e assistente nao podem ser a mesma pessoa.";
+    }
+
+    if (durationMinutes && event.minute > durationMinutes) {
+      return "A sumula contem minuto maior que a duracao da partida.";
+    }
+  }
+
+  return null;
+};
+
 export const calculateTeamStats = (team: Team, matches: Match[]): AggregatedStats => {
   let stats = createEmptyStats();
 

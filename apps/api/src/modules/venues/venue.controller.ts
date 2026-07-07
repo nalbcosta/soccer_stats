@@ -1,6 +1,7 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
 import { createVenueInputSchema, listVenuesQuerySchema, updateVenueInputSchema, venueSchema } from "@soccer-stats/shared";
 import { VenueService } from "./venue.service.js";
+import { AuditService } from "../audit/audit.service.js";
 
 export const createVenue = async (request: FastifyRequest, reply: FastifyReply) => {
   const user = await request.server.auth.requireUser(request, reply);
@@ -18,6 +19,12 @@ export const createVenue = async (request: FastifyRequest, reply: FastifyReply) 
     city: payload.city,
     state: payload.state,
     surface: payload.surface
+  });
+  await new AuditService(request.server.repositories).record({
+    actorUserId: user.id,
+    action: "venue.create",
+    resourceType: "venue",
+    resourceId: venue.id
   });
 
   return { venue: venueSchema.parse(venue) };
@@ -87,6 +94,13 @@ export const updateVenue = async (request: FastifyRequest<{ Params: { venueId: s
     reply.code(403);
     return { message: "Sem permissao para editar este local." };
   }
+
+  await new AuditService(request.server.repositories).record({
+    actorUserId: user.id,
+    action: "venue.update",
+    resourceType: "venue",
+    resourceId: result.id
+  });
 
   return { venue: venueSchema.parse(result) };
 };

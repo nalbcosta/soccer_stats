@@ -51,6 +51,13 @@ export const authRouteSchemas = {
       400: { $ref: "messageResponse#" }
     }
   } satisfies FastifySchema,
+  csrf: {
+    tags: ["auth"],
+    summary: "Emite token CSRF para rotas mutaveis autenticadas",
+    response: {
+      200: { $ref: "csrfResponse#" }
+    }
+  } satisfies FastifySchema,
   signOut: {
     tags: ["auth"],
     summary: "Encerra a sessão atual",
@@ -65,6 +72,34 @@ export const authRouteSchemas = {
     security: authSecurity,
     response: {
       200: { $ref: "publicUserEnvelope#" },
+      401: { $ref: "messageResponse#" }
+    }
+  } satisfies FastifySchema,
+  sessions: {
+    tags: ["auth"],
+    summary: "Lista sessoes do usuario autenticado",
+    security: authSecurity,
+    response: {
+      200: { $ref: "sessionsEnvelope#" },
+      401: { $ref: "messageResponse#" }
+    }
+  } satisfies FastifySchema,
+  revokeSession: {
+    tags: ["auth"],
+    summary: "Revoga uma sessao do usuario autenticado",
+    security: authSecurity,
+    response: {
+      200: { $ref: "okResponse#" },
+      401: { $ref: "messageResponse#" },
+      404: { $ref: "messageResponse#" }
+    }
+  } satisfies FastifySchema,
+  signOutAll: {
+    tags: ["auth"],
+    summary: "Revoga todas as outras sessoes do usuario autenticado",
+    security: authSecurity,
+    response: {
+      200: { $ref: "okResponse#" },
       401: { $ref: "messageResponse#" }
     }
   } satisfies FastifySchema
@@ -167,6 +202,43 @@ export const teamRouteSchemas = {
   } satisfies FastifySchema
 };
 
+export const inviteRouteSchemas = {
+  list: {
+    tags: ["invites"],
+    summary: "Lista convites pendentes do usuario autenticado",
+    security: authSecurity,
+    response: {
+      200: { $ref: "invitesEnvelope#" },
+      401: { $ref: "messageResponse#" }
+    }
+  } satisfies FastifySchema,
+  accept: {
+    tags: ["invites"],
+    summary: "Aceita um convite por token",
+    security: authSecurity,
+    response: {
+      200: { $ref: "inviteAcceptEnvelope#" },
+      400: { $ref: "messageResponse#" },
+      401: { $ref: "messageResponse#" },
+      403: { $ref: "messageResponse#" },
+      404: { $ref: "messageResponse#" },
+      409: { $ref: "messageResponse#" }
+    }
+  } satisfies FastifySchema,
+  revoke: {
+    tags: ["invites"],
+    summary: "Revoga um convite pendente",
+    security: authSecurity,
+    response: {
+      200: { $ref: "inviteEnvelope#" },
+      401: { $ref: "messageResponse#" },
+      403: { $ref: "messageResponse#" },
+      404: { $ref: "messageResponse#" },
+      409: { $ref: "messageResponse#" }
+    }
+  } satisfies FastifySchema
+};
+
 export const venueRouteSchemas = {
   list: {
     tags: ["venues"],
@@ -236,6 +308,40 @@ export const tournamentRouteSchemas = {
   } satisfies FastifySchema
 };
 
+export const rankingRouteSchemas = {
+  players: {
+    tags: ["rankings"],
+    summary: "Ranking real de jogadores por estatisticas e heuristica NaBola Card",
+    security: authSecurity,
+    querystring: { $ref: "playerRankingQuery#" },
+    response: {
+      200: { $ref: "playerRankingsEnvelope#" },
+      401: { $ref: "messageResponse#" },
+      404: { $ref: "messageResponse#" }
+    }
+  } satisfies FastifySchema,
+  tournamentScorers: {
+    tags: ["rankings"],
+    summary: "Artilharia de um campeonato",
+    security: authSecurity,
+    response: {
+      200: { $ref: "playerRankingsEnvelope#" },
+      401: { $ref: "messageResponse#" },
+      404: { $ref: "messageResponse#" }
+    }
+  } satisfies FastifySchema,
+  tournamentAssists: {
+    tags: ["rankings"],
+    summary: "Ranking de assistencias de um campeonato",
+    security: authSecurity,
+    response: {
+      200: { $ref: "playerRankingsEnvelope#" },
+      401: { $ref: "messageResponse#" },
+      404: { $ref: "messageResponse#" }
+    }
+  } satisfies FastifySchema
+};
+
 export const matchRouteSchemas = {
   list: {
     tags: ["matches"],
@@ -244,6 +350,16 @@ export const matchRouteSchemas = {
     response: {
       200: { $ref: "matchesEnvelope#" },
       401: { $ref: "messageResponse#" }
+    }
+  } satisfies FastifySchema,
+  get: {
+    tags: ["matches"],
+    summary: "Detalha uma partida visivel ao usuario",
+    security: authSecurity,
+    response: {
+      200: { $ref: "matchEnvelope#" },
+      401: { $ref: "messageResponse#" },
+      404: { $ref: "messageResponse#" }
     }
   } satisfies FastifySchema,
   create: {
@@ -263,6 +379,56 @@ export const matchRouteSchemas = {
     summary: "Encerra uma partida e recalcula estatísticas",
     security: authSecurity,
     body: { $ref: "completeMatchInput#" },
+    response: {
+      200: { $ref: "matchEnvelope#" },
+      400: { $ref: "messageResponse#" },
+      401: { $ref: "messageResponse#" },
+      403: { $ref: "messageResponse#" },
+      404: { $ref: "messageResponse#" },
+      409: { $ref: "messageResponse#" }
+    }
+  } satisfies FastifySchema,
+  listPresences: {
+    tags: ["matches"],
+    summary: "Lista presencas de uma partida",
+    security: authSecurity,
+    response: {
+      200: { $ref: "matchPresencesEnvelope#" },
+      401: { $ref: "messageResponse#" },
+      404: { $ref: "messageResponse#" }
+    }
+  } satisfies FastifySchema,
+  updateMyPresence: {
+    tags: ["matches"],
+    summary: "Atualiza a propria presenca em uma partida",
+    security: authSecurity,
+    body: { $ref: "updatePresenceInput#" },
+    response: {
+      200: { $ref: "matchPresencesEnvelope#" },
+      400: { $ref: "messageResponse#" },
+      401: { $ref: "messageResponse#" },
+      403: { $ref: "messageResponse#" },
+      404: { $ref: "messageResponse#" }
+    }
+  } satisfies FastifySchema,
+  updatePresence: {
+    tags: ["matches"],
+    summary: "Atualiza presenca de um jogador como owner/admin",
+    security: authSecurity,
+    body: { $ref: "updatePresenceInput#" },
+    response: {
+      200: { $ref: "matchPresencesEnvelope#" },
+      400: { $ref: "messageResponse#" },
+      401: { $ref: "messageResponse#" },
+      403: { $ref: "messageResponse#" },
+      404: { $ref: "messageResponse#" }
+    }
+  } satisfies FastifySchema,
+  cancel: {
+    tags: ["matches"],
+    summary: "Cancela uma partida agendada ou em confirmacao",
+    security: authSecurity,
+    body: { $ref: "cancelMatchInput#" },
     response: {
       200: { $ref: "matchEnvelope#" },
       400: { $ref: "messageResponse#" },
@@ -396,6 +562,16 @@ const schemas = [
       displayName: { type: "string" },
       shirtNumber: { type: "integer", minimum: 1, maximum: 99 },
       photoUrl: { type: "string", format: "uri" },
+      photoMetadata: {
+        type: "object",
+        properties: {
+          fileName: { type: "string" },
+          mimeType: { type: "string", enum: ["image/jpeg", "image/png", "image/webp"] },
+          size: { type: "integer", minimum: 1 },
+          uploadedAt: isoDate
+        },
+        required: ["fileName", "mimeType", "size", "uploadedAt"]
+      },
       teamName: { type: "string", minLength: 2, maxLength: 40 },
       preferredFoot: { type: "string", enum: ["right", "left", "both"] },
       preferredPosition: { type: "string", enum: ["goalkeeper", "defender", "midfielder", "forward"] },
@@ -470,7 +646,19 @@ const schemas = [
     properties: {
       id,
       userId: id,
-      type: { type: "string", enum: ["invite-created", "match-scheduled", "match-completed", "tournament-updated"] },
+      type: {
+        type: "string",
+        enum: [
+          "invite-created",
+          "invite-accepted",
+          "match-scheduled",
+          "match-completed",
+          "match-cancelled",
+          "presence-updated",
+          "team-member-added",
+          "tournament-updated"
+        ]
+      },
       title: { type: "string" },
       message: { type: "string" },
       metadata: {
@@ -481,6 +669,17 @@ const schemas = [
       createdAt: isoDate
     },
     required: ["id", "userId", "type", "title", "message", "createdAt"]
+  },
+  {
+    $id: "matchPresence",
+    type: "object",
+    properties: {
+      userId: id,
+      status: { type: "string", enum: ["pending", "confirmed", "declined", "maybe"] },
+      updatedAt: isoDate,
+      updatedBy: id
+    },
+    required: ["userId", "status", "updatedAt", "updatedBy"]
   },
   {
     $id: "matchVenue",
@@ -530,7 +729,7 @@ const schemas = [
     properties: {
       id,
       type: { type: "string", enum: ["casual", "tournament"] },
-      status: { type: "string", enum: ["scheduled", "completed"] },
+      status: { type: "string", enum: ["scheduled", "confirming", "completed", "cancelled"] },
       createdBy: id,
       home: { $ref: "matchSide#" },
       away: { $ref: "matchSide#" },
@@ -538,15 +737,22 @@ const schemas = [
         type: "array",
         items: { $ref: "matchEvent#" }
       },
+      presences: {
+        type: "array",
+        items: { $ref: "matchPresence#" }
+      },
       durationMinutes: { type: "integer", minimum: 1, maximum: 180 },
       venueId: id,
       venue: { $ref: "matchVenue#" },
       tournamentId: id,
+      cancelledAt: isoDate,
+      cancelledBy: id,
+      cancelReason: { type: "string", maxLength: 180 },
       playedAt: isoDate,
       createdAt: isoDate,
       updatedAt: isoDate
     },
-    required: ["id", "type", "status", "createdBy", "home", "away", "eventLog", "playedAt", "createdAt", "updatedAt"]
+    required: ["id", "type", "status", "createdBy", "home", "away", "eventLog", "presences", "playedAt", "createdAt", "updatedAt"]
   },
   {
     $id: "tournamentStanding",
@@ -633,6 +839,38 @@ const schemas = [
     required: ["credential"]
   },
   {
+    $id: "csrfResponse",
+    type: "object",
+    properties: {
+      csrfToken: { type: "string" }
+    },
+    required: ["csrfToken"]
+  },
+  {
+    $id: "sessionSummary",
+    type: "object",
+    properties: {
+      id,
+      createdAt: isoDate,
+      expiresAt: isoDate,
+      lastSeenAt: isoDate,
+      revokedAt: isoDate,
+      current: { type: "boolean" }
+    },
+    required: ["id", "createdAt", "expiresAt", "current"]
+  },
+  {
+    $id: "sessionsEnvelope",
+    type: "object",
+    properties: {
+      sessions: {
+        type: "array",
+        items: { $ref: "sessionSummary#" }
+      }
+    },
+    required: ["sessions"]
+  },
+  {
     $id: "updateProfileInput",
     type: "object",
     properties: {
@@ -708,6 +946,59 @@ const schemas = [
       }
     },
     required: ["id", "homeScore", "awayScore", "eventLog"]
+  },
+  {
+    $id: "updatePresenceInput",
+    type: "object",
+    properties: {
+      status: { type: "string", enum: ["pending", "confirmed", "declined", "maybe"] }
+    },
+    required: ["status"]
+  },
+  {
+    $id: "cancelMatchInput",
+    type: "object",
+    properties: {
+      reason: { type: "string", maxLength: 180 }
+    }
+  },
+  {
+    $id: "playerRankingQuery",
+    type: "object",
+    properties: {
+      teamId: id,
+      tournamentId: id,
+      period: { type: "string", enum: ["all", "last-5", "last-10"], default: "all" },
+      metric: { type: "string", enum: ["overall", "goals", "assists", "presence", "winning", "form"], default: "overall" }
+    }
+  },
+  {
+    $id: "playerCardRatings",
+    type: "object",
+    properties: {
+      ratingVersion: { type: "string", enum: ["v1"] },
+      overall: { type: "integer", minimum: 35, maximum: 99 },
+      attack: { type: "integer", minimum: 35, maximum: 99 },
+      pass: { type: "integer", minimum: 35, maximum: 99 },
+      presence: { type: "integer", minimum: 35, maximum: 99 },
+      regularity: { type: "integer", minimum: 35, maximum: 99 },
+      winning: { type: "integer", minimum: 35, maximum: 99 },
+      form: { type: "integer", minimum: 35, maximum: 99 }
+    },
+    required: ["ratingVersion", "overall", "attack", "pass", "presence", "regularity", "winning", "form"]
+  },
+  {
+    $id: "playerRankingEntry",
+    type: "object",
+    properties: {
+      playerId: id,
+      displayName: { type: "string" },
+      stats: { $ref: "stats#" },
+      ratings: { $ref: "playerCardRatings#" },
+      rank: { type: "integer", minimum: 1 },
+      explanation: { type: "string" }
+    },
+    required: ["playerId", "displayName", "stats", "ratings", "rank", "explanation"]
   },
   {
     $id: "createTournamentInput",
@@ -832,6 +1123,26 @@ const schemas = [
     required: ["invite"]
   },
   {
+    $id: "invitesEnvelope",
+    type: "object",
+    properties: {
+      invites: {
+        type: "array",
+        items: { $ref: "invite#" }
+      }
+    },
+    required: ["invites"]
+  },
+  {
+    $id: "inviteAcceptEnvelope",
+    type: "object",
+    properties: {
+      invite: { $ref: "invite#" },
+      team: { $ref: "team#" }
+    },
+    required: ["invite", "team"]
+  },
+  {
     $id: "notificationEnvelope",
     type: "object",
     properties: {
@@ -857,6 +1168,17 @@ const schemas = [
       match: { $ref: "match#" }
     },
     required: ["match"]
+  },
+  {
+    $id: "matchPresencesEnvelope",
+    type: "object",
+    properties: {
+      presences: {
+        type: "array",
+        items: { $ref: "matchPresence#" }
+      }
+    },
+    required: ["presences"]
   },
   {
     $id: "matchesEnvelope",
@@ -887,6 +1209,17 @@ const schemas = [
       }
     },
     required: ["tournaments"]
+  },
+  {
+    $id: "playerRankingsEnvelope",
+    type: "object",
+    properties: {
+      players: {
+        type: "array",
+        items: { $ref: "playerRankingEntry#" }
+      }
+    },
+    required: ["players"]
   },
   {
     $id: "dashboardResponse",
@@ -946,9 +1279,11 @@ export const registerOpenApi = async (app: FastifyInstance): Promise<void> => {
         { name: "auth", description: "Autenticação e sessão" },
         { name: "players", description: "Perfil do jogador" },
         { name: "teams", description: "Times e convites" },
+        { name: "invites", description: "Fluxo de convites" },
         { name: "venues", description: "Locais e estadios" },
         { name: "matches", description: "Partidas e encerramento" },
         { name: "tournaments", description: "Campeonatos" },
+        { name: "rankings", description: "Rankings, artilharia e heuristica NaBola Card" },
         { name: "notifications", description: "Alertas in-app" },
         { name: "dashboard", description: "Visão agregada do painel" }
       ],

@@ -133,6 +133,12 @@ export const demoMatch: Match = {
     { minute: 48, type: "goal", teamId: demoAwayTeam.id, playerId: "demo-away-11" },
     { minute: 59, type: "goal", teamId: demoHomeTeam.id, playerId: demoUser.id }
   ],
+  presences: [
+    { userId: demoUser.id, status: "confirmed", updatedAt: "2026-07-04T18:00:00.000Z", updatedBy: demoUser.id },
+    { userId: demoAssistUser.id, status: "confirmed", updatedAt: "2026-07-04T18:10:00.000Z", updatedBy: demoAssistUser.id },
+    { userId: "demo-away-9", status: "confirmed", updatedAt: "2026-07-04T18:15:00.000Z", updatedBy: "demo-away-9" },
+    { userId: "demo-away-11", status: "maybe", updatedAt: "2026-07-04T18:20:00.000Z", updatedBy: "demo-away-11" }
+  ],
   playedAt: "2026-07-04T21:00:00.000Z",
   createdAt: "2026-07-04T15:00:00.000Z",
   updatedAt: "2026-07-04T22:10:00.000Z"

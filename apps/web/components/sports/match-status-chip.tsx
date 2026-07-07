@@ -1,5 +1,5 @@
 import type { MatchStatus } from "@soccer-stats/shared";
-import { CalendarClock, CheckCircle2, type LucideIcon } from "lucide-react";
+import { CalendarClock, CheckCircle2, CircleHelp, XCircle, type LucideIcon } from "lucide-react";
 import { Badge } from "../ui/badge";
 
 const statusCopy: Record<MatchStatus, { label: string; tone: "success" | "warning"; icon: LucideIcon }> = {
@@ -8,10 +8,20 @@ const statusCopy: Record<MatchStatus, { label: string; tone: "success" | "warnin
     tone: "warning",
     icon: CalendarClock
   },
+  confirming: {
+    label: "Confirmando",
+    tone: "warning",
+    icon: CircleHelp
+  },
   completed: {
     label: "Placar fechado",
     tone: "success",
     icon: CheckCircle2
+  },
+  cancelled: {
+    label: "Cancelado",
+    tone: "warning",
+    icon: XCircle
   }
 };
 

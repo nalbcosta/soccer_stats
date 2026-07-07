@@ -6,11 +6,21 @@ import { playerProfileSchema, updateProfileInputSchema } from "@soccer-stats/sha
 import { playerRouteSchemas } from "../docs/openapi.js";
 import { createId } from "../lib/ids.js";
 
-function resolvePhotoExtension(filename: string, mimeType: string) {
+const allowedPhotoMimeTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
+
+function resolvePhotoExtension(filename: string, mimeType: string): ".jpg" | ".png" | ".webp" | null {
   const normalizedExtension = extname(filename).toLowerCase();
 
-  if ([".jpg", ".jpeg", ".png", ".webp"].includes(normalizedExtension)) {
-    return normalizedExtension === ".jpeg" ? ".jpg" : normalizedExtension;
+  switch (normalizedExtension) {
+    case ".jpg":
+    case ".jpeg":
+      return ".jpg";
+    case ".png":
+      return ".png";
+    case ".webp":
+      return ".webp";
+    default:
+      break;
   }
 
   if (mimeType === "image/png") {
@@ -21,7 +31,37 @@ function resolvePhotoExtension(filename: string, mimeType: string) {
     return ".webp";
   }
 
-  return ".jpg";
+  return null;
+}
+
+function detectImageMimeType(buffer: Buffer): "image/jpeg" | "image/png" | "image/webp" | null {
+  if (buffer.length >= 3 && buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) {
+    return "image/jpeg";
+  }
+
+  if (
+    buffer.length >= 8 &&
+    buffer[0] === 0x89 &&
+    buffer[1] === 0x50 &&
+    buffer[2] === 0x4e &&
+    buffer[3] === 0x47 &&
+    buffer[4] === 0x0d &&
+    buffer[5] === 0x0a &&
+    buffer[6] === 0x1a &&
+    buffer[7] === 0x0a
+  ) {
+    return "image/png";
+  }
+
+  if (
+    buffer.length >= 12 &&
+    buffer.subarray(0, 4).toString("ascii") === "RIFF" &&
+    buffer.subarray(8, 12).toString("ascii") === "WEBP"
+  ) {
+    return "image/webp";
+  }
+
+  return null;
 }
 
 export const playerRoutes: FastifyPluginAsync = async (app) => {
@@ -87,21 +127,28 @@ export const playerRoutes: FastifyPluginAsync = async (app) => {
       return { message: "Arquivo de foto nao enviado." };
     }
 
-    if (!part.mimetype.startsWith("image/")) {
+    const extension = resolvePhotoExtension(part.filename, part.mimetype);
+    const buffer = await part.toBuffer();
+    const detectedMimeType = detectImageMimeType(buffer);
+
+    if (!extension || !allowedPhotoMimeTypes.has(part.mimetype) || !detectedMimeType || detectedMimeType !== part.mimetype) {
       reply.code(400);
-      return { message: "Envie uma imagem valida." };
+      return { message: "Envie uma imagem JPG, PNG ou WebP valida." };
     }
 
-    const extension = resolvePhotoExtension(part.filename, part.mimetype);
     const fileName = `${user.id}-${createId()}${extension}`;
     const filePath = fileURLToPath(new URL(`../../uploads/${fileName}`, import.meta.url));
-    const buffer = await part.toBuffer();
-
     await writeFile(filePath, buffer);
 
     const profile = await app.repositories.playerProfiles.upsert({
       ...existing,
-      photoUrl: `/uploads/${fileName}`
+      photoUrl: `/uploads/${fileName}`,
+      photoMetadata: {
+        fileName,
+        mimeType: detectedMimeType,
+        size: buffer.length,
+        uploadedAt: new Date().toISOString()
+      }
     });
 
     return { profile: playerProfileSchema.parse(profile) };

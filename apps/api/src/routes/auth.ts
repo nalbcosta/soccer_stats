@@ -1,6 +1,7 @@
 import type { FastifyPluginAsync } from "fastify";
 import { googleAuthInputSchema, publicUserSchema, signInInputSchema, signUpInputSchema, usernameAvailabilityQuerySchema } from "@soccer-stats/shared";
 import { authRouteSchemas } from "../docs/openapi.js";
+import { AuditService } from "../modules/audit/audit.service.js";
 
 export const authRoutes: FastifyPluginAsync = async (app) => {
   app.get("/auth/username-availability", { schema: authRouteSchemas.usernameAvailability, config: { rateLimit: { max: 30, timeWindow: "1 minute" } } }, async (request, reply) => {
@@ -34,7 +35,13 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
 
     try {
       const user = await app.auth.registerWithCredentials(email, username, payload.password, payload.locale);
-      await app.auth.createSession(reply, user.id);
+      await app.auth.createSession(reply, request, user.id);
+      await new AuditService(app.repositories).record({
+        actorUserId: user.id,
+        action: "auth.signup",
+        resourceType: "user",
+        resourceId: user.id
+      });
       return { user: publicUserSchema.parse(user) };
     } catch (error) {
       reply.code(400);
@@ -52,7 +59,13 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
       return { message: "Credenciais invalidas." };
     }
 
-    await app.auth.createSession(reply, user.id, payload.rememberMe);
+    await app.auth.createSession(reply, request, user.id, payload.rememberMe);
+    await new AuditService(app.repositories).record({
+      actorUserId: user.id,
+      action: "auth.signin",
+      resourceType: "user",
+      resourceId: user.id
+    });
     return { user: publicUserSchema.parse(user) };
   });
 
@@ -61,7 +74,13 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
 
     try {
       const user = await app.auth.signInWithGoogleCredential(payload.credential, payload.locale);
-      await app.auth.createSession(reply, user.id, payload.rememberMe);
+      await app.auth.createSession(reply, request, user.id, payload.rememberMe);
+      await new AuditService(app.repositories).record({
+        actorUserId: user.id,
+        action: "auth.google",
+        resourceType: "user",
+        resourceId: user.id
+      });
       return { user: publicUserSchema.parse(user) };
     } catch (error) {
       reply.code(400);
@@ -70,7 +89,88 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
   });
 
   app.post("/auth/signout", { schema: authRouteSchemas.signOut }, async (request, reply) => {
+    const user = await app.auth.requireUser(request, reply);
+
+    if (!user) {
+      return;
+    }
+
     await app.auth.clearSession(reply, request);
+    await new AuditService(app.repositories).record({
+      actorUserId: user.id,
+      action: "auth.signout",
+      resourceType: "user",
+      resourceId: user.id
+    });
+    return { ok: true };
+  });
+
+  app.get("/auth/csrf", { schema: authRouteSchemas.csrf }, async (_request, reply) => ({
+    csrfToken: app.auth.createCsrfToken(reply)
+  }));
+
+  app.get("/auth/sessions", { schema: authRouteSchemas.sessions }, async (request, reply) => {
+    const user = await app.auth.requireUser(request, reply);
+
+    if (!user) {
+      return;
+    }
+
+    const currentSessionId = app.auth.getSessionId(request);
+    const sessions = await app.repositories.sessions.listByUser(user.id);
+
+    return {
+      sessions: sessions.map((session) => ({
+        id: session.id,
+        createdAt: session.createdAt,
+        expiresAt: session.expiresAt,
+        lastSeenAt: session.lastSeenAt,
+        revokedAt: session.revokedAt,
+        current: session.id === currentSessionId
+      }))
+    };
+  });
+
+  app.delete("/auth/sessions/:sessionId", { schema: authRouteSchemas.revokeSession }, async (request, reply) => {
+    const user = await app.auth.requireUser(request, reply);
+
+    if (!user) {
+      return;
+    }
+
+    const { sessionId } = request.params as { sessionId: string };
+    const revoked = await app.repositories.sessions.revokeById(sessionId, user.id, new Date().toISOString());
+
+    if (!revoked) {
+      reply.code(404);
+      return { message: "Sessao nao encontrada." };
+    }
+
+    await new AuditService(app.repositories).record({
+      actorUserId: user.id,
+      action: "auth.session-revoked",
+      resourceType: "session",
+      resourceId: sessionId
+    });
+
+    return { ok: true };
+  });
+
+  app.post("/auth/signout-all", { schema: authRouteSchemas.signOutAll }, async (request, reply) => {
+    const user = await app.auth.requireUser(request, reply);
+
+    if (!user) {
+      return;
+    }
+
+    await app.repositories.sessions.revokeAllByUser(user.id, new Date().toISOString(), app.auth.getSessionId(request));
+    await new AuditService(app.repositories).record({
+      actorUserId: user.id,
+      action: "auth.signout-all",
+      resourceType: "user",
+      resourceId: user.id
+    });
+
     return { ok: true };
   });
 

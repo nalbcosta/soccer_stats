@@ -3,6 +3,7 @@ import { createEmptyStats, createInviteInputSchema, createTeamInputSchema, invit
 import { teamRouteSchemas } from "../docs/openapi.js";
 import { createId, slugify } from "../lib/ids.js";
 import { NotificationService } from "../modules/notifications/notification.service.js";
+import { AuditService } from "../modules/audit/audit.service.js";
 
 const ensureTeamPermission = (teamId: string, userId: string, app: Parameters<FastifyPluginAsync>[0]) =>
   app.repositories.teams.findById(teamId).then((team) => {
@@ -67,6 +68,12 @@ export const teamRoutes: FastifyPluginAsync = async (app) => {
       createdAt: now,
       updatedAt: now
     });
+    await new AuditService(app.repositories).record({
+      actorUserId: user.id,
+      action: "team.create",
+      resourceType: "team",
+      resourceId: team.id
+    });
 
     return { team: teamSchema.parse(team) };
   });
@@ -94,6 +101,12 @@ export const teamRoutes: FastifyPluginAsync = async (app) => {
       ...(payload.city ? { city: payload.city } : {}),
       ...(payload.state ? { state: payload.state.toUpperCase() } : {}),
       updatedAt: new Date().toISOString()
+    });
+    await new AuditService(app.repositories).record({
+      actorUserId: user.id,
+      action: "team.update",
+      resourceType: "team",
+      resourceId: updated.id
     });
 
     return { team: teamSchema.parse(updated) };
@@ -141,6 +154,13 @@ export const teamRoutes: FastifyPluginAsync = async (app) => {
         metadata: { teamId: team.id, inviteId: invite.id }
       });
     }
+    await new AuditService(app.repositories).record({
+      actorUserId: user.id,
+      action: "team.invite",
+      resourceType: "invite",
+      resourceId: invite.id,
+      metadata: { teamId: team.id }
+    });
 
     return { invite: inviteSchema.parse(invite) };
   });

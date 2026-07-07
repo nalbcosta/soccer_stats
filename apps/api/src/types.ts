@@ -1,5 +1,6 @@
 import type {
   Invite,
+  AuditLog,
   Match,
   Notification,
   PlayerProfile,
@@ -22,6 +23,10 @@ export interface SessionRecord {
   userId: string;
   expiresAt: string;
   createdAt: string;
+  userAgent?: string;
+  ipHash?: string;
+  lastSeenAt?: string;
+  revokedAt?: string;
 }
 
 export interface AppContext {
@@ -37,6 +42,7 @@ export interface Repositories {
   invites: InviteRepository;
   venues: VenueRepository;
   notifications: NotificationRepository;
+  auditLogs: AuditLogRepository;
   sessions: SessionRepository;
 }
 
@@ -91,6 +97,8 @@ export interface VenueRepository {
 export interface InviteRepository {
   create(invite: Invite): Promise<Invite>;
   update(invite: Invite): Promise<Invite>;
+  findById(id: string): Promise<Invite | null>;
+  findByToken(token: string): Promise<Invite | null>;
   findPendingByEmail(email: string): Promise<Invite[]>;
   listByResource(resourceType: "team" | "tournament", resourceId: string): Promise<Invite[]>;
 }
@@ -106,7 +114,16 @@ export interface NotificationRepository {
 export interface SessionRepository {
   create(session: SessionRecord): Promise<SessionRecord>;
   findById(id: string): Promise<SessionRecord | null>;
+  listByUser(userId: string): Promise<SessionRecord[]>;
+  update(session: SessionRecord): Promise<SessionRecord>;
+  revokeById(id: string, userId: string, revokedAt: string): Promise<SessionRecord | null>;
+  revokeAllByUser(userId: string, revokedAt: string, exceptSessionId?: string): Promise<void>;
   deleteById(id: string): Promise<void>;
+}
+
+export interface AuditLogRepository {
+  create(auditLog: AuditLog): Promise<AuditLog>;
+  listByActor(actorUserId: string): Promise<AuditLog[]>;
 }
 
 export interface AppConfig {

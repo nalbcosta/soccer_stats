@@ -6,11 +6,22 @@ export const roleSchema = z.enum(["owner", "admin", "member"]);
 export const preferredFootSchema = z.enum(["right", "left", "both"]);
 export const playerPositionSchema = z.enum(["goalkeeper", "defender", "midfielder", "forward"]);
 export const matchTypeSchema = z.enum(["casual", "tournament"]);
-export const matchStatusSchema = z.enum(["scheduled", "completed"]);
+export const matchStatusSchema = z.enum(["scheduled", "confirming", "completed", "cancelled"]);
 export const inviteRoleSchema = z.enum(["admin", "member"]);
 export const inviteStatusSchema = z.enum(["pending", "accepted", "revoked"]);
 export const entityVisibilitySchema = z.enum(["private", "public"]);
-export const notificationTypeSchema = z.enum(["invite-created", "match-scheduled", "match-completed", "tournament-updated"]);
+export const notificationTypeSchema = z.enum([
+  "invite-created",
+  "invite-accepted",
+  "match-scheduled",
+  "match-completed",
+  "match-cancelled",
+  "presence-updated",
+  "team-member-added",
+  "tournament-updated"
+]);
+export const presenceStatusSchema = z.enum(["pending", "confirmed", "declined", "maybe"]);
+export const ratingVersionSchema = z.enum(["v1"]);
 export const usernameSchema = z.string().min(3).max(20).regex(/^[a-z0-9_]+$/);
 export const passwordSchema = z
   .string()
@@ -50,6 +61,12 @@ export const playerProfileSchema = z.object({
   displayName: z.string().min(2).max(40),
   shirtNumber: z.number().int().positive().max(99).optional(),
   photoUrl: z.url().max(500).optional(),
+  photoMetadata: z.object({
+    fileName: z.string(),
+    mimeType: z.enum(["image/jpeg", "image/png", "image/webp"]),
+    size: z.number().int().positive(),
+    uploadedAt: z.string()
+  }).optional(),
   teamName: z.string().min(2).max(40).optional(),
   preferredFoot: preferredFootSchema,
   preferredPosition: playerPositionSchema,
@@ -93,6 +110,13 @@ export const matchVenueSchema = z.object({
   surface: z.enum(["grass", "synthetic", "court", "sand", "other"]).optional()
 });
 
+export const matchPresenceSchema = z.object({
+  userId: z.string(),
+  status: presenceStatusSchema,
+  updatedAt: z.string(),
+  updatedBy: z.string()
+});
+
 export const venueSchema = z.object({
   id: z.string(),
   name: z.string().min(2).max(80),
@@ -121,10 +145,14 @@ export const matchSchema = z.object({
   home: matchSideSchema,
   away: matchSideSchema,
   eventLog: z.array(matchEventSchema),
+  presences: z.array(matchPresenceSchema).default([]),
   durationMinutes: z.number().int().positive().max(180).optional(),
   venueId: z.string().optional(),
   venue: matchVenueSchema.optional(),
   tournamentId: z.string().optional(),
+  cancelledAt: z.string().optional(),
+  cancelledBy: z.string().optional(),
+  cancelReason: z.string().max(180).optional(),
   playedAt: z.string(),
   createdAt: z.string(),
   updatedAt: z.string()
@@ -171,6 +199,36 @@ export const notificationSchema = z.object({
   metadata: z.record(z.string(), z.string()).optional(),
   readAt: z.string().optional(),
   createdAt: z.string()
+});
+
+export const auditLogSchema = z.object({
+  id: z.string(),
+  actorUserId: z.string(),
+  action: z.string(),
+  resourceType: z.string(),
+  resourceId: z.string(),
+  metadata: z.record(z.string(), z.string()).optional(),
+  createdAt: z.string()
+});
+
+export const playerCardRatingsSchema = z.object({
+  ratingVersion: ratingVersionSchema,
+  overall: z.number().int().min(35).max(99),
+  attack: z.number().int().min(35).max(99),
+  pass: z.number().int().min(35).max(99),
+  presence: z.number().int().min(35).max(99),
+  regularity: z.number().int().min(35).max(99),
+  winning: z.number().int().min(35).max(99),
+  form: z.number().int().min(35).max(99)
+});
+
+export const playerRankingEntrySchema = z.object({
+  playerId: z.string(),
+  displayName: z.string(),
+  stats: statsSchema,
+  ratings: playerCardRatingsSchema,
+  rank: z.number().int().positive(),
+  explanation: z.string()
 });
 
 export const signUpInputSchema = z.object({
@@ -240,6 +298,14 @@ export const completeMatchInputSchema = z.object({
   eventLog: z.array(matchEventSchema)
 });
 
+export const updatePresenceInputSchema = z.object({
+  status: presenceStatusSchema
+});
+
+export const cancelMatchInputSchema = z.object({
+  reason: z.string().max(180).optional()
+});
+
 export const createTournamentInputSchema = z.object({
   name: z.string().min(2).max(50),
   visibility: entityVisibilitySchema.default("private"),
@@ -265,4 +331,11 @@ export const listVenuesQuerySchema = z.object({
   visibility: entityVisibilitySchema.optional(),
   page: z.coerce.number().int().positive().default(1),
   pageSize: z.coerce.number().int().positive().max(50).default(20)
+});
+
+export const playerRankingQuerySchema = z.object({
+  teamId: z.string().optional(),
+  tournamentId: z.string().optional(),
+  period: z.enum(["all", "last-5", "last-10"]).default("all"),
+  metric: z.enum(["overall", "goals", "assists", "presence", "winning", "form"]).default("overall")
 });

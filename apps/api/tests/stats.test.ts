@@ -27,6 +27,7 @@ const match: Match = {
     { minute: 20, type: "goal", playerId: "u1", teamId: "team-1" },
     { minute: 25, type: "assist", playerId: "u1", teamId: "team-1" }
   ],
+  presences: [],
   playedAt: new Date().toISOString(),
   createdAt: new Date().toISOString(),
   updatedAt: new Date().toISOString()

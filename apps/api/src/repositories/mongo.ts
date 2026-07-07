@@ -1,6 +1,7 @@
 import mongoose, { Schema, type Connection, type Model } from "mongoose";
-import type { Invite, Match, Notification, PlayerProfile, Team, Tournament, Venue } from "@soccer-stats/shared";
+import type { AuditLog, Invite, Match, Notification, PlayerProfile, Team, Tournament, Venue } from "@soccer-stats/shared";
 import type {
+  AuditLogRepository,
   InviteRepository,
   MatchRepository,
   NotificationRepository,
@@ -88,6 +89,16 @@ const matchEventSchema = new Schema(
   { _id: false }
 );
 
+const matchPresenceSchema = new Schema(
+  {
+    userId: { type: String, required: true },
+    status: { type: String, enum: ["pending", "confirmed", "declined", "maybe"], required: true },
+    updatedAt: { type: String, required: true },
+    updatedBy: { type: String, required: true }
+  },
+  { _id: false }
+);
+
 const modelsFor = (connection: Connection) => {
   const userSchema = new Schema<Persisted<StoredUser>>(
     {
@@ -111,6 +122,12 @@ const modelsFor = (connection: Connection) => {
       displayName: { type: String, required: true },
       shirtNumber: Number,
       photoUrl: String,
+      photoMetadata: {
+        fileName: String,
+        mimeType: { type: String, enum: ["image/jpeg", "image/png", "image/webp"] },
+        size: Number,
+        uploadedAt: String
+      },
       teamName: String,
       preferredFoot: { type: String, enum: ["right", "left", "both"], required: true },
       preferredPosition: { type: String, enum: ["goalkeeper", "defender", "midfielder", "forward"], required: true },
@@ -142,15 +159,19 @@ const modelsFor = (connection: Connection) => {
     {
       _id: { type: String, required: true },
       type: { type: String, enum: ["casual", "tournament"], required: true },
-      status: { type: String, enum: ["scheduled", "completed"], required: true, index: true },
+      status: { type: String, enum: ["scheduled", "confirming", "completed", "cancelled"], required: true, index: true },
       createdBy: { type: String, required: true },
       home: { type: matchSideSchema, required: true },
       away: { type: matchSideSchema, required: true },
       eventLog: [matchEventSchema],
+      presences: [matchPresenceSchema],
       durationMinutes: Number,
       venueId: { type: String, index: true },
       venue: matchVenueSchema,
       tournamentId: { type: String, index: true },
+      cancelledAt: String,
+      cancelledBy: String,
+      cancelReason: String,
       playedAt: { type: String, required: true, index: true },
       createdAt: { type: String, required: true },
       updatedAt: { type: String, required: true }
@@ -224,7 +245,20 @@ const modelsFor = (connection: Connection) => {
     {
       _id: { type: String, required: true },
       userId: { type: String, required: true, index: true },
-      type: { type: String, enum: ["invite-created", "match-scheduled", "match-completed", "tournament-updated"], required: true },
+      type: {
+        type: String,
+        enum: [
+          "invite-created",
+          "invite-accepted",
+          "match-scheduled",
+          "match-completed",
+          "match-cancelled",
+          "presence-updated",
+          "team-member-added",
+          "tournament-updated"
+        ],
+        required: true
+      },
       title: { type: String, required: true },
       message: { type: String, required: true },
       metadata: { type: Map, of: String },
@@ -240,9 +274,26 @@ const modelsFor = (connection: Connection) => {
       _id: { type: String, required: true },
       userId: { type: String, required: true, index: true },
       expiresAt: { type: String, required: true, index: true },
-      createdAt: { type: String, required: true }
+      createdAt: { type: String, required: true },
+      userAgent: String,
+      ipHash: String,
+      lastSeenAt: String,
+      revokedAt: { type: String, index: true }
     },
     { collection: "sessions", versionKey: false }
+  );
+
+  const auditLogSchema = new Schema<Persisted<AuditLog>>(
+    {
+      _id: { type: String, required: true },
+      actorUserId: { type: String, required: true, index: true },
+      action: { type: String, required: true, index: true },
+      resourceType: { type: String, required: true, index: true },
+      resourceId: { type: String, required: true, index: true },
+      metadata: { type: Map, of: String },
+      createdAt: { type: String, required: true, index: true }
+    },
+    { collection: "audit_logs", versionKey: false }
   );
 
   return {
@@ -254,7 +305,8 @@ const modelsFor = (connection: Connection) => {
     venues: connection.model<Persisted<Venue>>("Venue", venueSchema),
     invites: connection.model<Persisted<Invite>>("Invite", inviteSchema),
     notifications: connection.model<Persisted<Notification>>("Notification", notificationSchema),
-    sessions: connection.model<Persisted<SessionRecord>>("Session", sessionSchema)
+    sessions: connection.model<Persisted<SessionRecord>>("Session", sessionSchema),
+    auditLogs: connection.model<Persisted<AuditLog>>("AuditLog", auditLogSchema)
   };
 };
 
@@ -442,6 +494,14 @@ class MongooseInviteRepository extends BaseMongooseRepository<Invite> implements
     return this.save(invite);
   }
 
+  async findById(id: string): Promise<Invite | null> {
+    return toDomain<Invite>(await this.model.findById(id).lean());
+  }
+
+  async findByToken(token: string): Promise<Invite | null> {
+    return toDomain<Invite>(await this.model.findOne({ token }).lean());
+  }
+
   async findPendingByEmail(email: string): Promise<Invite[]> {
     return (await this.model.find({ email, status: "pending" }).lean()).map((doc) => toDomain<Invite>(doc)).filter(Boolean) as Invite[];
   }
@@ -495,8 +555,43 @@ class MongooseSessionRepository extends BaseMongooseRepository<SessionRecord> im
     };
   }
 
+  async listByUser(userId: string): Promise<SessionRecord[]> {
+    return (await this.model.find({ userId }).sort({ createdAt: -1 }).lean())
+      .map((doc) => toDomain<SessionRecord>(doc))
+      .filter(Boolean) as SessionRecord[];
+  }
+
+  async update(session: SessionRecord): Promise<SessionRecord> {
+    return this.save(session);
+  }
+
+  async revokeById(id: string, userId: string, revokedAt: string): Promise<SessionRecord | null> {
+    const doc = await this.model.findOneAndUpdate({ _id: id, userId }, { $set: { revokedAt } }, { new: true, runValidators: true }).lean();
+    return toDomain<SessionRecord>(doc);
+  }
+
+  async revokeAllByUser(userId: string, revokedAt: string, exceptSessionId?: string): Promise<void> {
+    await this.model.updateMany(
+      { userId, ...(exceptSessionId ? { _id: { $ne: exceptSessionId } } : {}), revokedAt: { $exists: false } },
+      { $set: { revokedAt } },
+      { runValidators: true }
+    );
+  }
+
   async deleteById(id: string): Promise<void> {
     await this.model.deleteOne({ _id: id });
+  }
+}
+
+class MongooseAuditLogRepository extends BaseMongooseRepository<AuditLog> implements AuditLogRepository {
+  async create(auditLog: AuditLog): Promise<AuditLog> {
+    return this.save(auditLog);
+  }
+
+  async listByActor(actorUserId: string): Promise<AuditLog[]> {
+    return (await this.model.find({ actorUserId }).sort({ createdAt: -1 }).lean())
+      .map((doc) => toDomain<AuditLog>(doc))
+      .filter(Boolean) as AuditLog[];
   }
 }
 
@@ -521,6 +616,7 @@ export const createMongoRepositories = async (uri: string, dbName: string): Prom
       venues: new MongooseVenueRepository(models.venues),
       invites: new MongooseInviteRepository(models.invites),
       notifications: new MongooseNotificationRepository(models.notifications),
+      auditLogs: new MongooseAuditLogRepository(models.auditLogs),
       sessions: new MongooseSessionRepository(models.sessions)
     }
   };

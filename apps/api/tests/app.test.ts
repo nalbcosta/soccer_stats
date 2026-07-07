@@ -7,6 +7,20 @@ import type { FastifyInstance } from "fastify";
 describe("api flows", () => {
   let app: FastifyInstance;
 
+  const withCsrf = async (sessionCookie: string) => {
+    const response = await app.inject({
+      method: "GET",
+      url: "/v1/auth/csrf",
+      headers: { cookie: sessionCookie }
+    });
+    const csrfCookie = response.cookies.find((cookie) => cookie.name.includes("soccer_stats_csrf"));
+
+    return {
+      cookie: csrfCookie ? `${sessionCookie}; ${csrfCookie.name}=${csrfCookie.value}` : sessionCookie,
+      token: response.json().csrfToken as string
+    };
+  };
+
   beforeEach(async () => {
     app = await createApp(
       { ...loadConfig(), nodeEnv: "test", googleClientId: "" },
@@ -35,6 +49,54 @@ describe("api flows", () => {
     expect(response.cookies.some((cookie) => cookie.name.includes("soccer_stats_session"))).toBe(true);
   });
 
+  it("exige csrf em mutacoes autenticadas e permite revogar sessoes", async () => {
+    const signUp = await app.inject({
+      method: "POST",
+      url: "/v1/auth/signup",
+      payload: {
+        email: "secure@example.com",
+        username: "secure_one",
+        password: "senha123",
+        locale: "pt-BR"
+      }
+    });
+    const cookie = signUp.cookies[0];
+    const sessionCookie = `${cookie?.name}=${cookie?.value}`;
+
+    const blocked = await app.inject({
+      method: "POST",
+      url: "/v1/teams",
+      headers: { cookie: sessionCookie },
+      payload: { name: "Time Bloqueado" }
+    });
+    expect(blocked.statusCode).toBe(403);
+
+    const csrf = await withCsrf(sessionCookie);
+    const sessions = await app.inject({
+      method: "GET",
+      url: "/v1/auth/sessions",
+      headers: { cookie: csrf.cookie }
+    });
+    const currentSessionId = sessions.json().sessions.find((session: { current: boolean }) => session.current)?.id as string;
+
+    expect(sessions.statusCode).toBe(200);
+    expect(currentSessionId).toBeDefined();
+
+    const revoked = await app.inject({
+      method: "DELETE",
+      url: `/v1/auth/sessions/${currentSessionId}`,
+      headers: { cookie: csrf.cookie, "x-csrf-token": csrf.token }
+    });
+    expect(revoked.statusCode).toBe(200);
+
+    const me = await app.inject({
+      method: "GET",
+      url: "/v1/auth/me",
+      headers: { cookie: csrf.cookie }
+    });
+    expect(me.statusCode).toBe(401);
+  });
+
   it("cria time, campeonato e partida protegidos por sessao", async () => {
     const signUp = await app.inject({
       method: "POST",
@@ -50,25 +112,26 @@ describe("api flows", () => {
     const cookie = signUp.cookies[0];
     expect(cookie).toBeDefined();
     const sessionCookie = `${cookie?.name}=${cookie?.value}`;
+    const csrf = await withCsrf(sessionCookie);
 
     const teamA = await app.inject({
       method: "POST",
       url: "/v1/teams",
-      headers: { cookie: sessionCookie },
+      headers: { cookie: csrf.cookie, "x-csrf-token": csrf.token },
       payload: { name: "Time Azul" }
     });
 
     const teamB = await app.inject({
       method: "POST",
       url: "/v1/teams",
-      headers: { cookie: sessionCookie },
+      headers: { cookie: csrf.cookie, "x-csrf-token": csrf.token },
       payload: { name: "Time Verde" }
     });
 
     const tournament = await app.inject({
       method: "POST",
       url: "/v1/tournaments",
-      headers: { cookie: sessionCookie },
+      headers: { cookie: csrf.cookie, "x-csrf-token": csrf.token },
       payload: {
         name: "Liga da Resenha",
         teamIds: [teamA.json().team.id, teamB.json().team.id]
@@ -78,7 +141,7 @@ describe("api flows", () => {
     const match = await app.inject({
       method: "POST",
       url: "/v1/matches",
-      headers: { cookie: sessionCookie },
+      headers: { cookie: csrf.cookie, "x-csrf-token": csrf.token },
       payload: {
         type: "tournament",
         tournamentId: tournament.json().tournament.id,
@@ -105,12 +168,13 @@ describe("api flows", () => {
     });
     const cookie = signUp.cookies[0];
     const sessionCookie = `${cookie?.name}=${cookie?.value}`;
+    const csrf = await withCsrf(sessionCookie);
     const userId = signUp.json().user.id as string;
 
     const venue = await app.inject({
       method: "POST",
       url: "/v1/venues",
-      headers: { cookie: sessionCookie },
+      headers: { cookie: csrf.cookie, "x-csrf-token": csrf.token },
       payload: {
         name: "Arena Central",
         visibility: "public",
@@ -125,20 +189,20 @@ describe("api flows", () => {
     const teamA = await app.inject({
       method: "POST",
       url: "/v1/teams",
-      headers: { cookie: sessionCookie },
+      headers: { cookie: csrf.cookie, "x-csrf-token": csrf.token },
       payload: { name: "Time Norte", visibility: "public", city: "Curitiba", state: "PR" }
     });
     const teamB = await app.inject({
       method: "POST",
       url: "/v1/teams",
-      headers: { cookie: sessionCookie },
+      headers: { cookie: csrf.cookie, "x-csrf-token": csrf.token },
       payload: { name: "Time Sul", visibility: "private" }
     });
 
     const match = await app.inject({
       method: "POST",
       url: "/v1/matches",
-      headers: { cookie: sessionCookie },
+      headers: { cookie: csrf.cookie, "x-csrf-token": csrf.token },
       payload: {
         type: "casual",
         venueId: venue.json().venue.id,
@@ -151,10 +215,19 @@ describe("api flows", () => {
     expect(match.statusCode).toBe(200);
     expect(match.json().match.venue.name).toBe("Arena Central");
 
+    const presence = await app.inject({
+      method: "PUT",
+      url: `/v1/matches/${match.json().match.id}/presences/me`,
+      headers: { cookie: csrf.cookie, "x-csrf-token": csrf.token },
+      payload: { status: "confirmed" }
+    });
+    expect(presence.statusCode).toBe(200);
+    expect(presence.json().presences.some((item: { userId: string; status: string }) => item.userId === userId && item.status === "confirmed")).toBe(true);
+
     const invalidComplete = await app.inject({
       method: "POST",
       url: "/v1/matches/complete",
-      headers: { cookie: sessionCookie },
+      headers: { cookie: csrf.cookie, "x-csrf-token": csrf.token },
       payload: {
         id: match.json().match.id,
         homeScore: 1,
@@ -167,7 +240,7 @@ describe("api flows", () => {
     const complete = await app.inject({
       method: "POST",
       url: "/v1/matches/complete",
-      headers: { cookie: sessionCookie },
+      headers: { cookie: csrf.cookie, "x-csrf-token": csrf.token },
       payload: {
         id: match.json().match.id,
         homeScore: 1,
@@ -180,7 +253,7 @@ describe("api flows", () => {
     const duplicateComplete = await app.inject({
       method: "POST",
       url: "/v1/matches/complete",
-      headers: { cookie: sessionCookie },
+      headers: { cookie: csrf.cookie, "x-csrf-token": csrf.token },
       payload: {
         id: match.json().match.id,
         homeScore: 1,
@@ -189,6 +262,14 @@ describe("api flows", () => {
       }
     });
     expect(duplicateComplete.statusCode).toBe(409);
+
+    const ranking = await app.inject({
+      method: "GET",
+      url: "/v1/rankings/players?metric=overall",
+      headers: { cookie: sessionCookie }
+    });
+    expect(ranking.statusCode).toBe(200);
+    expect(ranking.json().players[0].ratings.ratingVersion).toBe("v1");
 
     const notifications = await app.inject({
       method: "GET",
@@ -202,7 +283,7 @@ describe("api flows", () => {
     const read = await app.inject({
       method: "PATCH",
       url: `/v1/notifications/${firstNotificationId}/read`,
-      headers: { cookie: sessionCookie }
+      headers: { cookie: csrf.cookie, "x-csrf-token": csrf.token }
     });
     expect(read.statusCode).toBe(200);
     expect(read.json().notification.readAt).toBeDefined();
