@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createEmptyStats } from "@soccer-stats/shared";
-import { calculatePlayerStats, calculateTeamStats } from "../src/lib/stats-service.js";
+import { calculatePlayerStats, calculateTeamStats, validateScoreAgainstGoalEvents } from "../src/lib/stats-service.js";
 import type { Match, Team } from "@soccer-stats/shared";
 
 const team: Team = {
@@ -8,6 +8,7 @@ const team: Team = {
   name: "Azuis",
   slug: "azuis",
   ownerId: "u1",
+  visibility: "private",
   members: [{ userId: "u1", role: "owner", joinedAt: new Date().toISOString() }],
   stats: createEmptyStats(),
   createdAt: new Date().toISOString(),
@@ -44,5 +45,13 @@ describe("stats-service", () => {
     expect(stats.goals).toBe(2);
     expect(stats.assists).toBe(1);
     expect(stats.matchesPlayed).toBe(1);
+    expect(stats.goalDifference).toBe(2);
+  });
+
+  it("valida placar contra eventos de gol da sumula", () => {
+    expect(validateScoreAgainstGoalEvents("team-1", "team-2", 2, 0, match.eventLog)).toBe(null);
+    expect(validateScoreAgainstGoalEvents("team-1", "team-2", 3, 0, match.eventLog)).toBe(
+      "O placar precisa bater com os eventos de gol da sumula."
+    );
   });
 });

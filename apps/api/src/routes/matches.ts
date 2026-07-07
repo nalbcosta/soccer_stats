@@ -1,43 +1,11 @@
 import type { FastifyPluginAsync } from "fastify";
 import { matchSchema, createMatchInputSchema, completeMatchInputSchema } from "@soccer-stats/shared";
-import type { Match, MatchEvent, MatchVenue, Team } from "@soccer-stats/shared";
+import type { Match, Team } from "@soccer-stats/shared";
 import { matchRouteSchemas } from "../docs/openapi.js";
-import { calculatePlayerStats, calculateStandings, calculateTeamStats } from "../lib/stats-service.js";
+import { calculatePlayerStats, calculateStandings, calculateTeamStats, validateScoreAgainstGoalEvents } from "../lib/stats-service.js";
 import { createId } from "../lib/ids.js";
-
-const canManageTeam = (userId: string, team: Team | null): team is Team =>
-  Boolean(team?.members.some((member) => member.userId === userId && (member.role === "owner" || member.role === "admin")));
-
-type LooseVenue = {
-  name?: string | undefined;
-  address?: string | undefined;
-  surface?: MatchVenue["surface"] | undefined;
-};
-
-type LooseMatchEvent = Omit<MatchEvent, "assistPlayerId"> & {
-  assistPlayerId?: string | undefined;
-};
-
-const cleanVenue = (venue: LooseVenue | undefined): MatchVenue | undefined => {
-  if (!venue?.name && !venue?.address && !venue?.surface) {
-    return undefined;
-  }
-
-  return {
-    ...(venue.name ? { name: venue.name } : {}),
-    ...(venue.address ? { address: venue.address } : {}),
-    ...(venue.surface ? { surface: venue.surface } : {})
-  };
-};
-
-const cleanEventLog = (eventLog: LooseMatchEvent[]): MatchEvent[] =>
-  eventLog.map((event) => ({
-    minute: event.minute,
-    type: event.type,
-    playerId: event.playerId,
-    teamId: event.teamId,
-    ...(event.assistPlayerId ? { assistPlayerId: event.assistPlayerId } : {})
-  }));
+import { NotificationService } from "../modules/notifications/notification.service.js";
+import { canManageTeam, cleanEventLog, cleanVenue, teamMemberIds, venueToMatchSnapshot } from "../modules/matches/match.service.js";
 
 export const matchRoutes: FastifyPluginAsync = async (app) => {
   app.get("/matches", { schema: matchRouteSchemas.list }, async (request, reply) => {
@@ -82,7 +50,19 @@ export const matchRoutes: FastifyPluginAsync = async (app) => {
     }
 
     const now = new Date().toISOString();
-    const venue = cleanVenue(payload.venue);
+    const venueRecord = payload.venueId ? await app.repositories.venues.findById(payload.venueId) : null;
+
+    if (payload.venueId && !venueRecord) {
+      reply.code(400);
+      return { message: "Local informado nao foi encontrado." };
+    }
+
+    if (venueRecord && venueRecord.visibility !== "public" && venueRecord.ownerId !== user.id) {
+      reply.code(403);
+      return { message: "Sem permissao para usar este local." };
+    }
+
+    const venue = venueRecord ? venueToMatchSnapshot(venueRecord) : cleanVenue(payload.venue);
     const matchBase: Match = {
       id: createId(),
       type: payload.type,
@@ -92,6 +72,7 @@ export const matchRoutes: FastifyPluginAsync = async (app) => {
       away: payload.away,
       eventLog: [],
       ...(payload.durationMinutes ? { durationMinutes: payload.durationMinutes } : {}),
+      ...(venueRecord ? { venueId: venueRecord.id } : {}),
       ...(venue ? { venue } : {}),
       playedAt: payload.playedAt,
       createdAt: now,
@@ -100,6 +81,13 @@ export const matchRoutes: FastifyPluginAsync = async (app) => {
     const match = await app.repositories.matches.create(
       payload.tournamentId ? { ...matchBase, tournamentId: payload.tournamentId } : matchBase
     );
+
+    await new NotificationService(app.repositories).notifyUsers(teamMemberIds([homeTeam, awayTeam]), {
+      type: "match-scheduled",
+      title: "Partida marcada",
+      message: `${homeTeam.name} x ${awayTeam.name} foi marcada no NaBola.`,
+      metadata: { matchId: match.id, homeTeamId: homeTeam.id, awayTeamId: awayTeam.id }
+    });
 
     return { match: matchSchema.parse(match) };
   });
@@ -119,6 +107,11 @@ export const matchRoutes: FastifyPluginAsync = async (app) => {
       return { message: "Partida nao encontrada." };
     }
 
+    if (match.status === "completed") {
+      reply.code(409);
+      return { message: "Esta partida ja foi encerrada." };
+    }
+
     const [homeTeam, awayTeam] = await Promise.all([
       app.repositories.teams.findById(match.home.teamId),
       app.repositories.teams.findById(match.away.teamId)
@@ -129,13 +122,27 @@ export const matchRoutes: FastifyPluginAsync = async (app) => {
       return { message: "Sem permissao para encerrar a partida." };
     }
 
+    const eventLog = cleanEventLog(payload.eventLog);
+    const scoreError = validateScoreAgainstGoalEvents(
+      match.home.teamId,
+      match.away.teamId,
+      payload.homeScore,
+      payload.awayScore,
+      eventLog
+    );
+
+    if (scoreError) {
+      reply.code(400);
+      return { message: scoreError };
+    }
+
     const venue = cleanVenue(payload.venue);
     const completed = await app.repositories.matches.update({
       ...match,
       status: "completed",
       home: { ...match.home, score: payload.homeScore },
       away: { ...match.away, score: payload.awayScore },
-      eventLog: cleanEventLog(payload.eventLog),
+      eventLog,
       ...(payload.durationMinutes ? { durationMinutes: payload.durationMinutes } : {}),
       ...(venue ? { venue } : {}),
       updatedAt: new Date().toISOString()
@@ -183,8 +190,21 @@ export const matchRoutes: FastifyPluginAsync = async (app) => {
           standings: calculateStandings(teams, matches),
           updatedAt: new Date().toISOString()
         });
+        await new NotificationService(app.repositories).notifyUsers(teamMemberIds(teams), {
+          type: "tournament-updated",
+          title: "Tabela atualizada",
+          message: `A tabela do campeonato ${tournament.name} foi atualizada.`,
+          metadata: { tournamentId: tournament.id, matchId: completed.id }
+        });
       }
     }
+
+    await new NotificationService(app.repositories).notifyUsers(teamMemberIds(involvedTeams), {
+      type: "match-completed",
+      title: "Partida encerrada",
+      message: `${homeTeam.name} ${payload.homeScore} x ${payload.awayScore} ${awayTeam.name}.`,
+      metadata: { matchId: completed.id, homeTeamId: homeTeam.id, awayTeamId: awayTeam.id }
+    });
 
     return { match: matchSchema.parse(completed) };
   });

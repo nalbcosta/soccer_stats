@@ -9,6 +9,8 @@ export const matchTypeSchema = z.enum(["casual", "tournament"]);
 export const matchStatusSchema = z.enum(["scheduled", "completed"]);
 export const inviteRoleSchema = z.enum(["admin", "member"]);
 export const inviteStatusSchema = z.enum(["pending", "accepted", "revoked"]);
+export const entityVisibilitySchema = z.enum(["private", "public"]);
+export const notificationTypeSchema = z.enum(["invite-created", "match-scheduled", "match-completed", "tournament-updated"]);
 export const usernameSchema = z.string().min(3).max(20).regex(/^[a-z0-9_]+$/);
 export const passwordSchema = z
   .string()
@@ -66,6 +68,9 @@ export const teamSchema = z.object({
   name: z.string(),
   slug: z.string(),
   ownerId: z.string(),
+  visibility: entityVisibilitySchema.default("private"),
+  city: z.string().min(2).max(80).optional(),
+  state: z.string().min(2).max(2).optional(),
   members: z.array(membershipSchema),
   stats: statsSchema,
   createdAt: z.string(),
@@ -83,7 +88,23 @@ export const matchEventSchema = z.object({
 export const matchVenueSchema = z.object({
   name: z.string().min(2).max(80).optional(),
   address: z.string().min(2).max(120).optional(),
+  city: z.string().min(2).max(80).optional(),
+  state: z.string().min(2).max(2).optional(),
   surface: z.enum(["grass", "synthetic", "court", "sand", "other"]).optional()
+});
+
+export const venueSchema = z.object({
+  id: z.string(),
+  name: z.string().min(2).max(80),
+  slug: z.string(),
+  ownerId: z.string(),
+  visibility: entityVisibilitySchema,
+  address: z.string().min(2).max(120).optional(),
+  city: z.string().min(2).max(80),
+  state: z.string().min(2).max(2),
+  surface: z.enum(["grass", "synthetic", "court", "sand", "other"]),
+  createdAt: z.string(),
+  updatedAt: z.string()
 });
 
 export const matchSideSchema = z.object({
@@ -101,6 +122,7 @@ export const matchSchema = z.object({
   away: matchSideSchema,
   eventLog: z.array(matchEventSchema),
   durationMinutes: z.number().int().positive().max(180).optional(),
+  venueId: z.string().optional(),
   venue: matchVenueSchema.optional(),
   tournamentId: z.string().optional(),
   playedAt: z.string(),
@@ -119,6 +141,7 @@ export const tournamentSchema = z.object({
   slug: z.string(),
   ownerId: z.string(),
   format: z.enum(["league"]),
+  visibility: entityVisibilitySchema.default("private"),
   teamIds: z.array(z.string()),
   matchIds: z.array(z.string()),
   standings: z.array(tournamentStandingSchema),
@@ -134,6 +157,19 @@ export const inviteSchema = z.object({
   role: inviteRoleSchema,
   status: inviteStatusSchema,
   invitedBy: z.string(),
+  token: z.string().optional(),
+  expiresAt: z.string().optional(),
+  createdAt: z.string()
+});
+
+export const notificationSchema = z.object({
+  id: z.string(),
+  userId: z.string(),
+  type: notificationTypeSchema,
+  title: z.string().min(2).max(100),
+  message: z.string().min(2).max(240),
+  metadata: z.record(z.string(), z.string()).optional(),
+  readAt: z.string().optional(),
   createdAt: z.string()
 });
 
@@ -171,7 +207,10 @@ export const updateProfileInputSchema = z.object({
 });
 
 export const createTeamInputSchema = z.object({
-  name: z.string().min(2).max(40)
+  name: z.string().min(2).max(40),
+  visibility: entityVisibilitySchema.default("private"),
+  city: z.string().min(2).max(80).optional(),
+  state: z.string().min(2).max(2).optional()
 });
 
 export const createInviteInputSchema = z.object({
@@ -187,6 +226,7 @@ export const createMatchInputSchema = z.object({
   away: matchSideSchema,
   tournamentId: z.string().optional(),
   durationMinutes: z.number().int().positive().max(180).optional(),
+  venueId: z.string().optional(),
   venue: matchVenueSchema.optional(),
   playedAt: z.string()
 });
@@ -202,5 +242,27 @@ export const completeMatchInputSchema = z.object({
 
 export const createTournamentInputSchema = z.object({
   name: z.string().min(2).max(50),
+  visibility: entityVisibilitySchema.default("private"),
   teamIds: z.array(z.string()).min(2)
+});
+
+export const createVenueInputSchema = z.object({
+  name: z.string().min(2).max(80),
+  visibility: entityVisibilitySchema.default("private"),
+  address: z.string().min(2).max(120).optional(),
+  city: z.string().min(2).max(80),
+  state: z.string().min(2).max(2),
+  surface: z.enum(["grass", "synthetic", "court", "sand", "other"]).default("other")
+});
+
+export const updateVenueInputSchema = createVenueInputSchema.partial().refine((value) => Object.keys(value).length > 0, {
+  message: "Informe ao menos um campo para atualizar."
+});
+
+export const listVenuesQuerySchema = z.object({
+  city: z.string().min(2).max(80).optional(),
+  state: z.string().min(2).max(2).optional(),
+  visibility: entityVisibilitySchema.optional(),
+  page: z.coerce.number().int().positive().default(1),
+  pageSize: z.coerce.number().int().positive().max(50).default(20)
 });

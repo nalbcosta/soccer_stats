@@ -52,6 +52,7 @@ export const tournamentRoutes: FastifyPluginAsync = async (app) => {
       slug: `${slugify(payload.name)}-${createId().slice(0, 6)}`,
       ownerId: user.id,
       format: "league",
+      visibility: payload.visibility,
       teamIds: payload.teamIds,
       matchIds: [],
       standings: calculateStandings(teams, []),

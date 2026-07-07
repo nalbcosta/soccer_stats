@@ -127,11 +127,11 @@ function formatVenue(venue: Match["venue"]) {
 type VenueSurface = NonNullable<NonNullable<Match["venue"]>["surface"]>;
 
 const surfaceLabels: Record<VenueSurface, string> = {
-  grass: "grama",
-  synthetic: "sintético",
-  court: "quadra",
-  sand: "areia",
-  other: "outro"
+  grass: "Grama",
+  synthetic: "Sintético",
+  court: "Quadra",
+  sand: "Areia",
+  other: "Outro"
 };
 
 function formatMatchDate(playedAt: string) {

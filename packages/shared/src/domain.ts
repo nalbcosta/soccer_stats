@@ -8,6 +8,8 @@ export type PreferredFoot = "right" | "left" | "both";
 export type PlayerPosition = "goalkeeper" | "defender" | "midfielder" | "forward";
 export type InviteStatus = "pending" | "accepted" | "revoked";
 export type AuthProvider = "credentials" | "google";
+export type EntityVisibility = "private" | "public";
+export type NotificationType = "invite-created" | "match-scheduled" | "match-completed" | "tournament-updated";
 
 export interface PublicUser {
   id: string;
@@ -58,6 +60,9 @@ export interface Team {
   name: string;
   slug: string;
   ownerId: string;
+  visibility: EntityVisibility;
+  city?: string;
+  state?: string;
   members: Membership[];
   stats: AggregatedStats;
   createdAt: string;
@@ -75,7 +80,23 @@ export interface MatchEvent {
 export interface MatchVenue {
   name?: string;
   address?: string;
+  city?: string;
+  state?: string;
   surface?: "grass" | "synthetic" | "court" | "sand" | "other";
+}
+
+export interface Venue {
+  id: string;
+  name: string;
+  slug: string;
+  ownerId: string;
+  visibility: EntityVisibility;
+  address?: string;
+  city: string;
+  state: string;
+  surface: NonNullable<MatchVenue["surface"]>;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface MatchSide {
@@ -93,6 +114,7 @@ export interface Match {
   away: MatchSide;
   eventLog: MatchEvent[];
   durationMinutes?: number;
+  venueId?: string;
   venue?: MatchVenue;
   tournamentId?: string;
   playedAt: string;
@@ -111,6 +133,7 @@ export interface Tournament {
   slug: string;
   ownerId: string;
   format: TournamentFormat;
+  visibility: EntityVisibility;
   teamIds: string[];
   matchIds: string[];
   standings: TournamentStanding[];
@@ -126,5 +149,18 @@ export interface Invite {
   role: Exclude<Role, "owner">;
   status: InviteStatus;
   invitedBy: string;
+  token?: string;
+  expiresAt?: string;
+  createdAt: string;
+}
+
+export interface Notification {
+  id: string;
+  userId: string;
+  type: NotificationType;
+  title: string;
+  message: string;
+  metadata?: Record<string, string>;
+  readAt?: string;
   createdAt: string;
 }

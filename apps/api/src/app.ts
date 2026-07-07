@@ -5,8 +5,10 @@ import helmet from "@fastify/helmet";
 import multipart from "@fastify/multipart";
 import rateLimit from "@fastify/rate-limit";
 import fastifyStatic from "@fastify/static";
+import mongoose from "mongoose";
 import { mkdir } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
+import { ZodError } from "zod";
 import type { AppConfig, Repositories } from "./types.js";
 import { registerOpenApi } from "./docs/openapi.js";
 import { authPlugin } from "./plugins/auth.js";
@@ -16,6 +18,8 @@ import { matchRoutes } from "./routes/matches.js";
 import { playerRoutes } from "./routes/players.js";
 import { teamRoutes } from "./routes/teams.js";
 import { tournamentRoutes } from "./routes/tournaments.js";
+import { notificationRoutes } from "./modules/notifications/notification.routes.js";
+import { venueRoutes } from "./modules/venues/venue.routes.js";
 
 declare module "fastify" {
   interface FastifyInstance {
@@ -32,6 +36,19 @@ export const createApp = async (config: AppConfig, repositories: Repositories) =
   });
 
   app.decorate("repositories", repositories);
+  app.setErrorHandler((error, _request, reply) => {
+    if (error instanceof ZodError) {
+      reply.code(400).send({ message: "Payload invalido.", issues: error.issues });
+      return;
+    }
+
+    if (error instanceof mongoose.Error.ValidationError) {
+      reply.code(400).send({ message: "Documento invalido.", issues: Object.keys(error.errors) });
+      return;
+    }
+
+    throw error;
+  });
   await registerOpenApi(app);
   await mkdir(uploadsRoot, { recursive: true });
 
@@ -64,8 +81,10 @@ export const createApp = async (config: AppConfig, repositories: Repositories) =
       await v1.register(authRoutes);
       await v1.register(playerRoutes);
       await v1.register(teamRoutes);
+      await v1.register(venueRoutes);
       await v1.register(matchRoutes);
       await v1.register(tournamentRoutes);
+      await v1.register(notificationRoutes);
       await v1.register(dashboardRoutes);
     },
     { prefix: "/v1" }

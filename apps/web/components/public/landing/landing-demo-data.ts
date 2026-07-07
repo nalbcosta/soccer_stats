@@ -52,6 +52,7 @@ export const demoHomeTeam: Team = {
   name: "Azuis",
   slug: "azuis",
   ownerId: demoUser.id,
+  visibility: "public",
   members: [
     { userId: demoUser.id, role: "owner", joinedAt: "2026-07-04T15:00:00.000Z" },
     { userId: demoAssistUser.id, role: "member", joinedAt: "2026-07-04T15:15:00.000Z" }
@@ -66,6 +67,7 @@ export const demoAwayTeam: Team = {
   name: "Coletes",
   slug: "coletes",
   ownerId: "demo-away-9",
+  visibility: "public",
   members: [
     { userId: "demo-away-9", role: "owner", joinedAt: "2026-07-04T15:00:00.000Z" },
     { userId: "demo-away-11", role: "member", joinedAt: "2026-07-04T15:15:00.000Z" }
@@ -91,6 +93,7 @@ export const demoTournament: Tournament = {
   slug: "copa-da-quinta",
   ownerId: demoUser.id,
   format: "league",
+  visibility: "public",
   teamIds: [demoHomeTeam.id, demoAwayTeam.id],
   matchIds: ["demo-match"],
   standings: [

@@ -6,7 +6,7 @@ const LOCALE_COOKIE = "soccer-stats-locale";
 const inferLocale = (languageHeader: string | null): "pt-BR" | "en" =>
   languageHeader?.toLowerCase().includes("pt") ? "pt-BR" : "en";
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const response = NextResponse.next();
 
   if (!request.cookies.get(LOCALE_COOKIE)) {

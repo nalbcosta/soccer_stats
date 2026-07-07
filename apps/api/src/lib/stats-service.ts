@@ -37,9 +37,31 @@ const applyMatchResultWithoutScoring = (
   return {
     ...updated,
     goals: stats.goals,
-    goalDifference: stats.goalDifference + (goalsFor - goalsAgainst),
     goalsPerMatch: stats.matchesPlayed + 1 === 0 ? 0 : Number((stats.goals / (stats.matchesPlayed + 1)).toFixed(2))
   };
+};
+
+export const validateScoreAgainstGoalEvents = (
+  homeTeamId: string,
+  awayTeamId: string,
+  homeScore: number,
+  awayScore: number,
+  eventLog: Match["eventLog"]
+): string | null => {
+  const goalEvents = eventLog.filter((event) => event.type === "goal");
+
+  if (goalEvents.length === 0 && homeScore + awayScore > 0) {
+    return "Informe os gols na sumula para validar o placar.";
+  }
+
+  const homeGoals = goalEvents.filter((event) => event.teamId === homeTeamId).length;
+  const awayGoals = goalEvents.filter((event) => event.teamId === awayTeamId).length;
+
+  if (homeGoals !== homeScore || awayGoals !== awayScore) {
+    return "O placar precisa bater com os eventos de gol da sumula.";
+  }
+
+  return null;
 };
 
 export const calculateTeamStats = (team: Team, matches: Match[]): AggregatedStats => {

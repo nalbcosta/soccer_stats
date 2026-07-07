@@ -1,12 +1,14 @@
 import type {
   Invite,
   Match,
+  Notification,
   PlayerProfile,
   PublicUser,
   SupportedLocale,
   Team,
   ThemeMode,
-  Tournament
+  Tournament,
+  Venue
 } from "@soccer-stats/shared";
 
 export interface StoredUser extends PublicUser {
@@ -33,6 +35,8 @@ export interface Repositories {
   matches: MatchRepository;
   tournaments: TournamentRepository;
   invites: InviteRepository;
+  venues: VenueRepository;
+  notifications: NotificationRepository;
   sessions: SessionRepository;
 }
 
@@ -55,6 +59,7 @@ export interface TeamRepository {
   update(team: Team): Promise<Team>;
   findById(id: string): Promise<Team | null>;
   listByMember(userId: string): Promise<Team[]>;
+  listVisibleToUser(userId: string): Promise<Team[]>;
   listByIds(ids: string[]): Promise<Team[]>;
 }
 
@@ -73,11 +78,29 @@ export interface TournamentRepository {
   listByOwnerOrTeam(userId: string, teamIds: string[]): Promise<Tournament[]>;
 }
 
+export interface VenueRepository {
+  create(venue: Venue): Promise<Venue>;
+  update(venue: Venue): Promise<Venue>;
+  findById(id: string): Promise<Venue | null>;
+  listVisibleToUser(
+    userId: string,
+    filters?: { city?: string; state?: string; visibility?: Venue["visibility"]; page?: number; pageSize?: number }
+  ): Promise<Venue[]>;
+}
+
 export interface InviteRepository {
   create(invite: Invite): Promise<Invite>;
   update(invite: Invite): Promise<Invite>;
   findPendingByEmail(email: string): Promise<Invite[]>;
   listByResource(resourceType: "team" | "tournament", resourceId: string): Promise<Invite[]>;
+}
+
+export interface NotificationRepository {
+  create(notification: Notification): Promise<Notification>;
+  findById(id: string): Promise<Notification | null>;
+  listByUser(userId: string): Promise<Notification[]>;
+  markRead(id: string, userId: string, readAt: string): Promise<Notification | null>;
+  markAllRead(userId: string, readAt: string): Promise<void>;
 }
 
 export interface SessionRepository {

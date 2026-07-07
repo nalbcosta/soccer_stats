@@ -122,6 +122,16 @@ export const teamRouteSchemas = {
       401: { $ref: "messageResponse#" }
     }
   } satisfies FastifySchema,
+  get: {
+    tags: ["teams"],
+    summary: "Detalha um time visivel ao usuario",
+    security: authSecurity,
+    response: {
+      200: { $ref: "teamEnvelope#" },
+      401: { $ref: "messageResponse#" },
+      404: { $ref: "messageResponse#" }
+    }
+  } satisfies FastifySchema,
   create: {
     tags: ["teams"],
     summary: "Cria um novo time",
@@ -130,6 +140,17 @@ export const teamRouteSchemas = {
     response: {
       200: { $ref: "teamEnvelope#" },
       401: { $ref: "messageResponse#" }
+    }
+  } satisfies FastifySchema,
+  update: {
+    tags: ["teams"],
+    summary: "Atualiza dados basicos e visibilidade do time",
+    security: authSecurity,
+    body: { $ref: "updateTeamInput#" },
+    response: {
+      200: { $ref: "teamEnvelope#" },
+      401: { $ref: "messageResponse#" },
+      403: { $ref: "messageResponse#" }
     }
   } satisfies FastifySchema,
   invite: {
@@ -142,6 +163,51 @@ export const teamRouteSchemas = {
       400: { $ref: "messageResponse#" },
       403: { $ref: "messageResponse#" },
       401: { $ref: "messageResponse#" }
+    }
+  } satisfies FastifySchema
+};
+
+export const venueRouteSchemas = {
+  list: {
+    tags: ["venues"],
+    summary: "Lista locais publicos e locais privados do usuario",
+    security: authSecurity,
+    querystring: { $ref: "listVenuesQuery#" },
+    response: {
+      200: { $ref: "venuesEnvelope#" },
+      401: { $ref: "messageResponse#" }
+    }
+  } satisfies FastifySchema,
+  get: {
+    tags: ["venues"],
+    summary: "Detalha um local visivel ao usuario",
+    security: authSecurity,
+    response: {
+      200: { $ref: "venueEnvelope#" },
+      401: { $ref: "messageResponse#" },
+      404: { $ref: "messageResponse#" }
+    }
+  } satisfies FastifySchema,
+  create: {
+    tags: ["venues"],
+    summary: "Cadastra um local ou estadio",
+    security: authSecurity,
+    body: { $ref: "createVenueInput#" },
+    response: {
+      200: { $ref: "venueEnvelope#" },
+      401: { $ref: "messageResponse#" }
+    }
+  } satisfies FastifySchema,
+  update: {
+    tags: ["venues"],
+    summary: "Atualiza um local do usuario",
+    security: authSecurity,
+    body: { $ref: "updateVenueInput#" },
+    response: {
+      200: { $ref: "venueEnvelope#" },
+      401: { $ref: "messageResponse#" },
+      403: { $ref: "messageResponse#" },
+      404: { $ref: "messageResponse#" }
     }
   } satisfies FastifySchema
 };
@@ -199,9 +265,11 @@ export const matchRouteSchemas = {
     body: { $ref: "completeMatchInput#" },
     response: {
       200: { $ref: "matchEnvelope#" },
+      400: { $ref: "messageResponse#" },
       401: { $ref: "messageResponse#" },
       403: { $ref: "messageResponse#" },
-      404: { $ref: "messageResponse#" }
+      404: { $ref: "messageResponse#" },
+      409: { $ref: "messageResponse#" }
     }
   } satisfies FastifySchema
 };
@@ -213,6 +281,37 @@ export const dashboardRouteSchemas = {
     security: authSecurity,
     response: {
       200: { $ref: "dashboardResponse#" },
+      401: { $ref: "messageResponse#" }
+    }
+  } satisfies FastifySchema
+};
+
+export const notificationRouteSchemas = {
+  list: {
+    tags: ["notifications"],
+    summary: "Lista notificacoes in-app do usuario",
+    security: authSecurity,
+    response: {
+      200: { $ref: "notificationsEnvelope#" },
+      401: { $ref: "messageResponse#" }
+    }
+  } satisfies FastifySchema,
+  markRead: {
+    tags: ["notifications"],
+    summary: "Marca uma notificacao como lida",
+    security: authSecurity,
+    response: {
+      200: { $ref: "notificationEnvelope#" },
+      401: { $ref: "messageResponse#" },
+      404: { $ref: "messageResponse#" }
+    }
+  } satisfies FastifySchema,
+  markAllRead: {
+    tags: ["notifications"],
+    summary: "Marca todas as notificacoes como lidas",
+    security: authSecurity,
+    response: {
+      200: { $ref: "okResponse#" },
       401: { $ref: "messageResponse#" }
     }
   } satisfies FastifySchema
@@ -323,6 +422,9 @@ const schemas = [
       name: { type: "string" },
       slug: { type: "string" },
       ownerId: id,
+      visibility: { type: "string", enum: ["private", "public"] },
+      city: { type: "string" },
+      state: { type: "string", minLength: 2, maxLength: 2 },
       members: {
         type: "array",
         items: { $ref: "membership#" }
@@ -331,7 +433,7 @@ const schemas = [
       createdAt: isoDate,
       updatedAt: isoDate
     },
-    required: ["id", "name", "slug", "ownerId", "members", "stats", "createdAt", "updatedAt"]
+    required: ["id", "name", "slug", "ownerId", "visibility", "members", "stats", "createdAt", "updatedAt"]
   },
   {
     $id: "invite",
@@ -344,6 +446,8 @@ const schemas = [
       role: { type: "string", enum: ["admin", "member"] },
       status: { type: "string", enum: ["pending", "accepted", "revoked"] },
       invitedBy: id,
+      token: { type: "string" },
+      expiresAt: isoDate,
       createdAt: isoDate
     },
     required: ["id", "resourceType", "resourceId", "email", "role", "status", "invitedBy", "createdAt"]
@@ -361,13 +465,51 @@ const schemas = [
     required: ["minute", "type", "playerId", "teamId"]
   },
   {
+    $id: "notification",
+    type: "object",
+    properties: {
+      id,
+      userId: id,
+      type: { type: "string", enum: ["invite-created", "match-scheduled", "match-completed", "tournament-updated"] },
+      title: { type: "string" },
+      message: { type: "string" },
+      metadata: {
+        type: "object",
+        additionalProperties: { type: "string" }
+      },
+      readAt: isoDate,
+      createdAt: isoDate
+    },
+    required: ["id", "userId", "type", "title", "message", "createdAt"]
+  },
+  {
     $id: "matchVenue",
     type: "object",
     properties: {
       name: { type: "string", minLength: 2, maxLength: 80 },
       address: { type: "string", minLength: 2, maxLength: 120 },
+      city: { type: "string", minLength: 2, maxLength: 80 },
+      state: { type: "string", minLength: 2, maxLength: 2 },
       surface: { type: "string", enum: ["grass", "synthetic", "court", "sand", "other"] }
     }
+  },
+  {
+    $id: "venue",
+    type: "object",
+    properties: {
+      id,
+      name: { type: "string" },
+      slug: { type: "string" },
+      ownerId: id,
+      visibility: { type: "string", enum: ["private", "public"] },
+      address: { type: "string" },
+      city: { type: "string" },
+      state: { type: "string" },
+      surface: { type: "string", enum: ["grass", "synthetic", "court", "sand", "other"] },
+      createdAt: isoDate,
+      updatedAt: isoDate
+    },
+    required: ["id", "name", "slug", "ownerId", "visibility", "city", "state", "surface", "createdAt", "updatedAt"]
   },
   {
     $id: "matchSide",
@@ -397,6 +539,7 @@ const schemas = [
         items: { $ref: "matchEvent#" }
       },
       durationMinutes: { type: "integer", minimum: 1, maximum: 180 },
+      venueId: id,
       venue: { $ref: "matchVenue#" },
       tournamentId: id,
       playedAt: isoDate,
@@ -423,6 +566,7 @@ const schemas = [
       slug: { type: "string" },
       ownerId: id,
       format: { type: "string", enum: ["league"] },
+      visibility: { type: "string", enum: ["private", "public"] },
       teamIds: {
         type: "array",
         items: id
@@ -438,7 +582,7 @@ const schemas = [
       createdAt: isoDate,
       updatedAt: isoDate
     },
-    required: ["id", "name", "slug", "ownerId", "format", "teamIds", "matchIds", "standings", "createdAt", "updatedAt"]
+    required: ["id", "name", "slug", "ownerId", "format", "visibility", "teamIds", "matchIds", "standings", "createdAt", "updatedAt"]
   },
   {
     $id: "signUpInput",
@@ -506,9 +650,22 @@ const schemas = [
     $id: "createTeamInput",
     type: "object",
     properties: {
-      name: { type: "string", minLength: 2, maxLength: 40 }
+      name: { type: "string", minLength: 2, maxLength: 40 },
+      visibility: { type: "string", enum: ["private", "public"], default: "private" },
+      city: { type: "string", minLength: 2, maxLength: 80 },
+      state: { type: "string", minLength: 2, maxLength: 2 }
     },
     required: ["name"]
+  },
+  {
+    $id: "updateTeamInput",
+    type: "object",
+    properties: {
+      name: { type: "string", minLength: 2, maxLength: 40 },
+      visibility: { type: "string", enum: ["private", "public"] },
+      city: { type: "string", minLength: 2, maxLength: 80 },
+      state: { type: "string", minLength: 2, maxLength: 2 }
+    }
   },
   {
     $id: "createInviteInput",
@@ -530,6 +687,7 @@ const schemas = [
       away: { $ref: "matchSide#" },
       tournamentId: id,
       durationMinutes: { type: "integer", minimum: 1, maximum: 180 },
+      venueId: id,
       venue: { $ref: "matchVenue#" },
       playedAt: isoDate
     },
@@ -556,6 +714,7 @@ const schemas = [
     type: "object",
     properties: {
       name: { type: "string", minLength: 2, maxLength: 50 },
+      visibility: { type: "string", enum: ["private", "public"], default: "private" },
       teamIds: {
         type: "array",
         items: id,
@@ -563,6 +722,42 @@ const schemas = [
       }
     },
     required: ["name", "teamIds"]
+  },
+  {
+    $id: "createVenueInput",
+    type: "object",
+    properties: {
+      name: { type: "string", minLength: 2, maxLength: 80 },
+      visibility: { type: "string", enum: ["private", "public"], default: "private" },
+      address: { type: "string", minLength: 2, maxLength: 120 },
+      city: { type: "string", minLength: 2, maxLength: 80 },
+      state: { type: "string", minLength: 2, maxLength: 2 },
+      surface: { type: "string", enum: ["grass", "synthetic", "court", "sand", "other"], default: "other" }
+    },
+    required: ["name", "city", "state"]
+  },
+  {
+    $id: "updateVenueInput",
+    type: "object",
+    properties: {
+      name: { type: "string", minLength: 2, maxLength: 80 },
+      visibility: { type: "string", enum: ["private", "public"] },
+      address: { type: "string", minLength: 2, maxLength: 120 },
+      city: { type: "string", minLength: 2, maxLength: 80 },
+      state: { type: "string", minLength: 2, maxLength: 2 },
+      surface: { type: "string", enum: ["grass", "synthetic", "court", "sand", "other"] }
+    }
+  },
+  {
+    $id: "listVenuesQuery",
+    type: "object",
+    properties: {
+      city: { type: "string", minLength: 2, maxLength: 80 },
+      state: { type: "string", minLength: 2, maxLength: 2 },
+      visibility: { type: "string", enum: ["private", "public"] },
+      page: { type: "integer", minimum: 1, default: 1 },
+      pageSize: { type: "integer", minimum: 1, maximum: 50, default: 20 }
+    }
   },
   {
     $id: "publicUserEnvelope",
@@ -610,12 +805,50 @@ const schemas = [
     required: ["teams"]
   },
   {
+    $id: "venueEnvelope",
+    type: "object",
+    properties: {
+      venue: { $ref: "venue#" }
+    },
+    required: ["venue"]
+  },
+  {
+    $id: "venuesEnvelope",
+    type: "object",
+    properties: {
+      venues: {
+        type: "array",
+        items: { $ref: "venue#" }
+      }
+    },
+    required: ["venues"]
+  },
+  {
     $id: "inviteEnvelope",
     type: "object",
     properties: {
       invite: { $ref: "invite#" }
     },
     required: ["invite"]
+  },
+  {
+    $id: "notificationEnvelope",
+    type: "object",
+    properties: {
+      notification: { $ref: "notification#" }
+    },
+    required: ["notification"]
+  },
+  {
+    $id: "notificationsEnvelope",
+    type: "object",
+    properties: {
+      notifications: {
+        type: "array",
+        items: { $ref: "notification#" }
+      }
+    },
+    required: ["notifications"]
   },
   {
     $id: "matchEnvelope",
@@ -677,9 +910,17 @@ const schemas = [
       invites: {
         type: "array",
         items: { $ref: "invite#" }
+      },
+      venues: {
+        type: "array",
+        items: { $ref: "venue#" }
+      },
+      notifications: {
+        type: "array",
+        items: { $ref: "notification#" }
       }
     },
-    required: ["profile", "teams", "matches", "tournaments", "invites"]
+    required: ["profile", "teams", "matches", "tournaments", "invites", "venues", "notifications"]
   }
 ];
 
@@ -705,8 +946,10 @@ export const registerOpenApi = async (app: FastifyInstance): Promise<void> => {
         { name: "auth", description: "Autenticação e sessão" },
         { name: "players", description: "Perfil do jogador" },
         { name: "teams", description: "Times e convites" },
+        { name: "venues", description: "Locais e estadios" },
         { name: "matches", description: "Partidas e encerramento" },
         { name: "tournaments", description: "Campeonatos" },
+        { name: "notifications", description: "Alertas in-app" },
         { name: "dashboard", description: "Visão agregada do painel" }
       ],
       components: {

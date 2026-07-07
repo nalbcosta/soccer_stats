@@ -1,7 +1,8 @@
-import type { Invite, Match, PlayerProfile, Team, Tournament } from "@soccer-stats/shared";
+import type { Invite, Match, Notification, PlayerProfile, Team, Tournament, Venue } from "@soccer-stats/shared";
 import type {
   InviteRepository,
   MatchRepository,
+  NotificationRepository,
   PlayerProfileRepository,
   Repositories,
   SessionRecord,
@@ -9,6 +10,7 @@ import type {
   StoredUser,
   TeamRepository,
   TournamentRepository,
+  VenueRepository,
   UserRepository
 } from "../types.js";
 
@@ -76,6 +78,12 @@ class MemoryTeamRepository implements TeamRepository {
     return [...this.items.values()].filter((team) => team.members.some((member) => member.userId === userId));
   }
 
+  async listVisibleToUser(userId: string): Promise<Team[]> {
+    return [...this.items.values()].filter(
+      (team) => team.visibility === "public" || team.members.some((member) => member.userId === userId)
+    );
+  }
+
   async listByIds(ids: string[]): Promise<Team[]> {
     return ids.map((id) => this.items.get(id)).filter((value): value is Team => Boolean(value));
   }
@@ -126,8 +134,40 @@ class MemoryTournamentRepository implements TournamentRepository {
 
   async listByOwnerOrTeam(userId: string, teamIds: string[]): Promise<Tournament[]> {
     return [...this.items.values()].filter(
-      (item) => item.ownerId === userId || item.teamIds.some((teamId) => teamIds.includes(teamId))
+      (item) => item.visibility === "public" || item.ownerId === userId || item.teamIds.some((teamId) => teamIds.includes(teamId))
     );
+  }
+}
+
+class MemoryVenueRepository implements VenueRepository {
+  private readonly items = new Map<string, Venue>();
+
+  async create(venue: Venue): Promise<Venue> {
+    this.items.set(venue.id, venue);
+    return venue;
+  }
+
+  async update(venue: Venue): Promise<Venue> {
+    this.items.set(venue.id, venue);
+    return venue;
+  }
+
+  async findById(id: string): Promise<Venue | null> {
+    return this.items.get(id) ?? null;
+  }
+
+  async listVisibleToUser(
+    userId: string,
+    filters: { city?: string; state?: string; visibility?: Venue["visibility"]; page?: number; pageSize?: number } = {}
+  ): Promise<Venue[]> {
+    const page = filters.page ?? 1;
+    const pageSize = filters.pageSize ?? 20;
+    return [...this.items.values()]
+      .filter((venue) => venue.visibility === "public" || venue.ownerId === userId)
+      .filter((venue) => !filters.visibility || venue.visibility === filters.visibility)
+      .filter((venue) => !filters.city || venue.city.toLowerCase() === filters.city.toLowerCase())
+      .filter((venue) => !filters.state || venue.state.toLowerCase() === filters.state.toLowerCase())
+      .slice((page - 1) * pageSize, page * pageSize);
   }
 }
 
@@ -155,6 +195,45 @@ class MemoryInviteRepository implements InviteRepository {
   }
 }
 
+class MemoryNotificationRepository implements NotificationRepository {
+  private readonly items = new Map<string, Notification>();
+
+  async create(notification: Notification): Promise<Notification> {
+    this.items.set(notification.id, notification);
+    return notification;
+  }
+
+  async findById(id: string): Promise<Notification | null> {
+    return this.items.get(id) ?? null;
+  }
+
+  async listByUser(userId: string): Promise<Notification[]> {
+    return [...this.items.values()]
+      .filter((notification) => notification.userId === userId)
+      .sort((left, right) => right.createdAt.localeCompare(left.createdAt));
+  }
+
+  async markRead(id: string, userId: string, readAt: string): Promise<Notification | null> {
+    const notification = this.items.get(id);
+
+    if (!notification || notification.userId !== userId) {
+      return null;
+    }
+
+    const updated = { ...notification, readAt };
+    this.items.set(id, updated);
+    return updated;
+  }
+
+  async markAllRead(userId: string, readAt: string): Promise<void> {
+    for (const notification of this.items.values()) {
+      if (notification.userId === userId && !notification.readAt) {
+        this.items.set(notification.id, { ...notification, readAt });
+      }
+    }
+  }
+}
+
 class MemorySessionRepository implements SessionRepository {
   private readonly items = new Map<string, SessionRecord>();
 
@@ -179,5 +258,7 @@ export const createMemoryRepositories = (): Repositories => ({
   matches: new MemoryMatchRepository(),
   tournaments: new MemoryTournamentRepository(),
   invites: new MemoryInviteRepository(),
+  venues: new MemoryVenueRepository(),
+  notifications: new MemoryNotificationRepository(),
   sessions: new MemorySessionRepository()
 });
