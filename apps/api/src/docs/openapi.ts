@@ -932,8 +932,8 @@ export const registerOpenApi = async (app: FastifyInstance): Promise<void> => {
   await app.register(swagger, {
     openapi: {
       info: {
-        title: "Soccer Stats API",
-        description: "Documentação das rotas do MVP de peladas, times, campeonatos e estatísticas.",
+        title: "NaBola API",
+        description: "Documentação das rotas do NaBola de peladas, times, campeonatos e estatísticas.",
         version: "1.0.0"
       },
       servers: [
