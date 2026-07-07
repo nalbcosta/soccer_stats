@@ -9,6 +9,13 @@ export const matchTypeSchema = z.enum(["casual", "tournament"]);
 export const matchStatusSchema = z.enum(["scheduled", "completed"]);
 export const inviteRoleSchema = z.enum(["admin", "member"]);
 export const inviteStatusSchema = z.enum(["pending", "accepted", "revoked"]);
+export const usernameSchema = z.string().min(3).max(20).regex(/^[a-z0-9_]+$/);
+export const passwordSchema = z
+  .string()
+  .min(8)
+  .max(72)
+  .regex(/[a-zA-Z]/, "A senha precisa ter pelo menos uma letra.")
+  .regex(/[0-9]/, "A senha precisa ter pelo menos um numero.");
 
 export const statsSchema = z.object({
   matchesPlayed: z.number().int().nonnegative(),
@@ -17,7 +24,7 @@ export const statsSchema = z.object({
   losses: z.number().int().nonnegative(),
   goals: z.number().int().nonnegative(),
   assists: z.number().int().nonnegative(),
-  saves: z.number().int().nonnegative(),
+  saves: z.number().int().nonnegative().default(0),
   cleanSheets: z.number().int().nonnegative(),
   goalDifference: z.number().int(),
   points: z.number().int().nonnegative(),
@@ -30,7 +37,7 @@ export const statsSchema = z.object({
 export const publicUserSchema = z.object({
   id: z.string(),
   email: z.email(),
-  username: z.string().min(3).max(20).regex(/^[a-z0-9_]+$/),
+  username: usernameSchema,
   locale: localeSchema,
   theme: themeSchema,
   providers: z.array(z.enum(["credentials", "google"]))
@@ -132,8 +139,8 @@ export const inviteSchema = z.object({
 
 export const signUpInputSchema = z.object({
   email: z.email(),
-  username: z.string().min(3).max(20).regex(/^[a-z0-9_]+$/),
-  password: z.string().min(8).max(72),
+  username: usernameSchema,
+  password: passwordSchema,
   locale: localeSchema.default("pt-BR")
 });
 
@@ -141,6 +148,10 @@ export const signInInputSchema = z.object({
   email: z.email(),
   password: z.string().min(8).max(72),
   rememberMe: z.boolean().default(false)
+});
+
+export const usernameAvailabilityQuerySchema = z.object({
+  username: usernameSchema
 });
 
 export const googleAuthInputSchema = z.object({

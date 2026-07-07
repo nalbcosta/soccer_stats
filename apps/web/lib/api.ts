@@ -11,11 +11,13 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/v1";
 const API_BASE_URL = API_URL.replace(/\/v1$/, "");
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const hasJsonBody = init?.body !== undefined && !(init.body instanceof FormData);
+
   const response = await fetch(`${API_URL}${path}`, {
     ...init,
     credentials: "include",
     headers: {
-      "Content-Type": "application/json",
+      ...(hasJsonBody ? { "Content-Type": "application/json" } : {}),
       ...(init?.headers ?? {})
     }
   });
@@ -41,6 +43,8 @@ export const api = {
     request<{ user: PublicUser }>("/auth/signup", { method: "POST", body: JSON.stringify(input) }),
   signIn: (input: { email: string; password: string; rememberMe?: boolean }) =>
     request<{ user: PublicUser }>("/auth/signin", { method: "POST", body: JSON.stringify(input) }),
+  checkUsernameAvailability: (username: string) =>
+    request<{ available: boolean; message: string }>(`/auth/username-availability?username=${encodeURIComponent(username)}`),
   signInWithGoogle: (input: { credential: string; locale: "pt-BR" | "en"; rememberMe?: boolean }) =>
     request<{ user: PublicUser }>("/auth/google", { method: "POST", body: JSON.stringify(input) }),
   signOut: () => request<{ ok: true }>("/auth/signout", { method: "POST" }),

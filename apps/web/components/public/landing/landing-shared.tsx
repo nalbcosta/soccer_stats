@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
-import { Languages, Moon, Sun } from "lucide-react";
+import { ArrowUp, Languages, Moon, Sun } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useLocale } from "../../locale-provider";
 import { Button } from "../../ui/button";
@@ -54,7 +54,7 @@ export function LocaleToggleButton() {
     <Button
       type="button"
       variant="secondary"
-      className="w-full justify-center rounded-full px-3 text-xs font-black uppercase tracking-[0.16em] sm:w-auto sm:px-4"
+      className="min-w-[5.5rem] justify-center rounded-full border border-border bg-surface px-3 text-xs font-black uppercase tracking-[0.16em] text-text shadow-line sm:min-w-0 sm:w-auto sm:px-4"
       onClick={() => setLocale(nextLocale)}
       title={nextLocale === "pt-BR" ? "Mudar para portugues" : "Switch to English"}
       aria-label={nextLocale === "pt-BR" ? "Mudar para portugues" : "Switch to English"}
@@ -79,13 +79,15 @@ export function ThemeToggleButton() {
     <Button
       type="button"
       variant="secondary"
-      className={`w-full justify-center rounded-full px-3 text-xs font-black uppercase tracking-[0.16em] sm:w-auto sm:px-4 ${isDark ? "bg-text text-white" : "bg-surface text-text"}`}
+      className={`h-11 w-11 justify-center rounded-full border border-border px-0 text-xs font-black uppercase tracking-[0.16em] shadow-line sm:min-w-[7.25rem] sm:w-auto sm:px-4 ${
+        isDark ? "bg-primary-soft text-primary-strong" : "bg-surface text-text"
+      }`}
       onClick={() => setTheme(isDark ? "light" : "dark")}
       title={isDark ? "Mudar para modo claro" : "Mudar para modo escuro"}
       aria-label={isDark ? "Mudar para modo claro" : "Mudar para modo escuro"}
     >
       {isDark ? <Moon size={15} /> : <Sun size={15} />}
-      <span>{isDark ? "Dark" : "Light"}</span>
+      <span className="hidden sm:inline">{isDark ? "Dark" : "Light"}</span>
     </Button>
   );
 }
@@ -153,8 +155,15 @@ export function BackToTopTrigger({
       transition={sectionTransition}
       className="fixed bottom-4 left-4 z-50 md:bottom-6 md:left-6"
     >
-      <Button type="button" variant="secondary" className="rounded-lg bg-surface/92 px-4 shadow-panel backdrop-blur" onClick={onClick}>
-        {label}
+      <Button
+        type="button"
+        variant="secondary"
+        className="h-11 w-11 rounded-full bg-surface/92 px-0 shadow-panel backdrop-blur"
+        onClick={onClick}
+        title={label}
+        aria-label={label}
+      >
+        <ArrowUp size={18} />
       </Button>
     </motion.div>
   );

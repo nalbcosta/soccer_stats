@@ -17,6 +17,32 @@ import { Card } from "../../ui/card";
 
 const previewIcons = [Trophy, BarChart3, Shield] as const;
 
+function SectionGlow({
+  className,
+  children
+}: {
+  className?: string;
+  children: React.ReactNode;
+}) {
+  return <div className={`pointer-events-none absolute inset-0 overflow-hidden ${className ?? ""}`}>{children}</div>;
+}
+
+function MinimalFootball({ className }: { className?: string }) {
+  return (
+    <svg
+      aria-hidden="true"
+      className={className}
+      fill="none"
+      viewBox="0 0 240 240"
+    >
+      <circle cx="120" cy="120" r="94" stroke="currentColor" strokeWidth="4" />
+      <path d="M120 73 154 98 141 139H99L86 98 120 73Z" stroke="currentColor" strokeLinejoin="round" strokeWidth="4" />
+      <path d="M86 98 55 88M154 98 185 88M99 139 82 174M141 139 158 174M120 73V39" stroke="currentColor" strokeLinecap="round" strokeWidth="4" />
+      <path d="M55 88A94 94 0 0 0 48 144M185 88A94 94 0 0 1 192 144M82 174A94 94 0 0 0 120 214M158 174A94 94 0 0 1 120 214" stroke="currentColor" strokeLinecap="round" strokeWidth="4" />
+    </svg>
+  );
+}
+
 export function LandingProgressBar() {
   const { scrollYProgress } = useScroll();
   const scaleX = useSpring(scrollYProgress, {
@@ -31,13 +57,13 @@ export function LandingProgressBar() {
 export function LandingHeader({ content }: { content: LandingDictionary }) {
   return (
     <header className="sticky top-0 z-40 border-b border-border bg-canvas/80 backdrop-blur-xl">
-      <div className="mx-auto grid max-w-6xl gap-3 px-4 py-3 md:px-6 sm:flex sm:items-center sm:justify-between">
-        <Link href="/" className="flex items-center gap-3 font-black">
+      <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3 md:px-6">
+        <Link href="/" className="flex min-w-0 items-center gap-3 font-black">
           <span className="field-grid relative grid h-10 w-10 place-items-center rounded-lg bg-field text-sm text-white shadow-line">NB</span>
-          <span className="text-lg">NaBola</span>
+          <span className="hidden truncate text-lg sm:block">NaBola</span>
         </Link>
 
-        <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] items-end gap-2 sm:flex sm:flex-wrap sm:items-center sm:justify-end">
+        <div className="flex shrink-0 items-center gap-2 sm:flex-wrap sm:justify-end">
           <div className="grid min-w-0 gap-1">
             <p className="hidden px-2 text-[10px] font-black uppercase tracking-[0.18em] text-muted sm:block">{content.nav.localeLabel}</p>
             <LocaleToggleButton />
@@ -47,7 +73,7 @@ export function LandingHeader({ content }: { content: LandingDictionary }) {
             <ThemeToggleButton />
           </div>
           <Link
-            className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-primary text-white shadow-glow sm:min-h-10 sm:w-auto sm:px-4"
+            className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary text-white shadow-glow sm:min-h-10 sm:w-auto sm:px-4"
             href="/login"
             title={content.nav.login}
             aria-label={content.nav.login}
@@ -169,8 +195,14 @@ export function PreviewSection({ content }: { content: LandingDictionary }) {
 
 export function FeatureGridSection({ content }: { content: LandingDictionary }) {
   return (
-    <section className="border-y border-border bg-surface/75">
-      <div className="mx-auto max-w-6xl px-4 py-14 md:px-6">
+    <section className="relative overflow-hidden border-y border-border bg-surface text-text">
+      <SectionGlow>
+        <div className="field-grid absolute inset-0 opacity-[0.18]" />
+        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent" />
+        <div className="absolute -left-24 top-20 h-64 w-64 rounded-full bg-primary/10 blur-3xl" />
+        <div className="absolute right-[-6rem] bottom-20 h-64 w-64 rounded-full bg-field/10 blur-3xl" />
+      </SectionGlow>
+      <div className="relative mx-auto min-h-screen max-w-6xl flex flex-col justify-center px-4 py-14 md:px-6">
         <Reveal className="mx-auto max-w-2xl text-center">
           <h2 className="text-3xl font-black md:text-4xl">{content.features.title}</h2>
         </Reveal>
@@ -198,18 +230,29 @@ export function FeatureGridSection({ content }: { content: LandingDictionary }) 
 
 export function FlowSection({ content }: { content: LandingDictionary }) {
   return (
-    <section className="mx-auto grid max-w-6xl gap-8 px-4 py-14 md:px-6 lg:grid-cols-[0.82fr_1.18fr]">
-      <Reveal>
-        <p className="text-xs font-black uppercase tracking-[0.2em] text-field">{content.flow.eyebrow}</p>
-        <h2 className="mt-3 text-3xl font-black md:text-4xl">{content.flow.title}</h2>
-        <p className="mt-4 text-sm font-semibold leading-6 text-muted md:text-base">{content.flow.description}</p>
-      </Reveal>
-      <div className="grid gap-3 sm:grid-cols-2">
-        {content.flow.items.map((item, index) => (
-          <Reveal key={item.title} delay={index * 0.05}>
-            <FlowCard icon={item.icon} title={item.title} description={item.description} />
-          </Reveal>
-        ))}
+    <section className="relative overflow-hidden bg-canvas text-text">
+      <SectionGlow>
+        <div className="absolute inset-y-16 left-1/2 hidden w-px -translate-x-1/2 bg-gradient-to-b from-transparent via-border to-transparent lg:block" />
+        <div className="absolute left-[7%] top-24 h-36 w-36 rounded-full border border-field/15" />
+        <div className="absolute right-[7%] bottom-16 h-56 w-56 rounded-full bg-primary/10 blur-3xl" />
+      </SectionGlow>
+      <div className="relative mx-auto grid min-h-screen max-w-6xl items-center gap-10 px-4 py-16 md:px-6 lg:grid-cols-[0.82fr_1.18fr] lg:gap-14 lg:py-20">
+        <Reveal className="max-w-xl">
+          <p className="text-xs font-black uppercase tracking-[0.2em] text-field">{content.flow.eyebrow}</p>
+          <h2 className="mt-3 max-w-lg text-3xl font-black leading-tight md:text-4xl">{content.flow.title}</h2>
+          <p className="mt-5 max-w-xl text-sm font-semibold leading-6 text-muted md:text-base">{content.flow.description}</p>
+        </Reveal>
+        <div className="grid content-center gap-4 sm:grid-cols-2 lg:pl-4">
+          {content.flow.items.map((item, index) => (
+            <Reveal
+              key={item.title}
+              className={index >= 2 ? "sm:translate-y-4" : ""}
+              delay={index * 0.05}
+            >
+              <FlowCard icon={item.icon} title={item.title} description={item.description} />
+            </Reveal>
+          ))}
+        </div>
       </div>
     </section>
   );
@@ -217,16 +260,25 @@ export function FlowSection({ content }: { content: LandingDictionary }) {
 
 export function ProofSection({ content }: { content: LandingDictionary }) {
   return (
-    <section className="border-y border-border bg-text text-white">
-      <div className="mx-auto grid max-w-6xl gap-8 px-4 py-14 md:px-6 lg:grid-cols-[1fr_0.84fr]">
-        <Reveal>
+    <section className="relative overflow-hidden border-y border-border bg-[radial-gradient(circle_at_top_left,rgba(0,168,163,0.16),transparent_32%),linear-gradient(180deg,#0f2a26_0%,#102421_100%)] text-white">
+      <SectionGlow>
+        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
+        <div className="absolute right-[8%] top-16 h-48 w-48 rounded-full bg-primary/10 blur-3xl" />
+        <div className="absolute left-0 bottom-0 h-40 w-full bg-[linear-gradient(90deg,transparent_0%,rgba(255,255,255,0.035)_42%,transparent_78%)]" />
+      </SectionGlow>
+      <div className="relative mx-auto grid min-h-screen max-w-6xl items-center gap-10 px-4 py-16 md:px-6 lg:grid-cols-[1fr_0.84fr] lg:gap-16 lg:py-20">
+        <Reveal className="max-w-2xl">
           <p className="text-xs font-black uppercase tracking-[0.2em] text-marker">{content.proof.eyebrow}</p>
-          <h2 className="mt-3 text-3xl font-black md:text-4xl">{content.proof.title}</h2>
-          <p className="mt-4 max-w-2xl text-sm font-semibold leading-6 text-white/72 md:text-base">{content.proof.description}</p>
+          <h2 className="mt-3 max-w-xl text-3xl font-black leading-tight md:text-4xl">{content.proof.title}</h2>
+          <p className="mt-5 max-w-2xl text-sm font-semibold leading-6 text-white/72 md:text-base">{content.proof.description}</p>
         </Reveal>
-        <div className="grid gap-3">
+        <div className="grid content-center gap-4 lg:pl-6">
           {content.proof.quotes.map((item, index) => (
-            <Reveal key={item.text} delay={index * 0.05}>
+            <Reveal
+              key={item.text}
+              className={index === 1 ? "lg:translate-x-6" : index === 2 ? "lg:translate-x-3" : ""}
+              delay={index * 0.05}
+            >
               <Quote text={item.text} />
             </Reveal>
           ))}
@@ -238,20 +290,27 @@ export function ProofSection({ content }: { content: LandingDictionary }) {
 
 export function FaqSection({ content }: { content: LandingDictionary }) {
   return (
-    <section className="mx-auto grid max-w-6xl gap-8 px-4 py-14 md:px-6 lg:grid-cols-[0.8fr_1.2fr]">
-      <Reveal>
-        <p className="text-xs font-black uppercase tracking-[0.2em] text-field">{content.faq.eyebrow}</p>
-        <h2 className="mt-3 text-3xl font-black md:text-4xl">{content.faq.title}</h2>
-      </Reveal>
-      <div className="grid gap-3">
-        {content.faq.items.map((item, index) => (
-          <Reveal key={item.question} delay={index * 0.04}>
-            <Card className="rounded-lg p-5">
-              <p className="text-base font-black">{item.question}</p>
-              <p className="mt-2 text-sm font-semibold leading-6 text-muted">{item.answer}</p>
-            </Card>
-          </Reveal>
-        ))}
+    <section className="relative overflow-hidden bg-surface text-text">
+      <SectionGlow>
+        <div className="field-grid absolute inset-y-10 right-0 hidden w-1/2 opacity-[0.14] lg:block" />
+        <div className="absolute left-[7%] top-24 h-56 w-56 rounded-full bg-field/10 blur-3xl" />
+        <div className="absolute right-[8%] bottom-24 h-56 w-56 rounded-full bg-primary/10 blur-3xl" />
+      </SectionGlow>
+      <div className="relative mx-auto grid min-h-screen max-w-6xl items-center gap-10 px-4 py-16 md:px-6 lg:grid-cols-[0.8fr_1.2fr] lg:gap-14 lg:py-20">
+        <Reveal className="max-w-md self-start lg:self-center">
+          <p className="text-xs font-black uppercase tracking-[0.2em] text-field">{content.faq.eyebrow}</p>
+          <h2 className="mt-3 text-3xl font-black leading-tight md:text-4xl">{content.faq.title}</h2>
+        </Reveal>
+        <div className="grid content-center gap-4">
+          {content.faq.items.map((item, index) => (
+            <Reveal key={item.question} delay={index * 0.04}>
+              <Card className="rounded-lg p-5">
+                <p className="text-base font-black">{item.question}</p>
+                <p className="mt-2 text-sm font-semibold leading-6 text-muted">{item.answer}</p>
+              </Card>
+            </Reveal>
+          ))}
+        </div>
       </div>
     </section>
   );
@@ -259,21 +318,29 @@ export function FaqSection({ content }: { content: LandingDictionary }) {
 
 export function CallToActionSection({ content }: { content: LandingDictionary }) {
   return (
-    <section className="mx-auto px-4 pb-10 md:px-6">
-      <Reveal className="field-grid relative mx-auto grid max-w-6xl gap-4 overflow-hidden rounded-xl border border-border bg-surface/85 p-6 shadow-panel backdrop-blur md:grid-cols-[1fr_auto] md:items-center">
-        <div>
-          <p className="text-xs font-black uppercase tracking-[0.2em] text-field">{content.cta.eyebrow}</p>
-          <h2 className="mt-2 text-2xl font-black md:text-3xl">{content.cta.title}</h2>
-          <p className="mt-3 text-sm font-semibold leading-6 text-muted">{content.cta.description}</p>
-        </div>
-        <Link
-          className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-primary px-6 text-sm font-black text-white shadow-glow"
-          href="/login"
-        >
-          {content.cta.button}
-          <ArrowRight size={18} />
-        </Link>
-      </Reveal>
+    <section className="relative overflow-hidden bg-canvas text-text">
+      <SectionGlow>
+        <div className="field-grid absolute inset-0 opacity-[0.16]" />
+        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/20 to-transparent" />
+        <div className="absolute left-1/2 top-1/2 h-72 w-72 -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary/10 blur-3xl" />
+        <MinimalFootball className="absolute right-[-4.5rem] top-1/2 h-72 w-72 -translate-y-1/2 text-primary opacity-[0.12] sm:right-[6%] sm:h-80 sm:w-80 md:h-96 md:w-96" />
+      </SectionGlow>
+      <div className="mx-auto flex min-h-screen items-center px-4 py-16 md:px-6 lg:py-20">
+        <Reveal className="field-grid relative mx-auto grid w-full max-w-6xl gap-6 overflow-hidden rounded-lg border border-border bg-surface/88 p-5 shadow-panel backdrop-blur sm:rounded-xl sm:p-6 md:grid-cols-[minmax(0,1fr)_auto] md:items-center md:p-8">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.2em] text-field">{content.cta.eyebrow}</p>
+            <h2 className="mt-2 max-w-4xl text-[1.75rem] font-black leading-tight sm:text-3xl lg:text-[2.5rem]">{content.cta.title}</h2>
+            <p className="mt-4 max-w-2xl text-sm font-semibold leading-6 text-muted md:text-base">{content.cta.description}</p>
+          </div>
+          <Link
+            className="inline-flex min-h-12 w-full items-center justify-center gap-2 self-start rounded-full bg-primary px-6 text-sm font-black text-white shadow-glow sm:w-auto md:self-center"
+            href="/login"
+          >
+            {content.cta.button}
+            <ArrowRight size={18} />
+          </Link>
+        </Reveal>
+      </div>
     </section>
   );
 }

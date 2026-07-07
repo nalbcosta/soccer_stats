@@ -1,10 +1,34 @@
 import type { FastifyPluginAsync } from "fastify";
-import { googleAuthInputSchema, publicUserSchema, signInInputSchema, signUpInputSchema } from "@soccer-stats/shared";
+import { googleAuthInputSchema, publicUserSchema, signInInputSchema, signUpInputSchema, usernameAvailabilityQuerySchema } from "@soccer-stats/shared";
 import { authRouteSchemas } from "../docs/openapi.js";
 
 export const authRoutes: FastifyPluginAsync = async (app) => {
+  app.get("/auth/username-availability", { schema: authRouteSchemas.usernameAvailability, config: { rateLimit: { max: 30, timeWindow: "1 minute" } } }, async (request, reply) => {
+    const parsed = usernameAvailabilityQuerySchema.safeParse(request.query);
+
+    if (!parsed.success) {
+      reply.code(400);
+      return { available: false, message: "Use 3 a 20 caracteres: letras minusculas, numeros e _." };
+    }
+
+    const username = parsed.data.username.trim().toLowerCase();
+    const existing = await app.repositories.users.findByUsername(username);
+
+    return {
+      available: !existing,
+      message: existing ? "Apelido ja esta em uso." : "Apelido disponivel."
+    };
+  });
+
   app.post("/auth/signup", { schema: authRouteSchemas.signUp, config: { rateLimit: { max: 8, timeWindow: "1 minute" } } }, async (request, reply) => {
-    const payload = signUpInputSchema.parse(request.body);
+    const parsed = signUpInputSchema.safeParse(request.body);
+
+    if (!parsed.success) {
+      reply.code(400);
+      return { message: "Revise email, apelido e senha para criar a conta." };
+    }
+
+    const payload = parsed.data;
     const email = payload.email.trim().toLowerCase();
     const username = payload.username.trim().toLowerCase();
 

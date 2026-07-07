@@ -15,6 +15,15 @@ const messageResponse = {
 const authSecurity = [{ sessionCookie: [] }] as const;
 
 export const authRouteSchemas = {
+  usernameAvailability: {
+    tags: ["auth"],
+    summary: "Verifica disponibilidade de apelido",
+    querystring: { $ref: "usernameAvailabilityQuery#" },
+    response: {
+      200: { $ref: "usernameAvailabilityResponse#" },
+      400: { $ref: "usernameAvailabilityResponse#" }
+    }
+  } satisfies FastifySchema,
   signUp: {
     tags: ["auth"],
     summary: "Cria uma conta com email, username e senha",
@@ -232,6 +241,7 @@ const schemas = [
       losses: { type: "integer", minimum: 0 },
       goals: { type: "integer", minimum: 0 },
       assists: { type: "integer", minimum: 0 },
+      saves: { type: "integer", minimum: 0 },
       cleanSheets: { type: "integer", minimum: 0 },
       goalDifference: { type: "integer" },
       points: { type: "integer", minimum: 0 },
@@ -253,6 +263,7 @@ const schemas = [
       "losses",
       "goals",
       "assists",
+      "saves",
       "cleanSheets",
       "goalDifference",
       "points",
@@ -434,11 +445,28 @@ const schemas = [
     type: "object",
     properties: {
       email: { type: "string", format: "email" },
-      username: { type: "string", minLength: 3, maxLength: 20 },
-      password: { type: "string", minLength: 8, maxLength: 72 },
+      username: { type: "string", minLength: 3, maxLength: 20, pattern: "^[a-z0-9_]+$" },
+      password: { type: "string", minLength: 8, maxLength: 72, pattern: "^(?=.*[A-Za-z])(?=.*\\d).+$" },
       locale: { type: "string", enum: ["pt-BR", "en"] }
     },
     required: ["email", "username", "password"]
+  },
+  {
+    $id: "usernameAvailabilityQuery",
+    type: "object",
+    properties: {
+      username: { type: "string", minLength: 3, maxLength: 20, pattern: "^[a-z0-9_]+$" }
+    },
+    required: ["username"]
+  },
+  {
+    $id: "usernameAvailabilityResponse",
+    type: "object",
+    properties: {
+      available: { type: "boolean" },
+      message: { type: "string" }
+    },
+    required: ["available", "message"]
   },
   {
     $id: "signInInput",
