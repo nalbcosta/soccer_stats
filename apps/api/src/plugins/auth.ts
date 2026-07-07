@@ -17,21 +17,34 @@ declare module "fastify" {
       signInWithCredentials: (email: string, password: string) => Promise<StoredUser | null>;
       signInWithGoogleCredential: (credential: string, locale: StoredUser["locale"]) => Promise<StoredUser>;
       registerWithCredentials: (email: string, username: string, password: string, locale: StoredUser["locale"]) => Promise<StoredUser>;
-      createSession: (reply: FastifyReply, userId: string) => Promise<void>;
+      createSession: (reply: FastifyReply, userId: string, rememberMe?: boolean) => Promise<void>;
       clearSession: (reply: FastifyReply, request: FastifyRequest) => Promise<void>;
     };
   }
 }
 
 const SESSION_COOKIE = "soccer_stats_session";
-const SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 14;
+const SESSION_TTL_MS = 1000 * 60 * 60 * 12;
+const REMEMBERED_SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 14;
 const createCookieOptions = (config: AppConfig) => ({
   path: "/",
   httpOnly: true as const,
   sameSite: "lax" as const,
   secure: config.nodeEnv === "production",
+  signed: true,
   ...(config.cookieDomain ? { domain: config.cookieDomain } : {})
 });
+
+const getSessionId = (request: FastifyRequest): string | undefined => {
+  const rawCookie = request.cookies[SESSION_COOKIE];
+
+  if (!rawCookie) {
+    return undefined;
+  }
+
+  const unsigned = request.unsignCookie(rawCookie);
+  return unsigned.valid ? unsigned.value : undefined;
+};
 
 const findOrCreateProfile = async (repositories: Repositories, user: StoredUser): Promise<void> => {
   const existingProfile = await repositories.playerProfiles.findByUserId(user.id);
@@ -53,7 +66,7 @@ export const authPlugin = fp<{ repositories: Repositories; config: AppConfig }>(
 
   app.decorate("auth", {
     requireUser: async (request: FastifyRequest, reply: FastifyReply) => {
-      const sessionId = request.cookies[SESSION_COOKIE];
+      const sessionId = getSessionId(request);
 
       if (!sessionId) {
         reply.code(401).send({ message: "Nao autenticado." });
@@ -63,6 +76,11 @@ export const authPlugin = fp<{ repositories: Repositories; config: AppConfig }>(
       const session = await options.repositories.sessions.findById(sessionId);
 
       if (!session || new Date(session.expiresAt).getTime() < Date.now()) {
+        if (session) {
+          await options.repositories.sessions.deleteById(session.id);
+        }
+
+        reply.clearCookie(SESSION_COOKIE, createCookieOptions(options.config));
         reply.code(401).send({ message: "Sessao invalida." });
         return undefined;
       }
@@ -178,23 +196,24 @@ export const authPlugin = fp<{ repositories: Repositories; config: AppConfig }>(
       await findOrCreateProfile(options.repositories, user);
       return user;
     },
-    createSession: async (reply: FastifyReply, userId: string) => {
+    createSession: async (reply: FastifyReply, userId: string, rememberMe = false) => {
+      const ttlMs = rememberMe ? REMEMBERED_SESSION_TTL_MS : SESSION_TTL_MS;
       const session: SessionRecord = {
         id: createId(),
         userId,
         createdAt: new Date().toISOString(),
-        expiresAt: new Date(Date.now() + SESSION_TTL_MS).toISOString()
+        expiresAt: new Date(Date.now() + ttlMs).toISOString()
       };
 
       await options.repositories.sessions.create(session);
 
       reply.setCookie(SESSION_COOKIE, session.id, {
         ...createCookieOptions(options.config),
-        maxAge: SESSION_TTL_MS / 1000
+        ...(rememberMe ? { maxAge: ttlMs / 1000 } : {})
       });
     },
     clearSession: async (reply: FastifyReply, request: FastifyRequest) => {
-      const sessionId = request.cookies[SESSION_COOKIE];
+      const sessionId = getSessionId(request);
 
       if (sessionId) {
         await options.repositories.sessions.deleteById(sessionId);

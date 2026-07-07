@@ -2,7 +2,11 @@ import Fastify from "fastify";
 import cookie from "@fastify/cookie";
 import cors from "@fastify/cors";
 import helmet from "@fastify/helmet";
+import multipart from "@fastify/multipart";
 import rateLimit from "@fastify/rate-limit";
+import fastifyStatic from "@fastify/static";
+import { mkdir } from "node:fs/promises";
+import { fileURLToPath } from "node:url";
 import type { AppConfig, Repositories } from "./types.js";
 import { registerOpenApi } from "./docs/openapi.js";
 import { authPlugin } from "./plugins/auth.js";
@@ -20,6 +24,7 @@ declare module "fastify" {
 }
 
 export const createApp = async (config: AppConfig, repositories: Repositories) => {
+  const uploadsRoot = fileURLToPath(new URL("../uploads/", import.meta.url));
   const app = Fastify({
     logger: {
       level: config.nodeEnv === "production" ? "info" : "debug"
@@ -28,6 +33,7 @@ export const createApp = async (config: AppConfig, repositories: Repositories) =
 
   app.decorate("repositories", repositories);
   await registerOpenApi(app);
+  await mkdir(uploadsRoot, { recursive: true });
 
   await app.register(cookie, { secret: config.sessionSecret });
   await app.register(cors, {
@@ -35,6 +41,16 @@ export const createApp = async (config: AppConfig, repositories: Repositories) =
     credentials: true
   });
   await app.register(helmet);
+  await app.register(multipart, {
+    limits: {
+      fileSize: 5 * 1024 * 1024,
+      files: 1
+    }
+  });
+  await app.register(fastifyStatic, {
+    root: uploadsRoot,
+    prefix: "/uploads/"
+  });
   await app.register(rateLimit, {
     max: 100,
     timeWindow: "1 minute"

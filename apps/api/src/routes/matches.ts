@@ -1,12 +1,43 @@
 import type { FastifyPluginAsync } from "fastify";
 import { matchSchema, createMatchInputSchema, completeMatchInputSchema } from "@soccer-stats/shared";
-import type { Match, Team } from "@soccer-stats/shared";
+import type { Match, MatchEvent, MatchVenue, Team } from "@soccer-stats/shared";
 import { matchRouteSchemas } from "../docs/openapi.js";
 import { calculatePlayerStats, calculateStandings, calculateTeamStats } from "../lib/stats-service.js";
 import { createId } from "../lib/ids.js";
 
 const canManageTeam = (userId: string, team: Team | null): team is Team =>
   Boolean(team?.members.some((member) => member.userId === userId && (member.role === "owner" || member.role === "admin")));
+
+type LooseVenue = {
+  name?: string | undefined;
+  address?: string | undefined;
+  surface?: MatchVenue["surface"] | undefined;
+};
+
+type LooseMatchEvent = Omit<MatchEvent, "assistPlayerId"> & {
+  assistPlayerId?: string | undefined;
+};
+
+const cleanVenue = (venue: LooseVenue | undefined): MatchVenue | undefined => {
+  if (!venue?.name && !venue?.address && !venue?.surface) {
+    return undefined;
+  }
+
+  return {
+    ...(venue.name ? { name: venue.name } : {}),
+    ...(venue.address ? { address: venue.address } : {}),
+    ...(venue.surface ? { surface: venue.surface } : {})
+  };
+};
+
+const cleanEventLog = (eventLog: LooseMatchEvent[]): MatchEvent[] =>
+  eventLog.map((event) => ({
+    minute: event.minute,
+    type: event.type,
+    playerId: event.playerId,
+    teamId: event.teamId,
+    ...(event.assistPlayerId ? { assistPlayerId: event.assistPlayerId } : {})
+  }));
 
 export const matchRoutes: FastifyPluginAsync = async (app) => {
   app.get("/matches", { schema: matchRouteSchemas.list }, async (request, reply) => {
@@ -51,6 +82,7 @@ export const matchRoutes: FastifyPluginAsync = async (app) => {
     }
 
     const now = new Date().toISOString();
+    const venue = cleanVenue(payload.venue);
     const matchBase: Match = {
       id: createId(),
       type: payload.type,
@@ -59,6 +91,8 @@ export const matchRoutes: FastifyPluginAsync = async (app) => {
       home: payload.home,
       away: payload.away,
       eventLog: [],
+      ...(payload.durationMinutes ? { durationMinutes: payload.durationMinutes } : {}),
+      ...(venue ? { venue } : {}),
       playedAt: payload.playedAt,
       createdAt: now,
       updatedAt: now
@@ -95,12 +129,15 @@ export const matchRoutes: FastifyPluginAsync = async (app) => {
       return { message: "Sem permissao para encerrar a partida." };
     }
 
+    const venue = cleanVenue(payload.venue);
     const completed = await app.repositories.matches.update({
       ...match,
       status: "completed",
       home: { ...match.home, score: payload.homeScore },
       away: { ...match.away, score: payload.awayScore },
-      eventLog: payload.eventLog,
+      eventLog: cleanEventLog(payload.eventLog),
+      ...(payload.durationMinutes ? { durationMinutes: payload.durationMinutes } : {}),
+      ...(venue ? { venue } : {}),
       updatedAt: new Date().toISOString()
     });
 

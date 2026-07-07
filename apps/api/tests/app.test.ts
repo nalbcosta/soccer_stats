@@ -25,7 +25,7 @@ describe("api flows", () => {
       payload: {
         email: "owner@example.com",
         username: "owner_one",
-        password: "12345678",
+        password: "senha123",
         locale: "pt-BR"
       }
     });
@@ -42,7 +42,7 @@ describe("api flows", () => {
       payload: {
         email: "captain@example.com",
         username: "captain_one",
-        password: "12345678",
+        password: "senha123",
         locale: "pt-BR"
       }
     });
@@ -101,5 +101,32 @@ describe("api flows", () => {
     expect(response.statusCode).toBe(200);
     expect(response.json().openapi).toBe("3.0.3");
     expect(response.json().paths["/v1/auth/signup"]).toBeDefined();
+  });
+
+  it("verifica disponibilidade de apelido", async () => {
+    await app.inject({
+      method: "POST",
+      url: "/v1/auth/signup",
+      payload: {
+        email: "lookup@example.com",
+        username: "lookup_one",
+        password: "senha123",
+        locale: "pt-BR"
+      }
+    });
+
+    const taken = await app.inject({
+      method: "GET",
+      url: "/v1/auth/username-availability?username=lookup_one"
+    });
+    const available = await app.inject({
+      method: "GET",
+      url: "/v1/auth/username-availability?username=lookup_two"
+    });
+
+    expect(taken.statusCode).toBe(200);
+    expect(taken.json().available).toBe(false);
+    expect(available.statusCode).toBe(200);
+    expect(available.json().available).toBe(true);
   });
 });

@@ -24,6 +24,7 @@ export const createEmptyStats = (): AggregatedStats => ({
   losses: 0,
   goals: 0,
   assists: 0,
+  saves: 0,
   cleanSheets: 0,
   goalDifference: 0,
   points: 0,

@@ -22,6 +22,7 @@ export function MatchList() {
       {dashboard.matches.map((match) => {
         const home = dashboard.teams.find((team) => team.id === match.home.teamId)?.name ?? "Casa";
         const away = dashboard.teams.find((team) => team.id === match.away.teamId)?.name ?? "Fora";
+        const tournament = match.tournamentId ? dashboard.tournaments.find((item) => item.id === match.tournamentId) : undefined;
 
         return (
           <Link href={`/app/matches/${match.id}`} key={match.id}>
@@ -30,8 +31,10 @@ export function MatchList() {
               awayScore={match.away.score}
               homeName={home}
               homeScore={match.home.score}
+              match={match}
               meta={new Date(match.playedAt).toLocaleString("pt-BR")}
               status={match.status}
+              {...(tournament ? { tournament } : {})}
             />
           </Link>
         );

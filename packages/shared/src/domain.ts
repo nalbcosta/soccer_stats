@@ -25,6 +25,7 @@ export interface AggregatedStats {
   losses: number;
   goals: number;
   assists: number;
+  saves: number;
   cleanSheets: number;
   goalDifference: number;
   points: number;
@@ -37,6 +38,9 @@ export interface AggregatedStats {
 export interface PlayerProfile {
   userId: string;
   displayName: string;
+  shirtNumber?: number;
+  photoUrl?: string;
+  teamName?: string;
   preferredFoot: PreferredFoot;
   preferredPosition: PlayerPosition;
   bio?: string;
@@ -65,6 +69,13 @@ export interface MatchEvent {
   type: "goal" | "assist" | "yellow-card" | "red-card";
   playerId: string;
   teamId: string;
+  assistPlayerId?: string;
+}
+
+export interface MatchVenue {
+  name?: string;
+  address?: string;
+  surface?: "grass" | "synthetic" | "court" | "sand" | "other";
 }
 
 export interface MatchSide {
@@ -81,6 +92,8 @@ export interface Match {
   home: MatchSide;
   away: MatchSide;
   eventLog: MatchEvent[];
+  durationMinutes?: number;
+  venue?: MatchVenue;
   tournamentId?: string;
   playedAt: string;
   createdAt: string;

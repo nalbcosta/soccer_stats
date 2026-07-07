@@ -199,6 +199,9 @@ export const createMongoRepositories = async (uri: string, dbName: string): Prom
     db.collection("users").createIndex({ username: 1 }, { unique: true }),
     db.collection("teams").createIndex({ slug: 1 }, { unique: true }),
     db.collection("matches").createIndex({ tournamentId: 1 }),
+    db.collection("matches").createIndex({ playedAt: -1 }),
+    db.collection("matches").createIndex({ status: 1 }),
+    db.collection("matches").createIndex({ "home.teamId": 1, "away.teamId": 1 }),
     db.collection("tournaments").createIndex({ slug: 1 }, { unique: true }),
     db.collection("sessions").createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 })
   ]);

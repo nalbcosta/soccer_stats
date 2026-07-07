@@ -13,6 +13,7 @@ coverage/
 
 mongo-data/
 apps/api/.data/
+apps/api/uploads/
 apps/**/.next/
 apps/**/dist/
 packages/**/dist/

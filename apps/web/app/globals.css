@@ -122,6 +122,20 @@ body {
   background-size: 28px 28px;
 }
 
+.field-grid-layer {
+  background-image:
+    linear-gradient(var(--color-border) 1px, transparent 1px),
+    linear-gradient(90deg, var(--color-border) 1px, transparent 1px);
+  background-size: 28px 28px;
+  mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.88), rgba(0, 0, 0, 0.42));
+}
+
+.field-grid-glow {
+  background:
+    radial-gradient(circle at 16% 18%, rgba(0, 168, 163, 0.14), transparent 28%),
+    radial-gradient(circle at 84% 74%, rgba(47, 143, 70, 0.12), transparent 24%);
+}
+
 .touch-target {
   min-height: var(--touch-target-min);
   min-width: var(--touch-target-min);
