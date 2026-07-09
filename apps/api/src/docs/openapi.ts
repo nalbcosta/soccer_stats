@@ -304,6 +304,30 @@ export const venueRouteSchemas = {
   } satisfies FastifySchema
 };
 
+export const locationRouteSchemas = {
+  reverse: {
+    tags: ["locations"],
+    summary: "Resolve cidade e UF a partir de coordenadas do navegador",
+    security: authSecurity,
+    querystring: { $ref: "locationReverseQuery#" },
+    response: {
+      200: { $ref: "locationEnvelope#" },
+      401: { $ref: "messageResponse#" },
+      404: { $ref: "messageResponse#" }
+    }
+  } satisfies FastifySchema,
+  search: {
+    tags: ["locations"],
+    summary: "Busca locais/cidades usando OpenStreetMap Nominatim",
+    security: authSecurity,
+    querystring: { $ref: "locationSearchQuery#" },
+    response: {
+      200: { $ref: "locationsEnvelope#" },
+      401: { $ref: "messageResponse#" }
+    }
+  } satisfies FastifySchema
+};
+
 export const tournamentRouteSchemas = {
   list: {
     tags: ["tournaments"],
@@ -422,8 +446,9 @@ export const rankingRouteSchemas = {
 export const matchRouteSchemas = {
   list: {
     tags: ["matches"],
-    summary: "Lista as partidas dos times do usuário",
+    summary: "Lista partidas com busca, filtros, escopo e paginacao",
     security: authSecurity,
+    querystring: { $ref: "listMatchesQuery#" },
     response: {
       200: { $ref: "matchesEnvelope#" },
       401: { $ref: "messageResponse#" }
@@ -868,7 +893,9 @@ const schemas = [
       address: { type: "string", minLength: 2, maxLength: 120 },
       city: { type: "string", minLength: 2, maxLength: 80 },
       state: { type: "string", minLength: 2, maxLength: 2 },
-      surface: { type: "string", enum: ["grass", "synthetic", "court", "sand", "other"] }
+      surface: { type: "string", enum: ["grass", "synthetic", "court", "sand", "other"] },
+      latitude: { type: "number", minimum: -90, maximum: 90 },
+      longitude: { type: "number", minimum: -180, maximum: 180 }
     }
   },
   {
@@ -884,6 +911,8 @@ const schemas = [
       city: { type: "string" },
       state: { type: "string" },
       surface: { type: "string", enum: ["grass", "synthetic", "court", "sand", "other"] },
+      latitude: { type: "number", minimum: -90, maximum: 90 },
+      longitude: { type: "number", minimum: -180, maximum: 180 },
       createdAt: isoDate,
       updatedAt: isoDate
     },
@@ -1145,6 +1174,24 @@ const schemas = [
     required: ["type", "home", "away", "playedAt"]
   },
   {
+    $id: "listMatchesQuery",
+    type: "object",
+    properties: {
+      scope: { type: "string", enum: ["mine", "nearby"], default: "mine" },
+      q: { type: "string", minLength: 1, maxLength: 80 },
+      status: { type: "string", enum: ["scheduled", "confirming", "completed", "cancelled"] },
+      teamId: id,
+      tournamentId: id,
+      city: { type: "string", minLength: 2, maxLength: 80 },
+      state: { type: "string", minLength: 2, maxLength: 2 },
+      latitude: { type: "number", minimum: -90, maximum: 90 },
+      longitude: { type: "number", minimum: -180, maximum: 180 },
+      radiusKm: { type: "number", minimum: 1, maximum: 100, default: 25 },
+      page: { type: "integer", minimum: 1, default: 1 },
+      pageSize: { type: "integer", minimum: 1, maximum: 50, default: 10 }
+    }
+  },
+  {
     $id: "completeMatchInput",
     type: "object",
     properties: {
@@ -1367,7 +1414,9 @@ const schemas = [
       address: { type: "string", minLength: 2, maxLength: 120 },
       city: { type: "string", minLength: 2, maxLength: 80 },
       state: { type: "string", minLength: 2, maxLength: 2 },
-      surface: { type: "string", enum: ["grass", "synthetic", "court", "sand", "other"], default: "other" }
+      surface: { type: "string", enum: ["grass", "synthetic", "court", "sand", "other"], default: "other" },
+      latitude: { type: "number", minimum: -90, maximum: 90 },
+      longitude: { type: "number", minimum: -180, maximum: 180 }
     },
     required: ["name", "city", "state"]
   },
@@ -1393,6 +1442,37 @@ const schemas = [
       page: { type: "integer", minimum: 1, default: 1 },
       pageSize: { type: "integer", minimum: 1, maximum: 50, default: 20 }
     }
+  },
+  {
+    $id: "locationReverseQuery",
+    type: "object",
+    properties: {
+      latitude: { type: "number", minimum: -90, maximum: 90 },
+      longitude: { type: "number", minimum: -180, maximum: 180 }
+    },
+    required: ["latitude", "longitude"]
+  },
+  {
+    $id: "locationSearchQuery",
+    type: "object",
+    properties: {
+      q: { type: "string", minLength: 2, maxLength: 120 },
+      limit: { type: "integer", minimum: 1, maximum: 10, default: 5 }
+    },
+    required: ["q"]
+  },
+  {
+    $id: "locationResult",
+    type: "object",
+    properties: {
+      latitude: { type: "number" },
+      longitude: { type: "number" },
+      displayName: { type: "string" },
+      city: { type: "string" },
+      state: { type: "string" },
+      country: { type: "string" }
+    },
+    required: ["latitude", "longitude", "displayName"]
   },
   {
     $id: "publicUserEnvelope",
@@ -1558,9 +1638,38 @@ const schemas = [
       matches: {
         type: "array",
         items: { $ref: "match#" }
+      },
+      pagination: {
+        type: "object",
+        properties: {
+          page: { type: "integer" },
+          pageSize: { type: "integer" },
+          total: { type: "integer" },
+          totalPages: { type: "integer" }
+        },
+        required: ["page", "pageSize", "total", "totalPages"]
       }
     },
     required: ["matches"]
+  },
+  {
+    $id: "locationEnvelope",
+    type: "object",
+    properties: {
+      location: { $ref: "locationResult#" }
+    },
+    required: ["location"]
+  },
+  {
+    $id: "locationsEnvelope",
+    type: "object",
+    properties: {
+      locations: {
+        type: "array",
+        items: { $ref: "locationResult#" }
+      }
+    },
+    required: ["locations"]
   },
   {
     $id: "tournamentEnvelope",
@@ -1680,6 +1789,7 @@ export const registerOpenApi = async (app: FastifyInstance): Promise<void> => {
         { name: "teams", description: "Times e convites" },
         { name: "invites", description: "Fluxo de convites" },
         { name: "venues", description: "Locais e estadios" },
+        { name: "locations", description: "Geocoding e localizacao" },
         { name: "matches", description: "Partidas e encerramento" },
         { name: "tournaments", description: "Campeonatos" },
         { name: "rankings", description: "Rankings, artilharia e heuristica NaBola Card" },

@@ -25,7 +25,7 @@ export function ContextRail() {
         <Card className="p-4">
           <div className="flex items-center gap-2">
             <CalendarDays className="text-primary-strong" size={18} />
-            <p className="text-xs font-black uppercase text-muted">Proximo jogo</p>
+            <p className="text-xs font-black uppercase text-muted">Próximo jogo</p>
           </div>
           {nextMatch ? (
             <Link className="mt-4 block rounded-lg bg-canvas p-3" href={`/app/matches/${nextMatch.id}`}>

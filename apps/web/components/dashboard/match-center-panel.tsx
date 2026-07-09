@@ -19,7 +19,7 @@ export function MatchCenterPanel({ dashboard }: { dashboard: DashboardResponse }
       <div className="flex items-center justify-between gap-3">
         <div>
           <p className="text-xs font-black uppercase text-field">Central da rodada</p>
-          <h2 className="mt-1 text-xl font-black">Leitura rapida do que importa</h2>
+          <h2 className="mt-1 text-xl font-black">Leitura rápida do que importa</h2>
         </div>
         {latestMatch ? <MatchStatusChip status={latestMatch.status} /> : null}
       </div>
@@ -27,7 +27,7 @@ export function MatchCenterPanel({ dashboard }: { dashboard: DashboardResponse }
       <div className="grid gap-3 sm:grid-cols-3">
         <StatTile icon={CalendarDays} label="A jogar" value={scheduled} helper="Partidas no radar" tone="primary" />
         <StatTile icon={Trophy} label="Fechados" value={completed} helper="Placares resolvidos" tone="field" />
-        <StatTile icon={MailPlus} label="Convites" value={pendingInvites} helper="Pendencias da turma" tone="marker" />
+        <StatTile icon={MailPlus} label="Convites" value={pendingInvites} helper="Pendências da turma" tone="marker" />
       </div>
 
       <Card className="p-4">

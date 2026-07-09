@@ -18,7 +18,9 @@ export const createVenue = async (request: FastifyRequest, reply: FastifyReply) 
     ...(payload.address ? { address: payload.address } : {}),
     city: payload.city,
     state: payload.state,
-    surface: payload.surface
+    surface: payload.surface,
+    ...(payload.latitude !== undefined ? { latitude: payload.latitude } : {}),
+    ...(payload.longitude !== undefined ? { longitude: payload.longitude } : {})
   });
   await new AuditService(request.server.repositories).record({
     actorUserId: user.id,
@@ -82,7 +84,9 @@ export const updateVenue = async (request: FastifyRequest<{ Params: { venueId: s
     ...(payload.address ? { address: payload.address } : {}),
     ...(payload.city ? { city: payload.city } : {}),
     ...(payload.state ? { state: payload.state } : {}),
-    ...(payload.surface ? { surface: payload.surface } : {})
+    ...(payload.surface ? { surface: payload.surface } : {}),
+    ...(payload.latitude !== undefined ? { latitude: payload.latitude } : {}),
+    ...(payload.longitude !== undefined ? { longitude: payload.longitude } : {})
   });
 
   if (result === "not-found") {

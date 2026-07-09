@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { UserMenu } from "./user-menu";
 import { MoreMenu } from "./more-menu";
 import { appNavItems } from "../../lib/routes";
 
@@ -10,8 +9,8 @@ export function MobileTabBar() {
   const pathname = usePathname();
 
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-surface md:hidden" aria-label="Navegacao principal">
-      <div className="grid min-h-nav grid-cols-6 pb-[env(safe-area-inset-bottom)]">
+    <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-surface md:hidden" aria-label="Navegação principal">
+      <div className="grid min-h-nav grid-cols-5 pb-[env(safe-area-inset-bottom)]">
         {appNavItems.map((item) => {
           const active = pathname === item.href || (item.href !== "/app" && pathname.startsWith(item.href));
           const Icon = item.icon;
@@ -29,7 +28,6 @@ export function MobileTabBar() {
             </Link>
           );
         })}
-        <UserMenu mode="mobile" />
         <MoreMenu />
       </div>
     </nav>

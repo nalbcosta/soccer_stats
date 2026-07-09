@@ -1,6 +1,6 @@
 import { SkeletonList } from "./skeleton-block";
 
-export function LoadingState({ label = "Carregando vestiario..." }: { label?: string }) {
+export function LoadingState({ label = "Carregando vestiário..." }: { label?: string }) {
   return (
     <div className="grid min-h-[45vh] place-items-center px-4 text-center">
       <div>

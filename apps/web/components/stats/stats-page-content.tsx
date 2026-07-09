@@ -15,7 +15,7 @@ export function StatsPageContent() {
   const { dashboard } = useSession();
 
   if (!dashboard) {
-    return <LoadingState label="Puxando os numeros..." />;
+    return <LoadingState label="Puxando os números..." />;
   }
 
   const profileStats = dashboard.profile?.stats ?? createEmptyStats();
@@ -32,7 +32,7 @@ export function StatsPageContent() {
 
   return (
     <>
-      <PageHeading eyebrow="Numeros da resenha" title="Estatisticas" />
+      <PageHeading eyebrow="Números da resenha" title="Estatísticas" />
       <div className="grid gap-4">
         <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <StatTile icon={BarChart3} label="Jogos fechados" value={completedMatches} helper="Placares finalizados" tone="primary" />
@@ -65,11 +65,11 @@ export function StatsPageContent() {
           <Card className="p-4">
             <div className="flex items-center gap-2">
               <Gauge className="text-primary-strong" size={18} />
-              <p className="text-xs font-black uppercase text-muted">Metricas avancadas</p>
+              <p className="text-xs font-black uppercase text-muted">Métricas avançadas</p>
             </div>
             <div className="mt-4 grid gap-3">
-              <MetricLine label="Contribuicao ofensiva" value={profileMetrics.offensiveContribution} suffix="/jogo" />
-              <MetricLine label="Consistencia" value={profileMetrics.consistency} suffix="/99" />
+              <MetricLine label="Contribuição ofensiva" value={profileMetrics.offensiveContribution} suffix="/jogo" />
+              <MetricLine label="Consistência" value={profileMetrics.consistency} suffix="/99" />
               <MetricLine label="Pontos por jogo" value={profileMetrics.pointsPerMatch} suffix="ppj" />
               <MetricLine label="Balanço de resultado" value={profileMetrics.resultBalance} />
             </div>
@@ -98,7 +98,7 @@ export function StatsPageContent() {
           </Card>
 
           <Card className="p-4">
-            <p className="text-xs font-black uppercase text-muted">Consistencia</p>
+            <p className="text-xs font-black uppercase text-muted">Consistência</p>
             <div className="mt-4 grid gap-4">
               {topConsistencyTeams.length === 0 ? (
                 <p className="text-sm font-semibold text-muted">A regularidade aparece quando os times acumulam jogos.</p>

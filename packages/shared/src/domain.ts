@@ -119,6 +119,8 @@ export interface MatchVenue {
   city?: string;
   state?: string;
   surface?: "grass" | "synthetic" | "court" | "sand" | "other";
+  latitude?: number;
+  longitude?: number;
 }
 
 export interface Venue {
@@ -131,6 +133,8 @@ export interface Venue {
   city: string;
   state: string;
   surface: NonNullable<MatchVenue["surface"]>;
+  latitude?: number;
+  longitude?: number;
   createdAt: string;
   updatedAt: string;
 }

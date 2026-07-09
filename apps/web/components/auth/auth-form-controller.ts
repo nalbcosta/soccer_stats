@@ -64,7 +64,7 @@ export function useAuthFormController() {
 
     if (!usernamePattern.test(username)) {
       setUsernameAvailability({
-        message: "Use 3 a 20 caracteres: letras minusculas, numeros e _.",
+        message: "Use 3 a 20 caracteres: letras minúsculas, números e _.",
         status: "invalid"
       });
       return;

@@ -80,6 +80,7 @@ export interface MatchRepository {
   create(match: Match): Promise<Match>;
   update(match: Match): Promise<Match>;
   findById(id: string): Promise<Match | null>;
+  listAll(): Promise<Match[]>;
   listByTeamIds(teamIds: string[]): Promise<Match[]>;
   listByTournamentId(tournamentId: string): Promise<Match[]>;
 }
@@ -144,4 +145,7 @@ export interface AppConfig {
   cookieDomain?: string;
   defaultLocale: SupportedLocale;
   defaultTheme: ThemeMode;
+  nominatimBaseUrl: string;
+  nominatimUserAgent: string;
+  nominatimEmail?: string;
 }

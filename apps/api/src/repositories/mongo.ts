@@ -74,7 +74,9 @@ const matchVenueSchema = new Schema(
     address: String,
     city: String,
     state: String,
-    surface: { type: String, enum: ["grass", "synthetic", "court", "sand", "other"] }
+    surface: { type: String, enum: ["grass", "synthetic", "court", "sand", "other"] },
+    latitude: { type: Number, min: -90, max: 90 },
+    longitude: { type: Number, min: -180, max: 180 }
   },
   { _id: false }
 );
@@ -260,6 +262,8 @@ const modelsFor = (connection: Connection) => {
       city: { type: String, required: true, index: true },
       state: { type: String, required: true, index: true },
       surface: { type: String, enum: ["grass", "synthetic", "court", "sand", "other"], required: true },
+      latitude: { type: Number, min: -90, max: 90 },
+      longitude: { type: Number, min: -180, max: 180 },
       createdAt: { type: String, required: true },
       updatedAt: { type: String, required: true }
     },
@@ -500,6 +504,10 @@ class MongooseMatchRepository extends BaseMongooseRepository<Match> implements M
 
   async findById(id: string): Promise<Match | null> {
     return toDomain<Match>(await this.model.findById(id).lean());
+  }
+
+  async listAll(): Promise<Match[]> {
+    return (await this.model.find().sort({ playedAt: -1 }).lean()).map((doc) => toDomain<Match>(doc)).filter(Boolean) as Match[];
   }
 
   async listByTeamIds(teamIds: string[]): Promise<Match[]> {

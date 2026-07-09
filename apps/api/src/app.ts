@@ -24,10 +24,12 @@ import { notificationRoutes } from "./modules/notifications/notification.routes.
 import { venueRoutes } from "./modules/venues/venue.routes.js";
 import { validateCsrfToken } from "./modules/auth/csrf.js";
 import { auditRoutes } from "./modules/audit/audit.routes.js";
+import { locationRoutes } from "./modules/locations/location.routes.js";
 
 declare module "fastify" {
   interface FastifyInstance {
     repositories: Repositories;
+    config: AppConfig;
   }
 }
 
@@ -40,6 +42,7 @@ export const createApp = async (config: AppConfig, repositories: Repositories) =
   });
 
   app.decorate("repositories", repositories);
+  app.decorate("config", config);
   app.addHook("onRequest", async (request, reply) => {
     reply.header("x-request-id", request.id);
   });
@@ -103,6 +106,7 @@ export const createApp = async (config: AppConfig, repositories: Repositories) =
       await v1.register(teamRoutes);
       await v1.register(inviteRoutes);
       await v1.register(venueRoutes);
+      await v1.register(locationRoutes);
       await v1.register(matchRoutes);
       await v1.register(tournamentRoutes);
       await v1.register(rankingRoutes);

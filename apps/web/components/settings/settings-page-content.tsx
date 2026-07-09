@@ -14,15 +14,15 @@ export function SettingsPageContent() {
           { href: "/app/profile", label: "Card" },
           { href: "/app/settings", label: "Ajustes", active: true }
         ]}
-        label="Navegacao do perfil"
+        label="Navegação do perfil"
       />
       <div className="grid gap-4 lg:grid-cols-[0.8fr_1fr]">
         <PreferencesPanel />
         <Card className="p-4">
-          <p className="text-xs font-black uppercase text-muted">Organizacao</p>
-          <p className="mt-2 text-xl font-black">Preferencias fora do perfil.</p>
+          <p className="text-xs font-black uppercase text-muted">Organização</p>
+          <p className="mt-2 text-xl font-black">Preferências fora do perfil.</p>
           <p className="mt-2 text-sm font-semibold text-muted">
-            Esta rota separa configuracoes de conta do card de jogador, deixando o perfil livre para identidade, numeros e historico.
+            Esta rota separa configurações de conta do card de jogador, deixando o perfil livre para identidade, números e histórico.
           </p>
         </Card>
       </div>

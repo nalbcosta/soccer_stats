@@ -10,14 +10,14 @@ export function DesktopSidebar() {
   return (
     <aside className="hidden lg:block">
       <div className="sticky top-20 grid gap-5">
-        <nav className="grid gap-1" aria-label="Navegacao principal desktop">
+        <nav className="grid gap-1" aria-label="Navegação principal desktop">
           <p className="px-2 text-[11px] font-black uppercase text-muted">Jogo</p>
           {appNavItems.map((item) => (
             <SidebarLink active={pathname === item.href || (item.href !== "/app" && pathname.startsWith(item.href))} item={item} key={item.href} />
           ))}
         </nav>
 
-        <nav className="grid gap-1" aria-label="Navegacao secundaria desktop">
+        <nav className="grid gap-1" aria-label="Navegação secundária desktop">
           <p className="px-2 text-[11px] font-black uppercase text-muted">Clube</p>
           {secondaryNavItems.map((item) => (
             <SidebarLink active={pathname === item.href || pathname.startsWith(item.href)} item={item} key={item.href} />

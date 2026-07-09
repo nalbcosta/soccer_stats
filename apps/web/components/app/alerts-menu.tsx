@@ -16,10 +16,17 @@ export function AlertsMenu({ mode }: { mode: AlertsMenuMode }) {
   const [cleared, setCleared] = useState(false);
 
   const items = useMemo(() => {
+    const unreadNotifications = dashboard?.notifications?.filter((notification) => !notification.readAt).slice(0, 4) ?? [];
     const scheduled = dashboard?.matches.filter((match) => match.status === "scheduled").slice(0, 4) ?? [];
     const pendingInvites = dashboard?.invites.filter((invite) => invite.status === "pending").slice(0, 4) ?? [];
 
     return [
+      ...unreadNotifications.map((notification) => ({
+        href: "/app/notifications",
+        icon: Bell,
+        label: notification.title,
+        meta: notification.message
+      })),
       ...scheduled.map((match) => ({
         href: `/app/matches/${match.id}`,
         icon: CalendarDays,
@@ -54,14 +61,14 @@ export function AlertsMenu({ mode }: { mode: AlertsMenuMode }) {
   }, []);
 
   const visibleItems = cleared ? [] : items;
-  const count = visibleItems.length;
+  const unreadCount = cleared ? 0 : dashboard?.notifications?.filter((notification) => !notification.readAt).length ?? 0;
 
   return (
     <>
       <Button
         className={
           mode === "header"
-            ? "relative min-h-11 gap-2 rounded-xl px-3.5 whitespace-nowrap"
+            ? "relative h-10 min-h-10 w-10 rounded-xl px-0 md:w-auto md:gap-2 md:px-3.5"
             : "relative flex h-full min-h-touch w-full flex-col items-center justify-center gap-1 rounded-none border-0 bg-transparent px-0 text-[11px] font-black text-muted shadow-none hover:bg-transparent"
         }
         type="button"
@@ -70,11 +77,11 @@ export function AlertsMenu({ mode }: { mode: AlertsMenuMode }) {
         aria-expanded={open}
         aria-haspopup="menu"
       >
-        <Bell size={mode === "header" ? 16 : 20} />
-        <span>Avisos</span>
-        {count > 0 ? (
-          <Badge className="absolute -right-1 -top-1 min-h-5 px-1.5 text-[10px]" tone="warning">
-            {count > 9 ? "9+" : count}
+        <Bell size={mode === "header" ? 20 : 20} strokeWidth={2.3} />
+        <span className={mode === "header" ? "sr-only md:not-sr-only" : ""}>Avisos</span>
+        {unreadCount > 0 ? (
+          <Badge className="absolute -right-1 -top-1 min-h-5 min-w-5 px-1.5 text-[10px]" tone="warning">
+            {unreadCount > 9 ? "9+" : unreadCount}
           </Badge>
         ) : null}
       </Button>

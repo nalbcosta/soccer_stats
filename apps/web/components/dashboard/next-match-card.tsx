@@ -28,7 +28,7 @@ export function NextMatchCard({ dashboard }: { dashboard: DashboardResponse }) {
       <ScoreboardCard
         awayName={away}
         awayScore={nextMatch.away.score}
-        eyebrow="Proximo jogo"
+        eyebrow="Próximo jogo"
         homeName={home}
         homeScore={nextMatch.home.score}
         meta={new Date(nextMatch.playedAt).toLocaleString("pt-BR")}

@@ -1,5 +1,5 @@
 import type { FastifyPluginAsync } from "fastify";
-import { cancelMatchInputSchema, completeMatchInputSchema, createMatchInputSchema, matchPresenceSchema, matchSchema, reviewMatchInputSchema, updateMatchLineupInputSchema, updatePresenceInputSchema } from "@soccer-stats/shared";
+import { cancelMatchInputSchema, completeMatchInputSchema, createMatchInputSchema, listMatchesQuerySchema, matchPresenceSchema, matchSchema, reviewMatchInputSchema, updateMatchLineupInputSchema, updatePresenceInputSchema } from "@soccer-stats/shared";
 import type { Match, MatchPresence, Team } from "@soccer-stats/shared";
 import { matchRouteSchemas } from "../docs/openapi.js";
 import { validateMatchEventLog, validateScoreAgainstGoalEvents } from "../lib/stats-service.js";
@@ -11,6 +11,25 @@ import { StatsService } from "../modules/stats/stats.service.js";
 
 const canReadMatch = (userId: string, teams: Team[]): boolean =>
   teams.some((team) => team.visibility === "public" || team.members.some((member) => member.userId === userId));
+
+const normalizeSearch = (value: string): string =>
+  value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+
+const degreesToRadians = (value: number): number => (value * Math.PI) / 180;
+
+const distanceInKm = (from: { latitude: number; longitude: number }, to: { latitude: number; longitude: number }): number => {
+  const earthRadiusKm = 6371;
+  const latDelta = degreesToRadians(to.latitude - from.latitude);
+  const lonDelta = degreesToRadians(to.longitude - from.longitude);
+  const fromLat = degreesToRadians(from.latitude);
+  const toLat = degreesToRadians(to.latitude);
+  const a = Math.sin(latDelta / 2) ** 2 + Math.cos(fromLat) * Math.cos(toLat) * Math.sin(lonDelta / 2) ** 2;
+
+  return earthRadiusKm * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+};
 
 const upsertPresence = (presences: MatchPresence[], userId: string, status: MatchPresence["status"], updatedBy: string): MatchPresence[] => {
   const now = new Date().toISOString();
@@ -27,9 +46,79 @@ export const matchRoutes: FastifyPluginAsync = async (app) => {
       return;
     }
 
-    const teams = await app.repositories.teams.listByMember(user.id);
-    const matches = await app.repositories.matches.listByTeamIds(teams.map((team) => team.id));
-    return { matches: matches.map((match) => matchSchema.parse(match)) };
+    const query = listMatchesQuerySchema.parse(request.query);
+    const userTeams = await app.repositories.teams.listByMember(user.id);
+    const readableTeams = query.scope === "nearby" ? await app.repositories.teams.listVisibleToUser(user.id) : userTeams;
+    const readableTeamIds = new Set(readableTeams.map((team) => team.id));
+    const teamById = new Map(readableTeams.map((team) => [team.id, team]));
+    const candidates = query.scope === "nearby"
+      ? await app.repositories.matches.listByTeamIds([...readableTeamIds])
+      : await app.repositories.matches.listByTeamIds(userTeams.map((team) => team.id));
+    const search = query.q ? normalizeSearch(query.q) : null;
+    const hasBrowserLocation = query.latitude !== undefined && query.longitude !== undefined;
+
+    const filtered = candidates
+      .filter((match) => readableTeamIds.has(match.home.teamId) || readableTeamIds.has(match.away.teamId))
+      .filter((match) => !query.status || match.status === query.status)
+      .filter((match) => !query.teamId || match.home.teamId === query.teamId || match.away.teamId === query.teamId)
+      .filter((match) => !query.tournamentId || match.tournamentId === query.tournamentId)
+      .filter((match) => {
+        if (!search) {
+          return true;
+        }
+
+        const homeTeam = teamById.get(match.home.teamId);
+        const awayTeam = teamById.get(match.away.teamId);
+        const haystack = [
+          homeTeam?.name,
+          awayTeam?.name,
+          match.venue?.name,
+          match.venue?.address,
+          match.venue?.city,
+          match.venue?.state
+        ]
+          .filter((value): value is string => Boolean(value))
+          .map(normalizeSearch)
+          .join(" ");
+
+        return haystack.includes(search);
+      })
+      .filter((match) => {
+        if (query.scope !== "nearby") {
+          return true;
+        }
+
+        if (hasBrowserLocation && match.venue?.latitude !== undefined && match.venue.longitude !== undefined) {
+          return distanceInKm(
+            { latitude: query.latitude as number, longitude: query.longitude as number },
+            { latitude: match.venue.latitude, longitude: match.venue.longitude }
+          ) <= query.radiusKm;
+        }
+
+        if (query.city && match.venue?.city) {
+          return normalizeSearch(match.venue.city) === normalizeSearch(query.city);
+        }
+
+        if (query.state && match.venue?.state) {
+          return normalizeSearch(match.venue.state) === normalizeSearch(query.state);
+        }
+
+        return Boolean(match.venue?.city || match.venue?.state || match.venue?.latitude);
+      })
+      .sort((left, right) => new Date(left.playedAt).getTime() - new Date(right.playedAt).getTime());
+    const total = filtered.length;
+    const start = (query.page - 1) * query.pageSize;
+    const paged = filtered.slice(start, start + query.pageSize);
+
+    return {
+      matches: paged.map((match) => matchSchema.parse(match)),
+      pagination: {
+        page: query.page,
+        pageSize: query.pageSize,
+        total,
+        totalPages: Math.max(1, Math.ceil(total / query.pageSize))
+      }
+    };
   });
 
   app.get("/matches/:matchId", { schema: matchRouteSchemas.get }, async (request, reply) => {

@@ -13,6 +13,9 @@ export const loadConfig = (): AppConfig => {
     nodeEnv: (process.env.NODE_ENV as AppConfig["nodeEnv"] | undefined) ?? "development",
     ...(cookieDomain ? { cookieDomain } : {}),
     defaultLocale: "pt-BR",
-    defaultTheme: "system"
+    defaultTheme: "system",
+    nominatimBaseUrl: process.env.NOMINATIM_BASE_URL ?? "https://nominatim.openstreetmap.org",
+    nominatimUserAgent: process.env.NOMINATIM_USER_AGENT ?? "NaBola/1.0 (local development)",
+    ...(process.env.NOMINATIM_EMAIL ? { nominatimEmail: process.env.NOMINATIM_EMAIL } : {})
   };
 };

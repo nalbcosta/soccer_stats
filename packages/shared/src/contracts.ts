@@ -108,7 +108,9 @@ export const matchVenueSchema = z.object({
   address: z.string().min(2).max(120).optional(),
   city: z.string().min(2).max(80).optional(),
   state: z.string().min(2).max(2).optional(),
-  surface: z.enum(["grass", "synthetic", "court", "sand", "other"]).optional()
+  surface: z.enum(["grass", "synthetic", "court", "sand", "other"]).optional(),
+  latitude: z.number().min(-90).max(90).optional(),
+  longitude: z.number().min(-180).max(180).optional()
 });
 
 export const matchPresenceSchema = z.object({
@@ -140,6 +142,8 @@ export const venueSchema = z.object({
   city: z.string().min(2).max(80),
   state: z.string().min(2).max(2),
   surface: z.enum(["grass", "synthetic", "court", "sand", "other"]),
+  latitude: z.number().min(-90).max(90).optional(),
+  longitude: z.number().min(-180).max(180).optional(),
   createdAt: z.string(),
   updatedAt: z.string()
 });
@@ -429,7 +433,9 @@ export const createVenueInputSchema = z.object({
   address: z.string().min(2).max(120).optional(),
   city: z.string().min(2).max(80),
   state: z.string().min(2).max(2),
-  surface: z.enum(["grass", "synthetic", "court", "sand", "other"]).default("other")
+  surface: z.enum(["grass", "synthetic", "court", "sand", "other"]).default("other"),
+  latitude: z.number().min(-90).max(90).optional(),
+  longitude: z.number().min(-180).max(180).optional()
 });
 
 export const updateVenueInputSchema = createVenueInputSchema.partial().refine((value) => Object.keys(value).length > 0, {
@@ -442,6 +448,31 @@ export const listVenuesQuerySchema = z.object({
   visibility: entityVisibilitySchema.optional(),
   page: z.coerce.number().int().positive().default(1),
   pageSize: z.coerce.number().int().positive().max(50).default(20)
+});
+
+export const listMatchesQuerySchema = z.object({
+  scope: z.enum(["mine", "nearby"]).default("mine"),
+  q: z.string().trim().min(1).max(80).optional(),
+  status: matchStatusSchema.optional(),
+  teamId: z.string().optional(),
+  tournamentId: z.string().optional(),
+  city: z.string().trim().min(2).max(80).optional(),
+  state: z.string().trim().min(2).max(2).optional(),
+  latitude: z.coerce.number().min(-90).max(90).optional(),
+  longitude: z.coerce.number().min(-180).max(180).optional(),
+  radiusKm: z.coerce.number().positive().max(100).default(25),
+  page: z.coerce.number().int().positive().default(1),
+  pageSize: z.coerce.number().int().positive().max(50).default(10)
+});
+
+export const locationReverseQuerySchema = z.object({
+  latitude: z.coerce.number().min(-90).max(90),
+  longitude: z.coerce.number().min(-180).max(180)
+});
+
+export const locationSearchQuerySchema = z.object({
+  q: z.string().trim().min(2).max(120),
+  limit: z.coerce.number().int().positive().max(10).default(5)
 });
 
 export const playerRankingQuerySchema = z.object({

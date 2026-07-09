@@ -48,7 +48,7 @@ export function UserMenu({ mode }: { mode: UserMenuMode }) {
       <Button
         className={
           mode === "header"
-            ? "min-h-11 gap-2 rounded-xl px-3.5 whitespace-nowrap"
+            ? "h-10 min-h-10 gap-2 rounded-xl px-2 md:h-11 md:px-3.5"
             : "relative flex h-full min-h-touch w-full items-center justify-center rounded-none border-0 bg-transparent px-0 text-[11px] font-black text-muted shadow-none hover:bg-transparent"
         }
         type="button"
@@ -59,11 +59,11 @@ export function UserMenu({ mode }: { mode: UserMenuMode }) {
       >
         {mode === "header" ? (
           <>
-            <span className="grid h-8 w-8 place-items-center rounded-md bg-field text-xs font-black text-white">
+            <span className="grid h-10 w-10 place-items-center rounded-xl bg-field text-xs font-black text-white md:h-8 md:w-8 md:rounded-md">
               {initials}
             </span>
-            <span className="max-w-28 truncate text-sm font-semibold">@{displayName}</span>
-            <ChevronDown size={16} />
+            <span className="hidden max-w-28 truncate text-sm font-semibold md:inline">@{displayName}</span>
+            <ChevronDown className="hidden md:block" size={16} />
           </>
         ) : (
           <>

@@ -22,9 +22,9 @@ export function NotificationsPageContent() {
 
   return (
     <>
-      <PageHeading eyebrow="Avisos" title="Notificacoes" />
+      <PageHeading eyebrow="Avisos" title="Notificações" />
       {!hasNotifications ? (
-        <EmptyState title="Tudo quieto por aqui" description="Jogos marcados e convites pendentes aparecem nesta area." />
+        <EmptyState title="Tudo quieto por aqui" description="Jogos marcados e convites pendentes aparecem nesta área." />
       ) : (
         <div className="grid gap-3">
           {scheduled.map((match) => (

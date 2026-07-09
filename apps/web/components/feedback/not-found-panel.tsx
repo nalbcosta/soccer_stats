@@ -15,7 +15,7 @@ export function NotFoundPanel({
           <CircleOff size={21} />
         </div>
         <p className="text-lg font-bold">{title}</p>
-        <p className="mt-2 text-sm text-muted">Esse registro nao apareceu no seu vestiario.</p>
+        <p className="mt-2 text-sm text-muted">Esse registro não apareceu no seu vestiário.</p>
         <Link className="mt-5 inline-flex text-sm font-semibold text-primary-strong" href={backHref}>
           Voltar
         </Link>

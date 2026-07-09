@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { appNavItems } from "../../lib/routes";
+import { AppBackButton } from "./app-back-button";
 import { AlertsMenu } from "./alerts-menu";
 import { UserMenu } from "./user-menu";
 
@@ -11,11 +12,14 @@ export function AppHeader() {
 
   return (
     <header className="sticky top-0 z-30 border-b border-border bg-canvas/95 backdrop-blur">
-      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-3 px-4 md:px-6">
-        <Link href="/app" className="flex items-center gap-2 font-extrabold">
-          <span className="field-grid grid h-9 w-9 place-items-center rounded-lg bg-field text-sm text-white">NB</span>
-          <span>NaBola</span>
-        </Link>
+      <div className="mx-auto flex h-14 max-w-7xl items-center justify-between gap-2 px-3 sm:px-4 md:h-16 md:px-6">
+        <div className="flex min-w-0 items-center gap-2">
+          <AppBackButton />
+          <Link href="/app" className="flex min-w-0 items-center gap-2 font-extrabold" aria-label="Ir para o resumo">
+            <span className="field-grid grid h-9 w-9 place-items-center rounded-lg bg-field text-sm text-white">NB</span>
+            <span className="hidden sm:inline">NaBola</span>
+          </Link>
+        </div>
 
         <nav className="hidden items-center gap-1 md:flex lg:hidden">
           {appNavItems.map((item) => {
@@ -37,7 +41,7 @@ export function AppHeader() {
           })}
         </nav>
 
-        <div className="flex items-center gap-2 md:gap-3">
+        <div className="flex min-w-0 items-center gap-2 md:gap-3">
           <AlertsMenu mode="header" />
           <UserMenu mode="header" />
         </div>

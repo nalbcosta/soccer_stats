@@ -24,7 +24,7 @@ export function ProfilePageContent() {
           { href: "/app/profile", label: "Card", active: true },
           { href: "/app/settings", label: "Ajustes" }
         ]}
-        label="Navegacao do perfil"
+        label="Navegação do perfil"
       />
       <div className="grid gap-4 lg:grid-cols-[1fr_0.8fr]">
         <PlayerCard className="lg:col-span-2" profile={dashboard.profile} size="full" user={user} />
@@ -35,7 +35,7 @@ export function ProfilePageContent() {
         <div className="grid gap-4">
           <Card className="p-4">
             <p className="text-xs font-bold uppercase text-muted">Uso do card</p>
-            <p className="mt-2 text-xl font-black">Ranking, perfil e comparacoes.</p>
+            <p className="mt-2 text-xl font-black">Ranking, perfil e comparações.</p>
             <p className="mt-1 text-sm text-muted">
               O card vira a identidade do jogador dentro da pelada, sem copiar visual de game famoso.
             </p>

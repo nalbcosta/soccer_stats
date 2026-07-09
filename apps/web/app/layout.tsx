@@ -5,7 +5,7 @@ import { LocaleProvider } from "../components/locale-provider";
 
 export const metadata: Metadata = {
   title: "NaBola",
-  description: "Pelada organizada, times na mao e numeros que fazem sentido."
+  description: "Pelada organizada, times na mão e números que fazem sentido."
 };
 
 export default function RootLayout({

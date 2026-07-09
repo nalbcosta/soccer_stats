@@ -126,6 +126,10 @@ class MemoryMatchRepository implements MatchRepository {
     return this.items.get(id) ?? null;
   }
 
+  async listAll(): Promise<Match[]> {
+    return [...this.items.values()];
+  }
+
   async listByTeamIds(teamIds: string[]): Promise<Match[]> {
     return [...this.items.values()].filter((match) => teamIds.includes(match.home.teamId) || teamIds.includes(match.away.teamId));
   }
