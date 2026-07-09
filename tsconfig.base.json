@@ -15,9 +15,8 @@
     "skipLibCheck": true,
     "isolatedModules": true,
     "jsx": "preserve",
-    "baseUrl": ".",
     "paths": {
-      "@soccer-stats/shared/*": ["packages/shared/src/*"]
+      "@soccer-stats/shared/*": ["./packages/shared/src/*"]
     }
   }
 }

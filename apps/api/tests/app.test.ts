@@ -7,6 +7,20 @@ import type { FastifyInstance } from "fastify";
 describe("api flows", () => {
   let app: FastifyInstance;
 
+  const withCsrf = async (sessionCookie: string) => {
+    const response = await app.inject({
+      method: "GET",
+      url: "/v1/auth/csrf",
+      headers: { cookie: sessionCookie }
+    });
+    const csrfCookie = response.cookies.find((cookie) => cookie.name.includes("soccer_stats_csrf"));
+
+    return {
+      cookie: csrfCookie ? `${sessionCookie}; ${csrfCookie.name}=${csrfCookie.value}` : sessionCookie,
+      token: response.json().csrfToken as string
+    };
+  };
+
   beforeEach(async () => {
     app = await createApp(
       { ...loadConfig(), nodeEnv: "test", googleClientId: "" },
@@ -35,6 +49,54 @@ describe("api flows", () => {
     expect(response.cookies.some((cookie) => cookie.name.includes("soccer_stats_session"))).toBe(true);
   });
 
+  it("exige csrf em mutacoes autenticadas e permite revogar sessoes", async () => {
+    const signUp = await app.inject({
+      method: "POST",
+      url: "/v1/auth/signup",
+      payload: {
+        email: "secure@example.com",
+        username: "secure_one",
+        password: "senha123",
+        locale: "pt-BR"
+      }
+    });
+    const cookie = signUp.cookies[0];
+    const sessionCookie = `${cookie?.name}=${cookie?.value}`;
+
+    const blocked = await app.inject({
+      method: "POST",
+      url: "/v1/teams",
+      headers: { cookie: sessionCookie },
+      payload: { name: "Time Bloqueado" }
+    });
+    expect(blocked.statusCode).toBe(403);
+
+    const csrf = await withCsrf(sessionCookie);
+    const sessions = await app.inject({
+      method: "GET",
+      url: "/v1/auth/sessions",
+      headers: { cookie: csrf.cookie }
+    });
+    const currentSessionId = sessions.json().sessions.find((session: { current: boolean }) => session.current)?.id as string;
+
+    expect(sessions.statusCode).toBe(200);
+    expect(currentSessionId).toBeDefined();
+
+    const revoked = await app.inject({
+      method: "DELETE",
+      url: `/v1/auth/sessions/${currentSessionId}`,
+      headers: { cookie: csrf.cookie, "x-csrf-token": csrf.token }
+    });
+    expect(revoked.statusCode).toBe(200);
+
+    const me = await app.inject({
+      method: "GET",
+      url: "/v1/auth/me",
+      headers: { cookie: csrf.cookie }
+    });
+    expect(me.statusCode).toBe(401);
+  });
+
   it("cria time, campeonato e partida protegidos por sessao", async () => {
     const signUp = await app.inject({
       method: "POST",
@@ -50,25 +112,26 @@ describe("api flows", () => {
     const cookie = signUp.cookies[0];
     expect(cookie).toBeDefined();
     const sessionCookie = `${cookie?.name}=${cookie?.value}`;
+    const csrf = await withCsrf(sessionCookie);
 
     const teamA = await app.inject({
       method: "POST",
       url: "/v1/teams",
-      headers: { cookie: sessionCookie },
+      headers: { cookie: csrf.cookie, "x-csrf-token": csrf.token },
       payload: { name: "Time Azul" }
     });
 
     const teamB = await app.inject({
       method: "POST",
       url: "/v1/teams",
-      headers: { cookie: sessionCookie },
+      headers: { cookie: csrf.cookie, "x-csrf-token": csrf.token },
       payload: { name: "Time Verde" }
     });
 
     const tournament = await app.inject({
       method: "POST",
       url: "/v1/tournaments",
-      headers: { cookie: sessionCookie },
+      headers: { cookie: csrf.cookie, "x-csrf-token": csrf.token },
       payload: {
         name: "Liga da Resenha",
         teamIds: [teamA.json().team.id, teamB.json().team.id]
@@ -78,7 +141,7 @@ describe("api flows", () => {
     const match = await app.inject({
       method: "POST",
       url: "/v1/matches",
-      headers: { cookie: sessionCookie },
+      headers: { cookie: csrf.cookie, "x-csrf-token": csrf.token },
       payload: {
         type: "tournament",
         tournamentId: tournament.json().tournament.id,
@@ -90,6 +153,225 @@ describe("api flows", () => {
 
     expect(tournament.statusCode).toBe(200);
     expect(match.statusCode).toBe(200);
+
+    const tournamentDetail = await app.inject({
+      method: "GET",
+      url: `/v1/tournaments/${tournament.json().tournament.id}`,
+      headers: { cookie: sessionCookie }
+    });
+    expect(tournamentDetail.statusCode).toBe(200);
+
+    const rounds = await app.inject({
+      method: "POST",
+      url: `/v1/tournaments/${tournament.json().tournament.id}/rounds/generate`,
+      headers: { cookie: csrf.cookie, "x-csrf-token": csrf.token }
+    });
+    expect(rounds.statusCode).toBe(200);
+    expect(rounds.json().tournament.rounds.length).toBeGreaterThan(0);
+  });
+
+  it("cadastra local, cria partida com snapshot, encerra por sumula e gera notificacoes", async () => {
+    const signUp = await app.inject({
+      method: "POST",
+      url: "/v1/auth/signup",
+      payload: {
+        email: "match-owner@example.com",
+        username: "match_owner",
+        password: "senha123",
+        locale: "pt-BR"
+      }
+    });
+    const cookie = signUp.cookies[0];
+    const sessionCookie = `${cookie?.name}=${cookie?.value}`;
+    const csrf = await withCsrf(sessionCookie);
+    const userId = signUp.json().user.id as string;
+
+    const venue = await app.inject({
+      method: "POST",
+      url: "/v1/venues",
+      headers: { cookie: csrf.cookie, "x-csrf-token": csrf.token },
+      payload: {
+        name: "Arena Central",
+        visibility: "public",
+        address: "Rua das Redes, 10",
+        city: "Curitiba",
+        state: "PR",
+        surface: "synthetic"
+      }
+    });
+    expect(venue.statusCode).toBe(200);
+
+    const teamA = await app.inject({
+      method: "POST",
+      url: "/v1/teams",
+      headers: { cookie: csrf.cookie, "x-csrf-token": csrf.token },
+      payload: { name: "Time Norte", visibility: "public", city: "Curitiba", state: "PR" }
+    });
+    const teamB = await app.inject({
+      method: "POST",
+      url: "/v1/teams",
+      headers: { cookie: csrf.cookie, "x-csrf-token": csrf.token },
+      payload: { name: "Time Sul", visibility: "private" }
+    });
+
+    const match = await app.inject({
+      method: "POST",
+      url: "/v1/matches",
+      headers: { cookie: csrf.cookie, "x-csrf-token": csrf.token },
+      payload: {
+        type: "casual",
+        venueId: venue.json().venue.id,
+        home: { teamId: teamA.json().team.id, score: 0, playerIds: [userId] },
+        away: { teamId: teamB.json().team.id, score: 0, playerIds: [userId] },
+        playedAt: new Date().toISOString()
+      }
+    });
+
+    expect(match.statusCode).toBe(200);
+    expect(match.json().match.venue.name).toBe("Arena Central");
+
+    const presence = await app.inject({
+      method: "PUT",
+      url: `/v1/matches/${match.json().match.id}/presences/me`,
+      headers: { cookie: csrf.cookie, "x-csrf-token": csrf.token },
+      payload: { status: "confirmed" }
+    });
+    expect(presence.statusCode).toBe(200);
+    expect(presence.json().presences.some((item: { userId: string; status: string }) => item.userId === userId && item.status === "confirmed")).toBe(true);
+
+    const lineup = await app.inject({
+      method: "POST",
+      url: `/v1/matches/${match.json().match.id}/lineup`,
+      headers: { cookie: csrf.cookie, "x-csrf-token": csrf.token },
+      payload: {
+        homePlayerIds: [userId],
+        awayPlayerIds: [userId]
+      }
+    });
+    expect(lineup.statusCode).toBe(200);
+    expect(lineup.json().match.lineup.homePlayerIds).toContain(userId);
+
+    const checkIn = await app.inject({
+      method: "POST",
+      url: `/v1/matches/${match.json().match.id}/check-in/me`,
+      headers: { cookie: csrf.cookie, "x-csrf-token": csrf.token }
+    });
+    expect(checkIn.statusCode).toBe(200);
+    expect(checkIn.json().match.checkIns.some((item: { userId: string }) => item.userId === userId)).toBe(true);
+
+    const invalidComplete = await app.inject({
+      method: "POST",
+      url: "/v1/matches/complete",
+      headers: { cookie: csrf.cookie, "x-csrf-token": csrf.token },
+      payload: {
+        id: match.json().match.id,
+        homeScore: 1,
+        awayScore: 0,
+        eventLog: []
+      }
+    });
+    expect(invalidComplete.statusCode).toBe(400);
+
+    const complete = await app.inject({
+      method: "POST",
+      url: "/v1/matches/complete",
+      headers: { cookie: csrf.cookie, "x-csrf-token": csrf.token },
+      payload: {
+        id: match.json().match.id,
+        homeScore: 1,
+        awayScore: 0,
+        eventLog: [{ minute: 12, type: "goal", playerId: userId, teamId: teamA.json().team.id }]
+      }
+    });
+    expect(complete.statusCode).toBe(200);
+
+    const duplicateComplete = await app.inject({
+      method: "POST",
+      url: "/v1/matches/complete",
+      headers: { cookie: csrf.cookie, "x-csrf-token": csrf.token },
+      payload: {
+        id: match.json().match.id,
+        homeScore: 1,
+        awayScore: 0,
+        eventLog: [{ minute: 12, type: "goal", playerId: userId, teamId: teamA.json().team.id }]
+      }
+    });
+    expect(duplicateComplete.statusCode).toBe(409);
+
+    const ranking = await app.inject({
+      method: "GET",
+      url: "/v1/rankings/players?metric=overall",
+      headers: { cookie: sessionCookie }
+    });
+    expect(ranking.statusCode).toBe(200);
+    expect(ranking.json().players[0].ratings.ratingVersion).toBe("v1");
+
+    const impact = await app.inject({
+      method: "GET",
+      url: `/v1/matches/${match.json().match.id}/stats-impact`,
+      headers: { cookie: sessionCookie }
+    });
+    expect(impact.statusCode).toBe(200);
+    expect(impact.json().impact.playerImpacts[0].checkedIn).toBe(true);
+
+    const card = await app.inject({
+      method: "GET",
+      url: `/v1/players/${userId}/card`,
+      headers: { cookie: sessionCookie }
+    });
+    expect(card.statusCode).toBe(200);
+    expect(card.json().card.ratingVersion).toBe("v2");
+
+    const insights = await app.inject({
+      method: "GET",
+      url: `/v1/players/${userId}/insights`,
+      headers: { cookie: sessionCookie }
+    });
+    expect(insights.statusCode).toBe(200);
+    expect(insights.json().insights.length).toBeGreaterThan(0);
+
+    const review = await app.inject({
+      method: "POST",
+      url: `/v1/matches/${match.json().match.id}/review`,
+      headers: { cookie: csrf.cookie, "x-csrf-token": csrf.token },
+      payload: {
+        homeScore: 2,
+        awayScore: 0,
+        reason: "Gol corrigido na sumula",
+        eventLog: [
+          { minute: 12, type: "goal", playerId: userId, teamId: teamA.json().team.id },
+          { minute: 33, type: "goal", playerId: userId, teamId: teamA.json().team.id }
+        ]
+      }
+    });
+    expect(review.statusCode).toBe(200);
+    expect(review.json().match.reviewStatus).toBe("pending");
+    expect(review.json().match.eventLogVersion).toBe(2);
+
+    const approve = await app.inject({
+      method: "POST",
+      url: `/v1/matches/${match.json().match.id}/review/approve`,
+      headers: { cookie: csrf.cookie, "x-csrf-token": csrf.token }
+    });
+    expect(approve.statusCode).toBe(200);
+    expect(approve.json().match.reviewStatus).toBe("approved");
+
+    const notifications = await app.inject({
+      method: "GET",
+      url: "/v1/notifications",
+      headers: { cookie: sessionCookie }
+    });
+    expect(notifications.statusCode).toBe(200);
+    expect(notifications.json().notifications.length).toBeGreaterThanOrEqual(2);
+
+    const firstNotificationId = notifications.json().notifications[0].id as string;
+    const read = await app.inject({
+      method: "PATCH",
+      url: `/v1/notifications/${firstNotificationId}/read`,
+      headers: { cookie: csrf.cookie, "x-csrf-token": csrf.token }
+    });
+    expect(read.statusCode).toBe(200);
+    expect(read.json().notification.readAt).toBeDefined();
   });
 
   it("expoe o json OpenAPI", async () => {

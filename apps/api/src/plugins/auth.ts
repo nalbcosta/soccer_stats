@@ -1,10 +1,12 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import fp from "fastify-plugin";
+import { createHash } from "node:crypto";
 import { OAuth2Client } from "google-auth-library";
 import { createEmptyStats } from "@soccer-stats/shared";
 import type { AppConfig, AppContext, Repositories, SessionRecord, StoredUser } from "../types.js";
 import { createId } from "../lib/ids.js";
 import { hashPassword, verifyPassword } from "../lib/auth.js";
+import { issueCsrfToken } from "../modules/auth/csrf.js";
 
 declare module "fastify" {
   interface FastifyRequest {
@@ -17,8 +19,10 @@ declare module "fastify" {
       signInWithCredentials: (email: string, password: string) => Promise<StoredUser | null>;
       signInWithGoogleCredential: (credential: string, locale: StoredUser["locale"]) => Promise<StoredUser>;
       registerWithCredentials: (email: string, username: string, password: string, locale: StoredUser["locale"]) => Promise<StoredUser>;
-      createSession: (reply: FastifyReply, userId: string, rememberMe?: boolean) => Promise<void>;
+      createSession: (reply: FastifyReply, request: FastifyRequest, userId: string, rememberMe?: boolean) => Promise<void>;
       clearSession: (reply: FastifyReply, request: FastifyRequest) => Promise<void>;
+      getSessionId: (request: FastifyRequest) => string | undefined;
+      createCsrfToken: (reply: FastifyReply) => string;
     };
   }
 }
@@ -44,6 +48,11 @@ const getSessionId = (request: FastifyRequest): string | undefined => {
 
   const unsigned = request.unsignCookie(rawCookie);
   return unsigned.valid ? unsigned.value : undefined;
+};
+
+const hashIp = (request: FastifyRequest, secret: string): string => {
+  const ip = request.ip || request.headers["x-forwarded-for"]?.toString() || "unknown";
+  return createHash("sha256").update(`${secret}:${ip}`).digest("hex");
 };
 
 const findOrCreateProfile = async (repositories: Repositories, user: StoredUser): Promise<void> => {
@@ -75,8 +84,8 @@ export const authPlugin = fp<{ repositories: Repositories; config: AppConfig }>(
 
       const session = await options.repositories.sessions.findById(sessionId);
 
-      if (!session || new Date(session.expiresAt).getTime() < Date.now()) {
-        if (session) {
+      if (!session || session.revokedAt || new Date(session.expiresAt).getTime() < Date.now()) {
+        if (session && !session.revokedAt) {
           await options.repositories.sessions.deleteById(session.id);
         }
 
@@ -93,6 +102,7 @@ export const authPlugin = fp<{ repositories: Repositories; config: AppConfig }>(
       }
 
       request.context = { user };
+      await options.repositories.sessions.update({ ...session, lastSeenAt: new Date().toISOString() });
       return user;
     },
     signInWithCredentials: async (email: string, password: string) => {
@@ -196,13 +206,16 @@ export const authPlugin = fp<{ repositories: Repositories; config: AppConfig }>(
       await findOrCreateProfile(options.repositories, user);
       return user;
     },
-    createSession: async (reply: FastifyReply, userId: string, rememberMe = false) => {
+    createSession: async (reply: FastifyReply, request: FastifyRequest, userId: string, rememberMe = false) => {
       const ttlMs = rememberMe ? REMEMBERED_SESSION_TTL_MS : SESSION_TTL_MS;
       const session: SessionRecord = {
         id: createId(),
         userId,
         createdAt: new Date().toISOString(),
-        expiresAt: new Date(Date.now() + ttlMs).toISOString()
+        expiresAt: new Date(Date.now() + ttlMs).toISOString(),
+        userAgent: Array.isArray(request.headers["user-agent"]) ? request.headers["user-agent"][0] : request.headers["user-agent"],
+        ipHash: hashIp(request, options.config.sessionSecret),
+        lastSeenAt: new Date().toISOString()
       };
 
       await options.repositories.sessions.create(session);
@@ -216,10 +229,15 @@ export const authPlugin = fp<{ repositories: Repositories; config: AppConfig }>(
       const sessionId = getSessionId(request);
 
       if (sessionId) {
-        await options.repositories.sessions.deleteById(sessionId);
+        const session = await options.repositories.sessions.findById(sessionId);
+        if (session) {
+          await options.repositories.sessions.revokeById(sessionId, session.userId, new Date().toISOString());
+        }
       }
 
       reply.clearCookie(SESSION_COOKIE, createCookieOptions(options.config));
-    }
+    },
+    getSessionId,
+    createCsrfToken: (reply: FastifyReply) => issueCsrfToken(reply)
   });
 });

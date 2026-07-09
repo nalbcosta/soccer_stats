@@ -1,6 +1,10 @@
-import type { AggregatedStats } from "./domain";
+import type { AggregatedStats, PlayerCardV2, PlayerFeatureSnapshot, PlayerInsight, RatingVersion } from "./domain";
+
+export const CURRENT_RATING_VERSION: RatingVersion = "v1";
+export const CURRENT_RATING_VERSION_V2: RatingVersion = "v2";
 
 export interface PlayerCardRatings {
+  ratingVersion: RatingVersion;
   overall: number;
   attack: number;
   pass: number;
@@ -101,6 +105,7 @@ export const buildPlayerCardRatings = (stats: AggregatedStats): PlayerCardRating
   const overall = clampRating(attack * 0.2 + pass * 0.14 + presence * 0.18 + regularity * 0.16 + winning * 0.18 + form * 0.14);
 
   return {
+    ratingVersion: CURRENT_RATING_VERSION,
     overall,
     attack,
     pass,
@@ -110,6 +115,8 @@ export const buildPlayerCardRatings = (stats: AggregatedStats): PlayerCardRating
     form
   };
 };
+
+const normalizePercent = (value: number): number => Math.max(0, Math.min(100, value));
 
 export const buildPerformanceMetrics = (stats: AggregatedStats): PerformanceMetrics => {
   const matches = Math.max(stats.matchesPlayed, 1);
@@ -124,4 +131,147 @@ export const buildPerformanceMetrics = (stats: AggregatedStats): PerformanceMetr
     pointsPerMatch,
     resultBalance
   };
+};
+
+export const buildPlayerRatingExplanation = (stats: AggregatedStats): string => {
+  if (stats.matchesPlayed === 0) {
+    return "Sem partidas suficientes para leitura competitiva.";
+  }
+
+  if (stats.goals + stats.assists >= stats.matchesPlayed) {
+    return "Alta participacao ofensiva por jogo.";
+  }
+
+  if (stats.winRate >= 65) {
+    return "Aproveitamento forte nas partidas recentes.";
+  }
+
+  if (recentFormScore(stats.form) >= 75) {
+    return "Forma recente acima da media.";
+  }
+
+  return "Score equilibrado por presenca, forma e resultados.";
+};
+
+export const buildPlayerFeatureSnapshot = (
+  playerId: string,
+  stats: AggregatedStats,
+  presenceRate = 0,
+  checkInRate = 0,
+  impactScore = 0,
+  createdAt = new Date().toISOString()
+): PlayerFeatureSnapshot => {
+  const matches = Math.max(stats.matchesPlayed, 1);
+
+  return {
+    playerId,
+    ratingVersion: CURRENT_RATING_VERSION,
+    matchesPlayed: stats.matchesPlayed,
+    goalsPerMatch: stats.goalsPerMatch,
+    assistsPerMatch: Number((stats.assists / matches).toFixed(2)),
+    presenceRate,
+    checkInRate,
+    winRate: stats.winRate,
+    recentFormScore: recentFormScore(stats.form),
+    impactScore,
+    createdAt
+  };
+};
+
+export const buildPlayerFeatureSnapshotV2 = (
+  playerId: string,
+  stats: AggregatedStats,
+  options: {
+    presenceRate?: number;
+    checkInRate?: number;
+    impactScore?: number;
+    teamId?: string;
+    tournamentId?: string;
+    createdAt?: string;
+  } = {}
+): PlayerFeatureSnapshot => {
+  const matches = Math.max(stats.matchesPlayed, 1);
+
+  return {
+    playerId,
+    ratingVersion: CURRENT_RATING_VERSION_V2,
+    ...(options.teamId ? { teamId: options.teamId } : {}),
+    ...(options.tournamentId ? { tournamentId: options.tournamentId } : {}),
+    matchesPlayed: stats.matchesPlayed,
+    goalsPerMatch: stats.goalsPerMatch,
+    assistsPerMatch: Number((stats.assists / matches).toFixed(2)),
+    presenceRate: normalizePercent(options.presenceRate ?? 0),
+    checkInRate: normalizePercent(options.checkInRate ?? 0),
+    winRate: normalizePercent(stats.winRate),
+    recentFormScore: recentFormScore(stats.form),
+    impactScore: options.impactScore ?? 0,
+    createdAt: options.createdAt ?? new Date().toISOString()
+  };
+};
+
+export const buildPlayerCardV2 = (snapshot: PlayerFeatureSnapshot): PlayerCardV2 => {
+  const volumeScore = normalizePercent(Math.min(snapshot.matchesPlayed, 20) * 5);
+  const goalsScore = normalizePercent(Math.min(snapshot.goalsPerMatch, 2.5) * 40);
+  const assistsScore = normalizePercent(Math.min(snapshot.assistsPerMatch, 2) * 50);
+  const checkInScore = normalizePercent(snapshot.checkInRate ?? snapshot.presenceRate);
+  const impactScore = normalizePercent(50 + (snapshot.impactScore ?? 0) * 8);
+  const factors = [
+    { key: "volume", label: "Volume minimo de jogos", value: volumeScore, weight: 0.12 },
+    { key: "presence", label: "Presenca e check-in", value: (snapshot.presenceRate + checkInScore) / 2, weight: 0.16 },
+    { key: "goals", label: "Gols por jogo", value: goalsScore, weight: 0.16 },
+    { key: "assists", label: "Assistencias por jogo", value: assistsScore, weight: 0.12 },
+    { key: "winning", label: "Aproveitamento", value: snapshot.winRate, weight: 0.16 },
+    { key: "form", label: "Forma recente", value: snapshot.recentFormScore, weight: 0.14 },
+    { key: "impact", label: "Impacto em jogos equilibrados", value: impactScore, weight: 0.14 }
+  ];
+  const weighted = factors.reduce((total, factor) => total + factor.value * factor.weight, 0);
+  const score = clampRating(35 + weighted * 0.64);
+  const topFactor = [...factors].sort((left, right) => right.value * right.weight - left.value * left.weight)[0];
+  const explanation =
+    snapshot.matchesPlayed < 3
+      ? "Score v2 com baixa amostra: precisa de mais jogos para estabilizar."
+      : `Score v2 puxado principalmente por ${topFactor?.label.toLowerCase() ?? "regularidade"}.`;
+
+  return {
+    playerId: snapshot.playerId,
+    ratingVersion: "v2",
+    score,
+    factors,
+    explanation,
+    snapshot
+  };
+};
+
+export const buildPlayerInsightsV2 = (card: PlayerCardV2): PlayerInsight[] => {
+  const sortedFactors = [...card.factors].sort((left, right) => right.value - left.value);
+  const strongest = sortedFactors[0];
+  const weakest = sortedFactors[sortedFactors.length - 1];
+  const insights: PlayerInsight[] = [];
+
+  if (strongest) {
+    insights.push({
+      type: "strength",
+      title: strongest.label,
+      message: `Principal ponto forte no NaBola Card v2, com leitura ${Math.round(strongest.value)}.`,
+      scoreImpact: Number((strongest.value * strongest.weight).toFixed(1))
+    });
+  }
+
+  if (weakest) {
+    insights.push({
+      type: "opportunity",
+      title: weakest.label,
+      message: `Maior oportunidade de evolucao para subir o overall.`,
+      scoreImpact: Number((weakest.value * weakest.weight).toFixed(1))
+    });
+  }
+
+  insights.push({
+    type: "trend",
+    title: "Confianca da amostra",
+    message: card.snapshot.matchesPlayed < 3 ? "Ainda ha poucos jogos para leitura estavel." : "A amostra ja permite comparacao mais confiavel.",
+    scoreImpact: card.snapshot.matchesPlayed
+  });
+
+  return insights;
 };
