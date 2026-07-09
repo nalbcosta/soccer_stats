@@ -23,6 +23,7 @@ import { rankingRoutes } from "./routes/rankings.js";
 import { notificationRoutes } from "./modules/notifications/notification.routes.js";
 import { venueRoutes } from "./modules/venues/venue.routes.js";
 import { validateCsrfToken } from "./modules/auth/csrf.js";
+import { auditRoutes } from "./modules/audit/audit.routes.js";
 
 declare module "fastify" {
   interface FastifyInstance {
@@ -39,14 +40,17 @@ export const createApp = async (config: AppConfig, repositories: Repositories) =
   });
 
   app.decorate("repositories", repositories);
+  app.addHook("onRequest", async (request, reply) => {
+    reply.header("x-request-id", request.id);
+  });
   app.setErrorHandler((error, _request, reply) => {
     if (error instanceof ZodError) {
-      reply.code(400).send({ message: "Payload invalido.", issues: error.issues });
+      reply.code(400).send({ code: "VALIDATION_ERROR", message: "Payload invalido.", details: error.issues });
       return;
     }
 
     if (error instanceof mongoose.Error.ValidationError) {
-      reply.code(400).send({ message: "Documento invalido.", issues: Object.keys(error.errors) });
+      reply.code(400).send({ code: "MONGOOSE_VALIDATION_ERROR", message: "Documento invalido.", details: Object.keys(error.errors) });
       return;
     }
 
@@ -103,6 +107,7 @@ export const createApp = async (config: AppConfig, repositories: Repositories) =
       await v1.register(tournamentRoutes);
       await v1.register(rankingRoutes);
       await v1.register(notificationRoutes);
+      await v1.register(auditRoutes);
       await v1.register(dashboardRoutes);
     },
     { prefix: "/v1" }

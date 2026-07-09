@@ -15,6 +15,7 @@ erDiagram
   USERS ||--o{ NOTIFICATIONS : receives
   USERS ||--o{ INVITES : sends
   USERS ||--o{ AUDIT_LOGS : performs
+  USERS ||--o{ PLAYER_FEATURE_SNAPSHOTS : generates
 
   TEAMS ||--o{ TEAM_MEMBERS : embeds
   TEAMS ||--o{ MATCHES : home_or_away
@@ -81,6 +82,10 @@ erDiagram
     object away
     object[] eventLog
     object[] presences
+    object lineup
+    object[] checkIns
+    string reviewStatus
+    number eventLogVersion
     string venueId
     object venue
     string tournamentId
@@ -99,7 +104,21 @@ erDiagram
     string visibility
     string[] teamIds
     string[] matchIds
+    object[] rounds
     object[] standings
+  }
+
+  PLAYER_FEATURE_SNAPSHOTS {
+    string _id
+    string playerId
+    string ratingVersion
+    string teamId
+    string tournamentId
+    number matchesPlayed
+    number presenceRate
+    number checkInRate
+    number impactScore
+    string createdAt
   }
 
   INVITES {
@@ -389,6 +408,10 @@ Campos:
 | `away` | object | Sim | `MatchSide` |
 | `eventLog` | array | Sim | Sumula |
 | `presences` | array | Sim | `MatchPresence[]` |
+| `lineup` | object | Nao | Escalacao final |
+| `checkIns` | array | Sim | Check-ins do dia do jogo |
+| `reviewStatus` | enum | Sim | `none`, `pending`, `approved`, `disputed` |
+| `eventLogVersion` | number | Sim | Versao da sumula |
 | `durationMinutes` | number | Nao | Duracao |
 | `venueId` | string | Nao | Referencia a `venues` |
 | `venue` | object | Nao | Snapshot do local |
@@ -425,6 +448,7 @@ Campos:
 | `visibility` | enum | Sim | `private` ou `public` |
 | `teamIds` | string[] | Sim | Times participantes |
 | `matchIds` | string[] | Sim | Partidas concluidas/associadas |
+| `rounds` | array | Sim | Rodadas geradas para formato liga |
 | `standings` | array | Sim | Tabela cacheada |
 | `createdAt` | string ISO | Sim | Data de criacao |
 | `updatedAt` | string ISO | Sim | Data de atualizacao |
@@ -544,6 +568,37 @@ Indices:
 - `resourceType`.
 - `resourceId`.
 - `createdAt`.
+
+### `player_feature_snapshots`
+
+Snapshots explicaveis usados pelo NaBola Card v2 e por futuros datasets de ML.
+
+Campos principais:
+
+| Campo | Tipo | Obrigatorio | Observacao |
+|---|---|---:|---|
+| `_id` | string | Sim | ID do snapshot |
+| `playerId` | string | Sim | Jogador avaliado |
+| `ratingVersion` | enum | Sim | `v1` ou `v2` |
+| `teamId` | string | Nao | Escopo opcional |
+| `tournamentId` | string | Nao | Escopo opcional |
+| `matchesPlayed` | number | Sim | Volume de jogos |
+| `goalsPerMatch` | number | Sim | Gols por jogo |
+| `assistsPerMatch` | number | Sim | Assistencias por jogo |
+| `presenceRate` | number | Sim | Presenca confirmada |
+| `checkInRate` | number | Nao | Check-in real |
+| `winRate` | number | Sim | Aproveitamento |
+| `recentFormScore` | number | Sim | Forma recente normalizada |
+| `impactScore` | number | Nao | Impacto ofensivo/check-in |
+| `createdAt` | string ISO | Sim | Criacao |
+
+Indices:
+
+- `playerId`.
+- `teamId`.
+- `tournamentId`.
+- `createdAt`.
+- composto `{ playerId: 1, teamId: 1, tournamentId: 1, createdAt: -1 }`.
 
 ## Estrategia de IDs
 

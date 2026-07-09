@@ -163,6 +163,7 @@ Regras:
 - Partida de campeonato precisa ter os dois times no campeonato.
 - `eventLog` inicia vazio.
 - `presences` inicia com status `pending` para jogadores de `home.playerIds` e `away.playerIds`.
+- `checkIns` inicia vazio, `reviewStatus` inicia `none` e `eventLogVersion` inicia `1`.
 - Notifica membros dos times envolvidos.
 
 ## Presenca em partida
@@ -193,6 +194,28 @@ Regras:
 - Primeira atualizacao muda partida `scheduled` para `confirming`.
 - Usuario comum so altera a propria presenca.
 - Owner/admin pode alterar presenca de jogador relacionado a partida.
+
+## Escalacao, check-in e revisao
+
+```mermaid
+flowchart TD
+  Lineup["POST /matches/:id/lineup"] --> ValidatePlayers["Valida jogadores relacionados"]
+  ValidatePlayers --> SaveLineup["Salva lineup"]
+  CheckIn["POST /matches/:id/check-in/me"] --> Related{"Jogador esta na partida?"}
+  Related -- Sim --> SaveCheckIn["Salva check-in unico"]
+  Review["POST /matches/:id/review"] --> Completed{"Partida completed?"}
+  Completed -- Sim --> ValidateLog["Valida sumula e placar"]
+  ValidateLog --> Version["eventLogVersion + 1"]
+  Version --> Recalc["StatsService recalcula stats"]
+  Recalc --> Pending["reviewStatus=pending"]
+```
+
+Regras:
+
+- Escalacao so pode mudar antes de `completed` ou `cancelled`.
+- Check-in e idempotente por jogador.
+- Revisao de sumula exige owner/admin de um dos times.
+- Revisao recalcula stats e gera audit log.
 
 ## Cancelamento de partida
 
@@ -274,7 +297,9 @@ flowchart TB
   Standings --> TournamentCache["tournaments.standings"]
 
   PlayerStats --> Card["NaBola Card ratings v1 no shared"]
+  PlayerStats --> CardV2["NaBola Card v2 + snapshots"]
   Rankings --> Card
+  CardV2 --> Snapshots["player_feature_snapshots"]
 ```
 
 Fonte de verdade:
@@ -284,7 +309,8 @@ Fonte de verdade:
 - Gols: eventos `goal`.
 - Assistencias: eventos `assist` ou `goal.assistPlayerId`.
 - Campeonatos: partidas concluidas do `tournamentId`.
-- Ranking considera stats reais, presenca confirmada e `ratingVersion = v1`.
+- Ranking legado considera stats reais, presenca confirmada e `ratingVersion = v1`.
+- Card v2 usa presença, check-in, forma, aproveitamento e impacto explicavel.
 
 ## Rankings e heuristica
 
@@ -292,9 +318,12 @@ Fonte de verdade:
 flowchart LR
   Matches["matches completed"] --> PlayerStats["calculatePlayerStats"]
   Presences["matches.presences"] --> PresenceRate["presenceRate"]
-  PlayerStats --> Snapshot["buildPlayerFeatureSnapshot"]
+  PlayerStats --> Snapshot["buildPlayerFeatureSnapshotV2"]
   PresenceRate --> Snapshot
+  CheckIn["matches.checkIns"] --> Snapshot
   PlayerStats --> Ratings["buildPlayerCardRatings v1"]
+  Snapshot --> CardV2["GET /v1/players/:id/card"]
+  CardV2 --> Insights["GET /v1/players/:id/insights"]
   Ratings --> Ranking["GET /v1/rankings/players"]
   Ranking --> Scorers["/tournaments/:id/scorers"]
   Ranking --> Assists["/tournaments/:id/assists"]

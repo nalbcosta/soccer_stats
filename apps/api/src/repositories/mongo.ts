@@ -1,11 +1,12 @@
 import mongoose, { Schema, type Connection, type Model } from "mongoose";
-import type { AuditLog, Invite, Match, Notification, PlayerProfile, Team, Tournament, Venue } from "@soccer-stats/shared";
+import type { AuditLog, Invite, Match, Notification, PlayerFeatureSnapshot, PlayerProfile, Team, Tournament, Venue } from "@soccer-stats/shared";
 import type {
   AuditLogRepository,
   InviteRepository,
   MatchRepository,
   NotificationRepository,
   PlayerProfileRepository,
+  PlayerFeatureSnapshotRepository,
   Repositories,
   SessionRecord,
   SessionRepository,
@@ -99,6 +100,24 @@ const matchPresenceSchema = new Schema(
   { _id: false }
 );
 
+const matchLineupSchema = new Schema(
+  {
+    homePlayerIds: [{ type: String, required: true }],
+    awayPlayerIds: [{ type: String, required: true }],
+    updatedAt: { type: String, required: true },
+    updatedBy: { type: String, required: true }
+  },
+  { _id: false }
+);
+
+const matchCheckInSchema = new Schema(
+  {
+    userId: { type: String, required: true },
+    checkedInAt: { type: String, required: true }
+  },
+  { _id: false }
+);
+
 const modelsFor = (connection: Connection) => {
   const userSchema = new Schema<Persisted<StoredUser>>(
     {
@@ -165,6 +184,10 @@ const modelsFor = (connection: Connection) => {
       away: { type: matchSideSchema, required: true },
       eventLog: [matchEventSchema],
       presences: [matchPresenceSchema],
+      lineup: matchLineupSchema,
+      checkIns: [matchCheckInSchema],
+      reviewStatus: { type: String, enum: ["none", "pending", "approved", "disputed"], required: true, default: "none", index: true },
+      eventLogVersion: { type: Number, required: true, default: 1, min: 1 },
       durationMinutes: Number,
       venueId: { type: String, index: true },
       venue: matchVenueSchema,
@@ -191,6 +214,25 @@ const modelsFor = (connection: Connection) => {
       visibility: { type: String, enum: ["private", "public"], required: true, default: "private", index: true },
       teamIds: [{ type: String, required: true }],
       matchIds: [{ type: String, required: true }],
+      rounds: [
+        new Schema(
+          {
+            round: { type: Number, required: true },
+            pairings: [
+              new Schema(
+                {
+                  homeTeamId: { type: String, required: true },
+                  awayTeamId: { type: String, required: true },
+                  matchId: String
+                },
+                { _id: false }
+              )
+            ],
+            createdAt: { type: String, required: true }
+          },
+          { _id: false }
+        )
+      ],
       standings: [
         new Schema(
           {
@@ -296,6 +338,27 @@ const modelsFor = (connection: Connection) => {
     { collection: "audit_logs", versionKey: false }
   );
 
+  const playerFeatureSnapshotSchema = new Schema<Persisted<PlayerFeatureSnapshot & { id: string }>>(
+    {
+      _id: { type: String, required: true },
+      playerId: { type: String, required: true, index: true },
+      ratingVersion: { type: String, enum: ["v1", "v2"], required: true, index: true },
+      teamId: { type: String, index: true },
+      tournamentId: { type: String, index: true },
+      matchesPlayed: { type: Number, required: true, min: 0 },
+      goalsPerMatch: { type: Number, required: true, min: 0 },
+      assistsPerMatch: { type: Number, required: true, min: 0 },
+      presenceRate: { type: Number, required: true, min: 0 },
+      checkInRate: { type: Number, min: 0 },
+      winRate: { type: Number, required: true, min: 0 },
+      recentFormScore: { type: Number, required: true, min: 0 },
+      impactScore: Number,
+      createdAt: { type: String, required: true, index: true }
+    },
+    { collection: "player_feature_snapshots", versionKey: false }
+  );
+  playerFeatureSnapshotSchema.index({ playerId: 1, teamId: 1, tournamentId: 1, createdAt: -1 });
+
   return {
     users: connection.model<Persisted<StoredUser>>("User", userSchema),
     playerProfiles: connection.model<Persisted<PlayerProfile>>("PlayerProfile", playerProfileSchema),
@@ -306,7 +369,8 @@ const modelsFor = (connection: Connection) => {
     invites: connection.model<Persisted<Invite>>("Invite", inviteSchema),
     notifications: connection.model<Persisted<Notification>>("Notification", notificationSchema),
     sessions: connection.model<Persisted<SessionRecord>>("Session", sessionSchema),
-    auditLogs: connection.model<Persisted<AuditLog>>("AuditLog", auditLogSchema)
+    auditLogs: connection.model<Persisted<AuditLog>>("AuditLog", auditLogSchema),
+    playerFeatureSnapshots: connection.model<Persisted<PlayerFeatureSnapshot & { id: string }>>("PlayerFeatureSnapshot", playerFeatureSnapshotSchema)
   };
 };
 
@@ -376,6 +440,24 @@ class MongoosePlayerProfileRepository implements PlayerProfileRepository {
       const { _id: _ignored, ...rest } = clean(doc);
       return rest as PlayerProfile;
     });
+  }
+}
+
+class MongoosePlayerFeatureSnapshotRepository extends BaseMongooseRepository<PlayerFeatureSnapshot & { id: string }> implements PlayerFeatureSnapshotRepository {
+  async create(snapshot: PlayerFeatureSnapshot & { id: string }): Promise<PlayerFeatureSnapshot & { id: string }> {
+    return this.save(snapshot);
+  }
+
+  async listByPlayer(playerId: string, filters: { teamId?: string; tournamentId?: string; limit?: number } = {}): Promise<Array<PlayerFeatureSnapshot & { id: string }>> {
+    const query = {
+      playerId,
+      ...(filters.teamId ? { teamId: filters.teamId } : {}),
+      ...(filters.tournamentId ? { tournamentId: filters.tournamentId } : {})
+    };
+
+    return (await this.model.find(query).sort({ createdAt: -1 }).limit(filters.limit ?? 20).lean())
+      .map((doc) => toDomain<PlayerFeatureSnapshot & { id: string }>(doc))
+      .filter(Boolean) as Array<PlayerFeatureSnapshot & { id: string }>;
   }
 }
 
@@ -610,6 +692,7 @@ export const createMongoRepositories = async (uri: string, dbName: string): Prom
     repositories: {
       users: new MongooseUserRepository(models.users),
       playerProfiles: new MongoosePlayerProfileRepository(models.playerProfiles),
+      playerFeatureSnapshots: new MongoosePlayerFeatureSnapshotRepository(models.playerFeatureSnapshots),
       teams: new MongooseTeamRepository(models.teams),
       matches: new MongooseMatchRepository(models.matches),
       tournaments: new MongooseTournamentRepository(models.tournaments),

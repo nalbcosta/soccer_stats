@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import { playerProfileSchema, updateProfileInputSchema } from "@soccer-stats/shared";
 import { playerRouteSchemas } from "../docs/openapi.js";
 import { createId } from "../lib/ids.js";
+import { StatsService } from "../modules/stats/stats.service.js";
 
 const allowedPhotoMimeTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
 
@@ -152,5 +153,60 @@ export const playerRoutes: FastifyPluginAsync = async (app) => {
     });
 
     return { profile: playerProfileSchema.parse(profile) };
+  });
+
+  app.get("/players/:userId/card", { schema: playerRouteSchemas.getCard }, async (request, reply) => {
+    const user = await app.auth.requireUser(request, reply);
+
+    if (!user) {
+      return;
+    }
+
+    const { userId } = request.params as { userId: string };
+    const teams = await app.repositories.teams.listVisibleToUser(user.id);
+    const readableTeamIds = teams.filter((team) => userId === user.id || team.members.some((member) => member.userId === userId)).map((team) => team.id);
+
+    if (readableTeamIds.length === 0) {
+      reply.code(404);
+      return { message: "Jogador nao encontrado." };
+    }
+
+    const matches = await app.repositories.matches.listByTeamIds(readableTeamIds);
+    const card = await new StatsService(app.repositories).buildPlayerCard(userId, matches);
+
+    if (!card) {
+      reply.code(404);
+      return { message: "Jogador nao encontrado." };
+    }
+
+    return { card };
+  });
+
+  app.get("/players/:userId/insights", { schema: playerRouteSchemas.getInsights }, async (request, reply) => {
+    const user = await app.auth.requireUser(request, reply);
+
+    if (!user) {
+      return;
+    }
+
+    const { userId } = request.params as { userId: string };
+    const teams = await app.repositories.teams.listVisibleToUser(user.id);
+    const readableTeamIds = teams.filter((team) => userId === user.id || team.members.some((member) => member.userId === userId)).map((team) => team.id);
+
+    if (readableTeamIds.length === 0) {
+      reply.code(404);
+      return { message: "Jogador nao encontrado." };
+    }
+
+    const matches = await app.repositories.matches.listByTeamIds(readableTeamIds);
+    const statsService = new StatsService(app.repositories);
+    const card = await statsService.buildPlayerCard(userId, matches);
+
+    if (!card) {
+      reply.code(404);
+      return { message: "Jogador nao encontrado." };
+    }
+
+    return { insights: statsService.buildInsights(card) };
   });
 };

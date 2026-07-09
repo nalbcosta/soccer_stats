@@ -19,7 +19,8 @@ export type NotificationType =
   | "team-member-added"
   | "tournament-updated";
 export type PresenceStatus = "pending" | "confirmed" | "declined" | "maybe";
-export type RatingVersion = "v1";
+export type RatingVersion = "v1" | "v2";
+export type MatchReviewStatus = "none" | "pending" | "approved" | "disputed";
 
 export interface PublicUser {
   id: string;
@@ -76,6 +77,18 @@ export interface MatchPresence {
   status: PresenceStatus;
   updatedAt: string;
   updatedBy: string;
+}
+
+export interface MatchLineup {
+  homePlayerIds: string[];
+  awayPlayerIds: string[];
+  updatedAt: string;
+  updatedBy: string;
+}
+
+export interface MatchCheckIn {
+  userId: string;
+  checkedInAt: string;
 }
 
 export interface Team {
@@ -137,6 +150,10 @@ export interface Match {
   away: MatchSide;
   eventLog: MatchEvent[];
   presences: MatchPresence[];
+  lineup?: MatchLineup;
+  checkIns: MatchCheckIn[];
+  reviewStatus: MatchReviewStatus;
+  eventLogVersion: number;
   durationMinutes?: number;
   venueId?: string;
   venue?: MatchVenue;
@@ -154,6 +171,18 @@ export interface TournamentStanding {
   stats: AggregatedStats;
 }
 
+export interface TournamentRoundPairing {
+  homeTeamId: string;
+  awayTeamId: string;
+  matchId?: string;
+}
+
+export interface TournamentRound {
+  round: number;
+  pairings: TournamentRoundPairing[];
+  createdAt: string;
+}
+
 export interface Tournament {
   id: string;
   name: string;
@@ -163,6 +192,7 @@ export interface Tournament {
   visibility: EntityVisibility;
   teamIds: string[];
   matchIds: string[];
+  rounds: TournamentRound[];
   standings: TournamentStanding[];
   createdAt: string;
   updatedAt: string;
@@ -221,13 +251,57 @@ export interface PlayerRankingEntry {
 }
 
 export interface PlayerFeatureSnapshot {
+  id?: string;
   playerId: string;
   ratingVersion: RatingVersion;
+  teamId?: string;
+  tournamentId?: string;
   matchesPlayed: number;
   goalsPerMatch: number;
   assistsPerMatch: number;
   presenceRate: number;
+  checkInRate?: number;
   winRate: number;
   recentFormScore: number;
+  impactScore?: number;
   createdAt: string;
+}
+
+export interface PlayerCardV2Factor {
+  key: string;
+  label: string;
+  value: number;
+  weight: number;
+}
+
+export interface PlayerCardV2 {
+  playerId: string;
+  ratingVersion: "v2";
+  score: number;
+  factors: PlayerCardV2Factor[];
+  explanation: string;
+  snapshot: PlayerFeatureSnapshot;
+}
+
+export interface PlayerInsight {
+  type: "strength" | "opportunity" | "trend";
+  title: string;
+  message: string;
+  scoreImpact: number;
+}
+
+export interface StatsImpact {
+  matchId: string;
+  playerImpacts: Array<{
+    playerId: string;
+    goals: number;
+    assists: number;
+    checkedIn: boolean;
+    impactScore: number;
+  }>;
+  teamImpacts: Array<{
+    teamId: string;
+    pointsDelta: number;
+    goalDifferenceDelta: number;
+  }>;
 }

@@ -153,6 +153,21 @@ describe("api flows", () => {
 
     expect(tournament.statusCode).toBe(200);
     expect(match.statusCode).toBe(200);
+
+    const tournamentDetail = await app.inject({
+      method: "GET",
+      url: `/v1/tournaments/${tournament.json().tournament.id}`,
+      headers: { cookie: sessionCookie }
+    });
+    expect(tournamentDetail.statusCode).toBe(200);
+
+    const rounds = await app.inject({
+      method: "POST",
+      url: `/v1/tournaments/${tournament.json().tournament.id}/rounds/generate`,
+      headers: { cookie: csrf.cookie, "x-csrf-token": csrf.token }
+    });
+    expect(rounds.statusCode).toBe(200);
+    expect(rounds.json().tournament.rounds.length).toBeGreaterThan(0);
   });
 
   it("cadastra local, cria partida com snapshot, encerra por sumula e gera notificacoes", async () => {
@@ -224,6 +239,26 @@ describe("api flows", () => {
     expect(presence.statusCode).toBe(200);
     expect(presence.json().presences.some((item: { userId: string; status: string }) => item.userId === userId && item.status === "confirmed")).toBe(true);
 
+    const lineup = await app.inject({
+      method: "POST",
+      url: `/v1/matches/${match.json().match.id}/lineup`,
+      headers: { cookie: csrf.cookie, "x-csrf-token": csrf.token },
+      payload: {
+        homePlayerIds: [userId],
+        awayPlayerIds: [userId]
+      }
+    });
+    expect(lineup.statusCode).toBe(200);
+    expect(lineup.json().match.lineup.homePlayerIds).toContain(userId);
+
+    const checkIn = await app.inject({
+      method: "POST",
+      url: `/v1/matches/${match.json().match.id}/check-in/me`,
+      headers: { cookie: csrf.cookie, "x-csrf-token": csrf.token }
+    });
+    expect(checkIn.statusCode).toBe(200);
+    expect(checkIn.json().match.checkIns.some((item: { userId: string }) => item.userId === userId)).toBe(true);
+
     const invalidComplete = await app.inject({
       method: "POST",
       url: "/v1/matches/complete",
@@ -270,6 +305,56 @@ describe("api flows", () => {
     });
     expect(ranking.statusCode).toBe(200);
     expect(ranking.json().players[0].ratings.ratingVersion).toBe("v1");
+
+    const impact = await app.inject({
+      method: "GET",
+      url: `/v1/matches/${match.json().match.id}/stats-impact`,
+      headers: { cookie: sessionCookie }
+    });
+    expect(impact.statusCode).toBe(200);
+    expect(impact.json().impact.playerImpacts[0].checkedIn).toBe(true);
+
+    const card = await app.inject({
+      method: "GET",
+      url: `/v1/players/${userId}/card`,
+      headers: { cookie: sessionCookie }
+    });
+    expect(card.statusCode).toBe(200);
+    expect(card.json().card.ratingVersion).toBe("v2");
+
+    const insights = await app.inject({
+      method: "GET",
+      url: `/v1/players/${userId}/insights`,
+      headers: { cookie: sessionCookie }
+    });
+    expect(insights.statusCode).toBe(200);
+    expect(insights.json().insights.length).toBeGreaterThan(0);
+
+    const review = await app.inject({
+      method: "POST",
+      url: `/v1/matches/${match.json().match.id}/review`,
+      headers: { cookie: csrf.cookie, "x-csrf-token": csrf.token },
+      payload: {
+        homeScore: 2,
+        awayScore: 0,
+        reason: "Gol corrigido na sumula",
+        eventLog: [
+          { minute: 12, type: "goal", playerId: userId, teamId: teamA.json().team.id },
+          { minute: 33, type: "goal", playerId: userId, teamId: teamA.json().team.id }
+        ]
+      }
+    });
+    expect(review.statusCode).toBe(200);
+    expect(review.json().match.reviewStatus).toBe("pending");
+    expect(review.json().match.eventLogVersion).toBe(2);
+
+    const approve = await app.inject({
+      method: "POST",
+      url: `/v1/matches/${match.json().match.id}/review/approve`,
+      headers: { cookie: csrf.cookie, "x-csrf-token": csrf.token }
+    });
+    expect(approve.statusCode).toBe(200);
+    expect(approve.json().match.reviewStatus).toBe("approved");
 
     const notifications = await app.inject({
       method: "GET",

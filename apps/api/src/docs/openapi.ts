@@ -144,6 +144,26 @@ export const playerRouteSchemas = {
       401: { $ref: "messageResponse#" },
       404: { $ref: "messageResponse#" }
     }
+  } satisfies FastifySchema,
+  getCard: {
+    tags: ["players"],
+    summary: "Retorna NaBola Card v2 de um jogador visivel",
+    security: authSecurity,
+    response: {
+      200: { $ref: "playerCardEnvelope#" },
+      401: { $ref: "messageResponse#" },
+      404: { $ref: "messageResponse#" }
+    }
+  } satisfies FastifySchema,
+  getInsights: {
+    tags: ["players"],
+    summary: "Retorna insights v2 de um jogador visivel",
+    security: authSecurity,
+    response: {
+      200: { $ref: "playerInsightsEnvelope#" },
+      401: { $ref: "messageResponse#" },
+      404: { $ref: "messageResponse#" }
+    }
   } satisfies FastifySchema
 };
 
@@ -294,6 +314,16 @@ export const tournamentRouteSchemas = {
       401: { $ref: "messageResponse#" }
     }
   } satisfies FastifySchema,
+  get: {
+    tags: ["tournaments"],
+    summary: "Detalha um campeonato visivel",
+    security: authSecurity,
+    response: {
+      200: { $ref: "tournamentEnvelope#" },
+      401: { $ref: "messageResponse#" },
+      404: { $ref: "messageResponse#" }
+    }
+  } satisfies FastifySchema,
   create: {
     tags: ["tournaments"],
     summary: "Cria um campeonato simples em formato liga",
@@ -304,6 +334,53 @@ export const tournamentRouteSchemas = {
       400: { $ref: "messageResponse#" },
       403: { $ref: "messageResponse#" },
       401: { $ref: "messageResponse#" }
+    }
+  } satisfies FastifySchema,
+  update: {
+    tags: ["tournaments"],
+    summary: "Atualiza dados basicos do campeonato",
+    security: authSecurity,
+    body: { $ref: "updateTournamentInput#" },
+    response: {
+      200: { $ref: "tournamentEnvelope#" },
+      400: { $ref: "messageResponse#" },
+      401: { $ref: "messageResponse#" },
+      403: { $ref: "messageResponse#" }
+    }
+  } satisfies FastifySchema,
+  addTeams: {
+    tags: ["tournaments"],
+    summary: "Adiciona times antes de partidas concluidas",
+    security: authSecurity,
+    body: { $ref: "updateTournamentTeamsInput#" },
+    response: {
+      200: { $ref: "tournamentEnvelope#" },
+      400: { $ref: "messageResponse#" },
+      401: { $ref: "messageResponse#" },
+      403: { $ref: "messageResponse#" },
+      409: { $ref: "messageResponse#" }
+    }
+  } satisfies FastifySchema,
+  removeTeam: {
+    tags: ["tournaments"],
+    summary: "Remove time antes de partidas concluidas",
+    security: authSecurity,
+    response: {
+      200: { $ref: "tournamentEnvelope#" },
+      400: { $ref: "messageResponse#" },
+      401: { $ref: "messageResponse#" },
+      403: { $ref: "messageResponse#" },
+      409: { $ref: "messageResponse#" }
+    }
+  } satisfies FastifySchema,
+  generateRounds: {
+    tags: ["tournaments"],
+    summary: "Gera rodadas simples para campeonato liga",
+    security: authSecurity,
+    response: {
+      200: { $ref: "tournamentEnvelope#" },
+      401: { $ref: "messageResponse#" },
+      403: { $ref: "messageResponse#" }
     }
   } satisfies FastifySchema
 };
@@ -436,6 +513,88 @@ export const matchRouteSchemas = {
       403: { $ref: "messageResponse#" },
       404: { $ref: "messageResponse#" },
       409: { $ref: "messageResponse#" }
+    }
+  } satisfies FastifySchema,
+  updateLineup: {
+    tags: ["matches"],
+    summary: "Define escalacao final da partida",
+    security: authSecurity,
+    body: { $ref: "updateMatchLineupInput#" },
+    response: {
+      200: { $ref: "matchEnvelope#" },
+      400: { $ref: "messageResponse#" },
+      401: { $ref: "messageResponse#" },
+      403: { $ref: "messageResponse#" },
+      404: { $ref: "messageResponse#" },
+      409: { $ref: "messageResponse#" }
+    }
+  } satisfies FastifySchema,
+  checkInMe: {
+    tags: ["matches"],
+    summary: "Registra check-in do jogador autenticado",
+    security: authSecurity,
+    response: {
+      200: { $ref: "matchEnvelope#" },
+      401: { $ref: "messageResponse#" },
+      403: { $ref: "messageResponse#" },
+      404: { $ref: "messageResponse#" }
+    }
+  } satisfies FastifySchema,
+  review: {
+    tags: ["matches"],
+    summary: "Revisa sumula de uma partida concluida",
+    security: authSecurity,
+    body: { $ref: "reviewMatchInput#" },
+    response: {
+      200: { $ref: "matchEnvelope#" },
+      400: { $ref: "messageResponse#" },
+      401: { $ref: "messageResponse#" },
+      403: { $ref: "messageResponse#" },
+      404: { $ref: "messageResponse#" },
+      409: { $ref: "messageResponse#" }
+    }
+  } satisfies FastifySchema,
+  approveReview: {
+    tags: ["matches"],
+    summary: "Aprova revisao de sumula",
+    security: authSecurity,
+    response: {
+      200: { $ref: "matchEnvelope#" },
+      401: { $ref: "messageResponse#" },
+      403: { $ref: "messageResponse#" },
+      404: { $ref: "messageResponse#" }
+    }
+  } satisfies FastifySchema,
+  disputeReview: {
+    tags: ["matches"],
+    summary: "Contesta revisao de sumula",
+    security: authSecurity,
+    response: {
+      200: { $ref: "matchEnvelope#" },
+      401: { $ref: "messageResponse#" },
+      404: { $ref: "messageResponse#" }
+    }
+  } satisfies FastifySchema,
+  statsImpact: {
+    tags: ["matches"],
+    summary: "Retorna impacto estatistico de uma partida",
+    security: authSecurity,
+    response: {
+      200: { $ref: "statsImpactEnvelope#" },
+      401: { $ref: "messageResponse#" },
+      404: { $ref: "messageResponse#" }
+    }
+  } satisfies FastifySchema
+};
+
+export const auditRouteSchemas = {
+  listMine: {
+    tags: ["audit"],
+    summary: "Lista audit logs do usuario autenticado",
+    security: authSecurity,
+    response: {
+      200: { $ref: "auditLogsEnvelope#" },
+      401: { $ref: "messageResponse#" }
     }
   } satisfies FastifySchema
 };
@@ -682,6 +841,26 @@ const schemas = [
     required: ["userId", "status", "updatedAt", "updatedBy"]
   },
   {
+    $id: "matchLineup",
+    type: "object",
+    properties: {
+      homePlayerIds: { type: "array", items: id },
+      awayPlayerIds: { type: "array", items: id },
+      updatedAt: isoDate,
+      updatedBy: id
+    },
+    required: ["homePlayerIds", "awayPlayerIds", "updatedAt", "updatedBy"]
+  },
+  {
+    $id: "matchCheckIn",
+    type: "object",
+    properties: {
+      userId: id,
+      checkedInAt: isoDate
+    },
+    required: ["userId", "checkedInAt"]
+  },
+  {
     $id: "matchVenue",
     type: "object",
     properties: {
@@ -741,6 +920,13 @@ const schemas = [
         type: "array",
         items: { $ref: "matchPresence#" }
       },
+      lineup: { $ref: "matchLineup#" },
+      checkIns: {
+        type: "array",
+        items: { $ref: "matchCheckIn#" }
+      },
+      reviewStatus: { type: "string", enum: ["none", "pending", "approved", "disputed"] },
+      eventLogVersion: { type: "integer", minimum: 1 },
       durationMinutes: { type: "integer", minimum: 1, maximum: 180 },
       venueId: id,
       venue: { $ref: "matchVenue#" },
@@ -752,7 +938,7 @@ const schemas = [
       createdAt: isoDate,
       updatedAt: isoDate
     },
-    required: ["id", "type", "status", "createdBy", "home", "away", "eventLog", "presences", "playedAt", "createdAt", "updatedAt"]
+    required: ["id", "type", "status", "createdBy", "home", "away", "eventLog", "presences", "checkIns", "reviewStatus", "eventLogVersion", "playedAt", "createdAt", "updatedAt"]
   },
   {
     $id: "tournamentStanding",
@@ -762,6 +948,29 @@ const schemas = [
       stats: { $ref: "stats#" }
     },
     required: ["teamId", "stats"]
+  },
+  {
+    $id: "tournamentRoundPairing",
+    type: "object",
+    properties: {
+      homeTeamId: id,
+      awayTeamId: id,
+      matchId: id
+    },
+    required: ["homeTeamId", "awayTeamId"]
+  },
+  {
+    $id: "tournamentRound",
+    type: "object",
+    properties: {
+      round: { type: "integer", minimum: 1 },
+      pairings: {
+        type: "array",
+        items: { $ref: "tournamentRoundPairing#" }
+      },
+      createdAt: isoDate
+    },
+    required: ["round", "pairings", "createdAt"]
   },
   {
     $id: "tournament",
@@ -781,6 +990,10 @@ const schemas = [
         type: "array",
         items: id
       },
+      rounds: {
+        type: "array",
+        items: { $ref: "tournamentRound#" }
+      },
       standings: {
         type: "array",
         items: { $ref: "tournamentStanding#" }
@@ -788,7 +1001,7 @@ const schemas = [
       createdAt: isoDate,
       updatedAt: isoDate
     },
-    required: ["id", "name", "slug", "ownerId", "format", "visibility", "teamIds", "matchIds", "standings", "createdAt", "updatedAt"]
+    required: ["id", "name", "slug", "ownerId", "format", "visibility", "teamIds", "matchIds", "rounds", "standings", "createdAt", "updatedAt"]
   },
   {
     $id: "signUpInput",
@@ -956,6 +1169,31 @@ const schemas = [
     required: ["status"]
   },
   {
+    $id: "updateMatchLineupInput",
+    type: "object",
+    properties: {
+      homePlayerIds: { type: "array", items: id, minItems: 1 },
+      awayPlayerIds: { type: "array", items: id, minItems: 1 }
+    },
+    required: ["homePlayerIds", "awayPlayerIds"]
+  },
+  {
+    $id: "reviewMatchInput",
+    type: "object",
+    properties: {
+      homeScore: { type: "integer", minimum: 0 },
+      awayScore: { type: "integer", minimum: 0 },
+      durationMinutes: { type: "integer", minimum: 1, maximum: 180 },
+      venue: { $ref: "matchVenue#" },
+      eventLog: {
+        type: "array",
+        items: { $ref: "matchEvent#" }
+      },
+      reason: { type: "string", maxLength: 240 }
+    },
+    required: ["homeScore", "awayScore", "eventLog"]
+  },
+  {
     $id: "cancelMatchInput",
     type: "object",
     properties: {
@@ -976,7 +1214,7 @@ const schemas = [
     $id: "playerCardRatings",
     type: "object",
     properties: {
-      ratingVersion: { type: "string", enum: ["v1"] },
+      ratingVersion: { type: "string", enum: ["v1", "v2"] },
       overall: { type: "integer", minimum: 35, maximum: 99 },
       attack: { type: "integer", minimum: 35, maximum: 99 },
       pass: { type: "integer", minimum: 35, maximum: 99 },
@@ -1001,6 +1239,96 @@ const schemas = [
     required: ["playerId", "displayName", "stats", "ratings", "rank", "explanation"]
   },
   {
+    $id: "playerFeatureSnapshot",
+    type: "object",
+    properties: {
+      id,
+      playerId: id,
+      ratingVersion: { type: "string", enum: ["v1", "v2"] },
+      teamId: id,
+      tournamentId: id,
+      matchesPlayed: { type: "integer", minimum: 0 },
+      goalsPerMatch: { type: "number", minimum: 0 },
+      assistsPerMatch: { type: "number", minimum: 0 },
+      presenceRate: { type: "number", minimum: 0 },
+      checkInRate: { type: "number", minimum: 0 },
+      winRate: { type: "number", minimum: 0 },
+      recentFormScore: { type: "number", minimum: 0 },
+      impactScore: { type: "number" },
+      createdAt: isoDate
+    },
+    required: ["playerId", "ratingVersion", "matchesPlayed", "goalsPerMatch", "assistsPerMatch", "presenceRate", "winRate", "recentFormScore", "createdAt"]
+  },
+  {
+    $id: "playerCardV2Factor",
+    type: "object",
+    properties: {
+      key: { type: "string" },
+      label: { type: "string" },
+      value: { type: "number" },
+      weight: { type: "number" }
+    },
+    required: ["key", "label", "value", "weight"]
+  },
+  {
+    $id: "playerCardV2",
+    type: "object",
+    properties: {
+      playerId: id,
+      ratingVersion: { type: "string", enum: ["v2"] },
+      score: { type: "integer", minimum: 35, maximum: 99 },
+      factors: { type: "array", items: { $ref: "playerCardV2Factor#" } },
+      explanation: { type: "string" },
+      snapshot: { $ref: "playerFeatureSnapshot#" }
+    },
+    required: ["playerId", "ratingVersion", "score", "factors", "explanation", "snapshot"]
+  },
+  {
+    $id: "playerInsight",
+    type: "object",
+    properties: {
+      type: { type: "string", enum: ["strength", "opportunity", "trend"] },
+      title: { type: "string" },
+      message: { type: "string" },
+      scoreImpact: { type: "number" }
+    },
+    required: ["type", "title", "message", "scoreImpact"]
+  },
+  {
+    $id: "statsImpact",
+    type: "object",
+    properties: {
+      matchId: id,
+      playerImpacts: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            playerId: id,
+            goals: { type: "integer", minimum: 0 },
+            assists: { type: "integer", minimum: 0 },
+            checkedIn: { type: "boolean" },
+            impactScore: { type: "number" }
+          },
+          required: ["playerId", "goals", "assists", "checkedIn", "impactScore"]
+        }
+      },
+      teamImpacts: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            teamId: id,
+            pointsDelta: { type: "integer" },
+            goalDifferenceDelta: { type: "integer" }
+          },
+          required: ["teamId", "pointsDelta", "goalDifferenceDelta"]
+        }
+      }
+    },
+    required: ["matchId", "playerImpacts", "teamImpacts"]
+  },
+  {
     $id: "createTournamentInput",
     type: "object",
     properties: {
@@ -1013,6 +1341,22 @@ const schemas = [
       }
     },
     required: ["name", "teamIds"]
+  },
+  {
+    $id: "updateTournamentInput",
+    type: "object",
+    properties: {
+      name: { type: "string", minLength: 2, maxLength: 50 },
+      visibility: { type: "string", enum: ["private", "public"] }
+    }
+  },
+  {
+    $id: "updateTournamentTeamsInput",
+    type: "object",
+    properties: {
+      teamIds: { type: "array", items: id, minItems: 1 }
+    },
+    required: ["teamIds"]
   },
   {
     $id: "createVenueInput",
@@ -1075,6 +1419,25 @@ const schemas = [
       }
     },
     required: ["profile"]
+  },
+  {
+    $id: "playerCardEnvelope",
+    type: "object",
+    properties: {
+      card: { $ref: "playerCardV2#" }
+    },
+    required: ["card"]
+  },
+  {
+    $id: "playerInsightsEnvelope",
+    type: "object",
+    properties: {
+      insights: {
+        type: "array",
+        items: { $ref: "playerInsight#" }
+      }
+    },
+    required: ["insights"]
   },
   {
     $id: "teamEnvelope",
@@ -1181,6 +1544,14 @@ const schemas = [
     required: ["presences"]
   },
   {
+    $id: "statsImpactEnvelope",
+    type: "object",
+    properties: {
+      impact: { $ref: "statsImpact#" }
+    },
+    required: ["impact"]
+  },
+  {
     $id: "matchesEnvelope",
     type: "object",
     properties: {
@@ -1220,6 +1591,34 @@ const schemas = [
       }
     },
     required: ["players"]
+  },
+  {
+    $id: "auditLog",
+    type: "object",
+    properties: {
+      id,
+      actorUserId: id,
+      action: { type: "string" },
+      resourceType: { type: "string" },
+      resourceId: id,
+      metadata: {
+        type: "object",
+        additionalProperties: { type: "string" }
+      },
+      createdAt: isoDate
+    },
+    required: ["id", "actorUserId", "action", "resourceType", "resourceId", "createdAt"]
+  },
+  {
+    $id: "auditLogsEnvelope",
+    type: "object",
+    properties: {
+      auditLogs: {
+        type: "array",
+        items: { $ref: "auditLog#" }
+      }
+    },
+    required: ["auditLogs"]
   },
   {
     $id: "dashboardResponse",
@@ -1285,6 +1684,7 @@ export const registerOpenApi = async (app: FastifyInstance): Promise<void> => {
         { name: "tournaments", description: "Campeonatos" },
         { name: "rankings", description: "Rankings, artilharia e heuristica NaBola Card" },
         { name: "notifications", description: "Alertas in-app" },
+        { name: "audit", description: "Auditoria protegida" },
         { name: "dashboard", description: "Visão agregada do painel" }
       ],
       components: {

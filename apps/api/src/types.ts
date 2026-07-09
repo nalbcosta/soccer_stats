@@ -4,6 +4,7 @@ import type {
   Match,
   Notification,
   PlayerProfile,
+  PlayerFeatureSnapshot,
   PublicUser,
   SupportedLocale,
   Team,
@@ -36,6 +37,7 @@ export interface AppContext {
 export interface Repositories {
   users: UserRepository;
   playerProfiles: PlayerProfileRepository;
+  playerFeatureSnapshots: PlayerFeatureSnapshotRepository;
   teams: TeamRepository;
   matches: MatchRepository;
   tournaments: TournamentRepository;
@@ -58,6 +60,11 @@ export interface PlayerProfileRepository {
   upsert(profile: PlayerProfile): Promise<PlayerProfile>;
   findByUserId(userId: string): Promise<PlayerProfile | null>;
   listByUserIds(userIds: string[]): Promise<PlayerProfile[]>;
+}
+
+export interface PlayerFeatureSnapshotRepository {
+  create(snapshot: PlayerFeatureSnapshot & { id: string }): Promise<PlayerFeatureSnapshot & { id: string }>;
+  listByPlayer(playerId: string, filters?: { teamId?: string; tournamentId?: string; limit?: number }): Promise<Array<PlayerFeatureSnapshot & { id: string }>>;
 }
 
 export interface TeamRepository {

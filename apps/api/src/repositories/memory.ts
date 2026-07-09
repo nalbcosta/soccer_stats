@@ -1,10 +1,11 @@
-import type { AuditLog, Invite, Match, Notification, PlayerProfile, Team, Tournament, Venue } from "@soccer-stats/shared";
+import type { AuditLog, Invite, Match, Notification, PlayerFeatureSnapshot, PlayerProfile, Team, Tournament, Venue } from "@soccer-stats/shared";
 import type {
   AuditLogRepository,
   InviteRepository,
   MatchRepository,
   NotificationRepository,
   PlayerProfileRepository,
+  PlayerFeatureSnapshotRepository,
   Repositories,
   SessionRecord,
   SessionRepository,
@@ -55,6 +56,24 @@ class MemoryPlayerProfileRepository implements PlayerProfileRepository {
 
   async listByUserIds(userIds: string[]): Promise<PlayerProfile[]> {
     return userIds.map((id) => this.items.get(id)).filter((value): value is PlayerProfile => Boolean(value));
+  }
+}
+
+class MemoryPlayerFeatureSnapshotRepository implements PlayerFeatureSnapshotRepository {
+  private readonly items = new Map<string, PlayerFeatureSnapshot & { id: string }>();
+
+  async create(snapshot: PlayerFeatureSnapshot & { id: string }): Promise<PlayerFeatureSnapshot & { id: string }> {
+    this.items.set(snapshot.id, snapshot);
+    return snapshot;
+  }
+
+  async listByPlayer(playerId: string, filters: { teamId?: string; tournamentId?: string; limit?: number } = {}): Promise<Array<PlayerFeatureSnapshot & { id: string }>> {
+    return [...this.items.values()]
+      .filter((snapshot) => snapshot.playerId === playerId)
+      .filter((snapshot) => !filters.teamId || snapshot.teamId === filters.teamId)
+      .filter((snapshot) => !filters.tournamentId || snapshot.tournamentId === filters.tournamentId)
+      .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
+      .slice(0, filters.limit ?? 20);
   }
 }
 
@@ -305,6 +324,7 @@ class MemoryAuditLogRepository implements AuditLogRepository {
 export const createMemoryRepositories = (): Repositories => ({
   users: new MemoryUserRepository(),
   playerProfiles: new MemoryPlayerProfileRepository(),
+  playerFeatureSnapshots: new MemoryPlayerFeatureSnapshotRepository(),
   teams: new MemoryTeamRepository(),
   matches: new MemoryMatchRepository(),
   tournaments: new MemoryTournamentRepository(),

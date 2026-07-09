@@ -96,6 +96,13 @@ export const demoTournament: Tournament = {
   visibility: "public",
   teamIds: [demoHomeTeam.id, demoAwayTeam.id],
   matchIds: ["demo-match"],
+  rounds: [
+    {
+      round: 1,
+      pairings: [{ homeTeamId: demoHomeTeam.id, awayTeamId: demoAwayTeam.id, matchId: "demo-match" }],
+      createdAt: "2026-07-04T15:00:00.000Z"
+    }
+  ],
   standings: [
     { teamId: demoHomeTeam.id, stats: demoHomeTeam.stats },
     { teamId: demoAwayTeam.id, stats: demoAwayTeam.stats }
@@ -139,6 +146,12 @@ export const demoMatch: Match = {
     { userId: "demo-away-9", status: "confirmed", updatedAt: "2026-07-04T18:15:00.000Z", updatedBy: "demo-away-9" },
     { userId: "demo-away-11", status: "maybe", updatedAt: "2026-07-04T18:20:00.000Z", updatedBy: "demo-away-11" }
   ],
+  checkIns: [
+    { userId: demoUser.id, checkedInAt: "2026-07-04T20:20:00.000Z" },
+    { userId: demoAssistUser.id, checkedInAt: "2026-07-04T20:25:00.000Z" }
+  ],
+  reviewStatus: "approved",
+  eventLogVersion: 1,
   playedAt: "2026-07-04T21:00:00.000Z",
   createdAt: "2026-07-04T15:00:00.000Z",
   updatedAt: "2026-07-04T22:10:00.000Z"

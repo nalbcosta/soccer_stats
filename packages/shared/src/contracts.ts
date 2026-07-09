@@ -21,7 +21,8 @@ export const notificationTypeSchema = z.enum([
   "tournament-updated"
 ]);
 export const presenceStatusSchema = z.enum(["pending", "confirmed", "declined", "maybe"]);
-export const ratingVersionSchema = z.enum(["v1"]);
+export const ratingVersionSchema = z.enum(["v1", "v2"]);
+export const matchReviewStatusSchema = z.enum(["none", "pending", "approved", "disputed"]);
 export const usernameSchema = z.string().min(3).max(20).regex(/^[a-z0-9_]+$/);
 export const passwordSchema = z
   .string()
@@ -117,6 +118,18 @@ export const matchPresenceSchema = z.object({
   updatedBy: z.string()
 });
 
+export const matchLineupSchema = z.object({
+  homePlayerIds: z.array(z.string()).min(1),
+  awayPlayerIds: z.array(z.string()).min(1),
+  updatedAt: z.string(),
+  updatedBy: z.string()
+});
+
+export const matchCheckInSchema = z.object({
+  userId: z.string(),
+  checkedInAt: z.string()
+});
+
 export const venueSchema = z.object({
   id: z.string(),
   name: z.string().min(2).max(80),
@@ -146,6 +159,10 @@ export const matchSchema = z.object({
   away: matchSideSchema,
   eventLog: z.array(matchEventSchema),
   presences: z.array(matchPresenceSchema).default([]),
+  lineup: matchLineupSchema.optional(),
+  checkIns: z.array(matchCheckInSchema).default([]),
+  reviewStatus: matchReviewStatusSchema.default("none"),
+  eventLogVersion: z.number().int().positive().default(1),
   durationMinutes: z.number().int().positive().max(180).optional(),
   venueId: z.string().optional(),
   venue: matchVenueSchema.optional(),
@@ -163,6 +180,18 @@ export const tournamentStandingSchema = z.object({
   stats: statsSchema
 });
 
+export const tournamentRoundPairingSchema = z.object({
+  homeTeamId: z.string(),
+  awayTeamId: z.string(),
+  matchId: z.string().optional()
+});
+
+export const tournamentRoundSchema = z.object({
+  round: z.number().int().positive(),
+  pairings: z.array(tournamentRoundPairingSchema),
+  createdAt: z.string()
+});
+
 export const tournamentSchema = z.object({
   id: z.string(),
   name: z.string(),
@@ -172,6 +201,7 @@ export const tournamentSchema = z.object({
   visibility: entityVisibilitySchema.default("private"),
   teamIds: z.array(z.string()),
   matchIds: z.array(z.string()),
+  rounds: z.array(tournamentRoundSchema).default([]),
   standings: z.array(tournamentStandingSchema),
   createdAt: z.string(),
   updatedAt: z.string()
@@ -220,6 +250,62 @@ export const playerCardRatingsSchema = z.object({
   regularity: z.number().int().min(35).max(99),
   winning: z.number().int().min(35).max(99),
   form: z.number().int().min(35).max(99)
+});
+
+export const playerFeatureSnapshotSchema = z.object({
+  id: z.string().optional(),
+  playerId: z.string(),
+  ratingVersion: ratingVersionSchema,
+  teamId: z.string().optional(),
+  tournamentId: z.string().optional(),
+  matchesPlayed: z.number().int().nonnegative(),
+  goalsPerMatch: z.number().nonnegative(),
+  assistsPerMatch: z.number().nonnegative(),
+  presenceRate: z.number().nonnegative(),
+  checkInRate: z.number().nonnegative().optional(),
+  winRate: z.number().nonnegative(),
+  recentFormScore: z.number().nonnegative(),
+  impactScore: z.number().optional(),
+  createdAt: z.string()
+});
+
+export const playerCardV2FactorSchema = z.object({
+  key: z.string(),
+  label: z.string(),
+  value: z.number(),
+  weight: z.number()
+});
+
+export const playerCardV2Schema = z.object({
+  playerId: z.string(),
+  ratingVersion: z.literal("v2"),
+  score: z.number().int().min(35).max(99),
+  factors: z.array(playerCardV2FactorSchema),
+  explanation: z.string(),
+  snapshot: playerFeatureSnapshotSchema
+});
+
+export const playerInsightSchema = z.object({
+  type: z.enum(["strength", "opportunity", "trend"]),
+  title: z.string(),
+  message: z.string(),
+  scoreImpact: z.number()
+});
+
+export const statsImpactSchema = z.object({
+  matchId: z.string(),
+  playerImpacts: z.array(z.object({
+    playerId: z.string(),
+    goals: z.number().int().nonnegative(),
+    assists: z.number().int().nonnegative(),
+    checkedIn: z.boolean(),
+    impactScore: z.number()
+  })),
+  teamImpacts: z.array(z.object({
+    teamId: z.string(),
+    pointsDelta: z.number().int(),
+    goalDifferenceDelta: z.number().int()
+  }))
 });
 
 export const playerRankingEntrySchema = z.object({
@@ -298,6 +384,20 @@ export const completeMatchInputSchema = z.object({
   eventLog: z.array(matchEventSchema)
 });
 
+export const updateMatchLineupInputSchema = z.object({
+  homePlayerIds: z.array(z.string()).min(1),
+  awayPlayerIds: z.array(z.string()).min(1)
+});
+
+export const reviewMatchInputSchema = z.object({
+  homeScore: z.number().int().nonnegative(),
+  awayScore: z.number().int().nonnegative(),
+  durationMinutes: z.number().int().positive().max(180).optional(),
+  venue: matchVenueSchema.optional(),
+  eventLog: z.array(matchEventSchema),
+  reason: z.string().max(240).optional()
+});
+
 export const updatePresenceInputSchema = z.object({
   status: presenceStatusSchema
 });
@@ -310,6 +410,17 @@ export const createTournamentInputSchema = z.object({
   name: z.string().min(2).max(50),
   visibility: entityVisibilitySchema.default("private"),
   teamIds: z.array(z.string()).min(2)
+});
+
+export const updateTournamentInputSchema = z.object({
+  name: z.string().min(2).max(50).optional(),
+  visibility: entityVisibilitySchema.optional()
+}).refine((value) => Object.keys(value).length > 0, {
+  message: "Informe ao menos um campo para atualizar."
+});
+
+export const updateTournamentTeamsInputSchema = z.object({
+  teamIds: z.array(z.string()).min(1)
 });
 
 export const createVenueInputSchema = z.object({

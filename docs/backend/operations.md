@@ -91,8 +91,11 @@ Coberturas atuais:
 - OpenAPI JSON.
 - disponibilidade de username.
 - venue + snapshot em partida.
+- lineup, check-in e revisao de sumula.
 - validacao de placar contra sumula.
 - bloqueio de encerramento duplicado.
+- NaBola Card v2, insights e impacto estatistico.
+- geracao de rodadas de campeonato liga.
 - notificacoes.
 - calculo de stats.
 
@@ -157,7 +160,9 @@ Limites atuais:
 
 - 1 arquivo por request.
 - 5 MB por arquivo.
-- MIME precisa iniciar com `image/`.
+- Apenas JPG, PNG e WebP.
+- MIME declarado precisa bater com assinatura basica do arquivo.
+- Metadata do upload fica em `player_profiles.photoMetadata`.
 
 ## Seguranca atual
 
