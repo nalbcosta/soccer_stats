@@ -7,11 +7,16 @@ import { useSession } from "./session-provider";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { MenuShell } from "./menu-shell";
+import { useLocale } from "../../i18n/provider";
+import { formatDateTime } from "../../i18n/formatters";
+import { useTranslations } from "../../i18n/provider";
 
 type AlertsMenuMode = "header" | "mobile";
 
 export function AlertsMenu({ mode }: { mode: AlertsMenuMode }) {
   const { dashboard } = useSession();
+  const { locale } = useLocale();
+  const t = useTranslations("dashboard");
   const [open, setOpen] = useState(false);
   const [cleared, setCleared] = useState(false);
 
@@ -30,17 +35,17 @@ export function AlertsMenu({ mode }: { mode: AlertsMenuMode }) {
       ...scheduled.map((match) => ({
         href: `/app/matches/${match.id}`,
         icon: CalendarDays,
-        label: "Jogo marcado",
-        meta: new Date(match.playedAt).toLocaleString("pt-BR")
+        label: t("matchScheduled"),
+        meta: formatDateTime(match.playedAt, locale, { dateStyle: "medium", timeStyle: "short" })
       })),
       ...pendingInvites.map((invite) => ({
         href: "/app/invites",
         icon: MailPlus,
-        label: "Convite pendente",
+        label: t("invitePending"),
         meta: invite.email
       }))
     ];
-  }, [dashboard]);
+  }, [dashboard, locale, t]);
 
   useEffect(() => {
     if (!open) {
@@ -78,7 +83,7 @@ export function AlertsMenu({ mode }: { mode: AlertsMenuMode }) {
         aria-haspopup="menu"
       >
         <Bell size={mode === "header" ? 20 : 20} strokeWidth={2.3} />
-        <span className={mode === "header" ? "sr-only md:not-sr-only" : ""}>Avisos</span>
+        <span className={mode === "header" ? "sr-only md:not-sr-only" : ""}>{t("alerts")}</span>
         {unreadCount > 0 ? (
           <Badge className="absolute -right-1 -top-1 min-h-5 min-w-5 px-1.5 text-[10px]" tone="warning">
             {unreadCount > 9 ? "9+" : unreadCount}
@@ -90,8 +95,8 @@ export function AlertsMenu({ mode }: { mode: AlertsMenuMode }) {
         <div className="border-b border-border px-4 py-3">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <p className="text-xs font-black uppercase text-muted">Avisos</p>
-              <p className="mt-1 text-sm font-semibold text-muted">Jogo marcado, convite pendente e novidades da rodada.</p>
+              <p className="text-xs font-black uppercase text-muted">{t("alerts")}</p>
+              <p className="mt-1 text-sm font-semibold text-muted">{t("alertsDescription")}</p>
             </div>
             <Button className="min-h-9 px-2" type="button" variant="ghost" onClick={() => setOpen(false)} title="Fechar">
               <X size={18} />
@@ -104,7 +109,7 @@ export function AlertsMenu({ mode }: { mode: AlertsMenuMode }) {
               onClick={() => setOpen(false)}
             >
               <Bell size={16} />
-              Ver tudo
+              {t("viewAll")}
             </Link>
             <Button
               className="min-h-9 px-3 text-sm font-semibold"
@@ -113,13 +118,13 @@ export function AlertsMenu({ mode }: { mode: AlertsMenuMode }) {
               onClick={() => setCleared(true)}
             >
               <CheckCheck size={16} />
-              Limpar
+              {t("clear")}
             </Button>
           </div>
         </div>
         <div className="flex-1 overflow-y-auto p-3">
           {visibleItems.length === 0 ? (
-            <div className="rounded-lg bg-canvas p-4 text-sm font-semibold text-muted">Tudo quieto por aqui.</div>
+            <div className="rounded-lg bg-canvas p-4 text-sm font-semibold text-muted">{t("notificationsEmpty")}</div>
           ) : (
             <div className="grid gap-2">
               {visibleItems.map((item) => {

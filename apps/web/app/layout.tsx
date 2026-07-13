@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { ThemeProvider } from "../components/theme-provider";
-import { LocaleProvider } from "../components/locale-provider";
+import { LocaleProvider } from "../i18n/provider";
+import { CookieConsentToast } from "../components/legal/cookie-consent-toast";
 
 export const metadata: Metadata = {
   title: "NaBola",
@@ -24,7 +25,10 @@ export default function RootLayout({
       </head>
       <body className="font-sans antialiased">
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-          <LocaleProvider>{children}</LocaleProvider>
+          <LocaleProvider>
+            {children}
+            <CookieConsentToast />
+          </LocaleProvider>
         </ThemeProvider>
       </body>
     </html>

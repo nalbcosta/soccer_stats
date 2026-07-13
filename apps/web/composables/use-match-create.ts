@@ -4,6 +4,8 @@ import { useMemo, useState, useTransition } from "react";
 import type { Match } from "@soccer-stats/shared";
 import { api } from "../lib/api";
 import { useSession } from "../components/app/session-provider";
+import { useLocale, useTranslations } from "../i18n/provider";
+import { formatDateTime } from "../i18n/formatters";
 
 export interface MatchCreateState {
   homeTeamId: string;
@@ -37,6 +39,8 @@ const initialState = (): MatchCreateState => ({
 
 export function useMatchCreate(onCreated?: () => void) {
   const { dashboard, user, refresh, setFeedback } = useSession();
+  const { locale } = useLocale();
+  const t = useTranslations("match");
   const [isPending, startTransition] = useTransition();
   const [form, setForm] = useState<MatchCreateState>(() => initialState());
   const [locationLoading, setLocationLoading] = useState(false);
@@ -49,11 +53,11 @@ export function useMatchCreate(onCreated?: () => void) {
   const selectedAway = teams.find((team) => team.id === form.awayTeamId);
   const summary = useMemo(
     () => ({
-      title: selectedHome && selectedAway ? `${selectedHome.name} x ${selectedAway.name}` : "Escolha os times",
-      date: form.playedAt ? new Date(form.playedAt).toLocaleString("pt-BR") : "Data a definir",
+      title: selectedHome && selectedAway ? `${selectedHome.name} x ${selectedAway.name}` : t("chooseTeams"),
+      date: form.playedAt ? formatDateTime(form.playedAt, locale, { dateStyle: "medium", timeStyle: "short" }) : t("datePending"),
       venue: form.venueName || form.venueAddress || "Local a definir"
     }),
-    [form.playedAt, form.venueAddress, form.venueName, selectedAway, selectedHome]
+    [form.playedAt, form.venueAddress, form.venueName, locale, selectedAway, selectedHome, t]
   );
 
   const update = <Key extends keyof MatchCreateState>(key: Key, value: MatchCreateState[Key]) => {

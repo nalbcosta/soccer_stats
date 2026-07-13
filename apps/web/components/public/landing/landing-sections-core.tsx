@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { motion, useScroll, useSpring, useTransform } from "framer-motion";
 import { ArrowRight, BarChart3, ChevronRight, LogIn, Shield, Trophy, X } from "lucide-react";
-import type { LandingDictionary } from "../public-landing-content";
+import type { LandingDictionary } from "../../../i18n/messages/landing";
 import { AnimatedFieldGrid } from "../animated-field-grid";
 import { demoHomeTeam, demoAwayTeam, demoMatch, demoPlayerNames, demoProfile, demoTournament, demoUser } from "./landing-demo-data";
 import { FlowCard, LocaleToggleButton, MiniSignal, Quote, Reveal, ThemeToggleButton, sectionTransition } from "./landing-shared";

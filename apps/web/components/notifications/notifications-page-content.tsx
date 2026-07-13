@@ -8,9 +8,14 @@ import { EmptyState } from "../feedback/empty-state";
 import { LoadingState } from "../feedback/loading-state";
 import { MatchStatusChip } from "../sports/match-status-chip";
 import { Card } from "../ui/card";
+import { useLocale, useTranslations } from "../../i18n/provider";
+import { formatDateTime } from "../../i18n/formatters";
 
 export function NotificationsPageContent() {
   const { dashboard } = useSession();
+  const { locale } = useLocale();
+  const t = useTranslations("match");
+  const dashboardText = useTranslations("dashboard");
 
   if (!dashboard) {
     return <LoadingState label="Abrindo avisos..." />;
@@ -22,9 +27,9 @@ export function NotificationsPageContent() {
 
   return (
     <>
-      <PageHeading eyebrow="Avisos" title="Notificações" />
+      <PageHeading eyebrow={dashboardText("alerts")} title={dashboardText("notificationsTitle")} />
       {!hasNotifications ? (
-        <EmptyState title="Tudo quieto por aqui" description="Jogos marcados e convites pendentes aparecem nesta área." />
+        <EmptyState title={dashboardText("notificationsEmpty")} description={dashboardText("notificationsDescription")} />
       ) : (
         <div className="grid gap-3">
           {scheduled.map((match) => (
@@ -35,8 +40,8 @@ export function NotificationsPageContent() {
                     <CalendarDays size={19} />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="font-black">Jogo marcado</p>
-                    <p className="mt-1 text-sm font-semibold text-muted">{new Date(match.playedAt).toLocaleString("pt-BR")}</p>
+                    <p className="font-black">{t("scheduled")}</p>
+                    <p className="mt-1 text-sm font-semibold text-muted">{formatDateTime(match.playedAt, locale, { dateStyle: "medium", timeStyle: "short" })}</p>
                   </div>
                   <MatchStatusChip status={match.status} />
                 </div>

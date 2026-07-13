@@ -2,15 +2,17 @@ import Link from "next/link";
 import type { PlayerRankingEntry } from "@soccer-stats/shared";
 import { EmptyState } from "../feedback/empty-state";
 import { Card } from "../ui/card";
+import { useTranslations } from "../../i18n/provider";
 
 export function DashboardPlayerRankingPreview({ players }: { players: PlayerRankingEntry[] }) {
+  const t = useTranslations("dashboard");
   if (players.length === 0) {
     return (
       <EmptyState
         actionHref="/app/matches"
-        actionLabel="Concluir partida"
-        description="O ranking de jogadores aparece depois das primeiras súmulas fechadas."
-        title="Ranking em aquecimento"
+        actionLabel={t("completeMatch")}
+        description={t("rankingDescription")}
+        title={t("rankingWarming")}
       />
     );
   }
@@ -19,11 +21,11 @@ export function DashboardPlayerRankingPreview({ players }: { players: PlayerRank
     <section className="grid gap-3">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <p className="text-xs font-black uppercase text-field">Ranking de jogadores</p>
-          <h2 className="mt-1 text-xl font-black">Destaques da turma</h2>
+          <p className="text-xs font-black uppercase text-field">{t("playerRanking")}</p>
+          <h2 className="mt-1 text-xl font-black">{t("crewHighlights")}</h2>
         </div>
         <Link className="text-sm font-black text-primary-strong" href="/app/ranking">
-          Ver ranking
+          {t("viewRanking")}
         </Link>
       </div>
 

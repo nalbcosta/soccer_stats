@@ -1,8 +1,13 @@
+"use client";
+
 import Link from "next/link";
 import { AuthForm } from "../../../components/auth/auth-form";
 import { LocaleToggleButton, ThemeToggleButton } from "../../../components/public/landing/landing-shared";
+import { useTranslations } from "../../../i18n/provider";
 
 export default function LoginPage() {
+  const t = useTranslations("auth");
+
   return (
     <main className="min-h-screen overflow-hidden bg-canvas px-4 py-3 text-text sm:py-6">
       <div className="pointer-events-none fixed inset-0 opacity-70">
@@ -24,10 +29,10 @@ export default function LoginPage() {
 
         <section className="grid flex-1 content-start gap-8 py-6 sm:content-center sm:py-10 md:grid-cols-[0.92fr_0.8fr] md:items-center md:gap-10">
           <div className="hidden md:flex md:flex-col max-w-2xl pt-2 sm:pt-0">
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-field">Vestiário online</p>
-            <h1 className="mt-3 max-w-xl text-[2rem] font-black leading-[1.04] sm:text-5xl">Entre, monte a turma e deixe o placar falar.</h1>
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-field">{t("loginEyebrow")}</p>
+            <h1 className="mt-3 max-w-xl text-[2rem] font-black leading-[1.04] sm:text-5xl">{t("loginTitle")}</h1>
             <p className="mt-4 max-w-lg text-base font-semibold leading-7 text-muted">
-              Login simples para organizar jogos, cuidar dos times e guardar os números de quem resolve dentro de campo.
+              {t("loginDescription")}
             </p>
           </div>
           <div className="w-full justify-self-center md:max-w-xl md:justify-self-end">
@@ -38,3 +43,4 @@ export default function LoginPage() {
     </main>
   );
 }
+

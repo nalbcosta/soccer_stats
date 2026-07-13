@@ -1,0 +1,1 @@
+export const profile = { title: "Seu card no NaBola", playerData: "Dados do jogador", updated: "Perfil atualizado.", updateError: "Não foi possível atualizar o perfil.", cardUsage: "Uso do card" } as const;

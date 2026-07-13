@@ -6,9 +6,13 @@ import { Card } from "../ui/card";
 import { TeamCrest } from "../ui/team-crest";
 import { MatchStatusChip } from "../sports/match-status-chip";
 import { useSession } from "./session-provider";
+import { useLocale, useTranslations } from "../../i18n/provider";
+import { formatDateTime, formatTime } from "../../i18n/formatters";
 
 export function ContextRail() {
   const { dashboard } = useSession();
+  const { locale } = useLocale();
+  const t = useTranslations("match");
 
   if (!dashboard) {
     return null;
@@ -25,15 +29,15 @@ export function ContextRail() {
         <Card className="p-4">
           <div className="flex items-center gap-2">
             <CalendarDays className="text-primary-strong" size={18} />
-            <p className="text-xs font-black uppercase text-muted">Próximo jogo</p>
+            <p className="text-xs font-black uppercase text-muted">{t("next")}</p>
           </div>
           {nextMatch ? (
             <Link className="mt-4 block rounded-lg bg-canvas p-3" href={`/app/matches/${nextMatch.id}`}>
               <div className="flex items-center justify-between gap-2">
-                <p className="text-sm font-black">{new Date(nextMatch.playedAt).toLocaleDateString("pt-BR")}</p>
+                <p className="text-sm font-black">{formatDateTime(nextMatch.playedAt, locale, { day: "2-digit", month: "2-digit", year: "numeric" })}</p>
                 <MatchStatusChip status={nextMatch.status} />
               </div>
-              <p className="mt-2 text-xs font-semibold text-muted">{new Date(nextMatch.playedAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</p>
+              <p className="mt-2 text-xs font-semibold text-muted">{formatTime(nextMatch.playedAt, locale)}</p>
             </Link>
           ) : (
             <p className="mt-4 text-sm font-semibold text-muted">Sem jogo marcado agora.</p>

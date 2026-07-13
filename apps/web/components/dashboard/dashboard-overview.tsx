@@ -13,8 +13,11 @@ import { DashboardNotificationsPreview } from "./dashboard-notifications-preview
 import { DashboardPlayerCardPanel } from "./dashboard-player-card-panel";
 import { DashboardPlayerRankingPreview } from "./dashboard-player-ranking-preview";
 import { DashboardVenuesPreview } from "./dashboard-venues-preview";
+import { useTranslations } from "../../i18n/provider";
 
 export function DashboardOverview() {
+  const t = useTranslations("dashboard");
+  const teams = useTranslations("teams");
   const { user } = useSession();
   const { dashboard, error, loading, markAllNotificationsRead, refreshing, retry, viewModel } = useDashboardHome();
 
@@ -26,12 +29,12 @@ export function DashboardOverview() {
     <div className="grid gap-4">
       <header className="flex items-center justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-xs font-black uppercase text-field">Seu painel</p>
-          <p className="mt-1 text-sm font-semibold text-muted">Agenda, avisos e desempenho em um lugar só.</p>
+          <p className="text-xs font-black uppercase text-field">{t("dashboard")}</p>
+          <p className="mt-1 text-sm font-semibold text-muted">{t("dashboardDescription")}</p>
         </div>
         <Button className="min-h-10 shrink-0 px-3 md:px-4" disabled={refreshing} onClick={() => void retry()} type="button" variant="secondary">
           <RefreshCw className={refreshing ? "animate-spin" : ""} size={16} />
-          <span className="sr-only sm:not-sr-only">Atualizar</span>
+          <span className="sr-only sm:not-sr-only">{t("refresh")}</span>
         </Button>
       </header>
 
@@ -44,9 +47,9 @@ export function DashboardOverview() {
       {!viewModel.hasTeams ? (
         <EmptyState
           actionHref="/app/teams"
-          actionLabel="Criar time"
-          description="O dashboard ganha agenda, ranking e ações assim que você entra em um elenco."
-          title="Comece pelo primeiro time"
+          actionLabel={teams("createTeam")}
+          description={t("createFirstTeamDescription")}
+          title={t("createFirstTeam")}
         />
       ) : null}
 

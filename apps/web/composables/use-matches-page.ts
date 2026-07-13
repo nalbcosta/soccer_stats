@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Match } from "@soccer-stats/shared";
 import { useSession } from "../components/app/session-provider";
 import { api, type LocationResult, type MatchListFilters, type PaginationMeta } from "../lib/api";
+import { useLocale } from "../i18n/provider";
 import {
   buildMatchListItemsFromMatches,
   getUserRegion,
@@ -22,6 +23,7 @@ const defaultPagination: PaginationMeta = {
 
 export function useMatchesPage() {
   const { dashboard } = useSession();
+  const { locale } = useLocale();
   const [tab, setRawTab] = useState<MatchPageTab>("mine");
   const [search, setRawSearch] = useState("");
   const [status, setRawStatus] = useState<MatchStatusFilter>("all");
@@ -148,7 +150,7 @@ export function useMatchesPage() {
     );
   };
 
-  const items = useMemo(() => (dashboard ? buildMatchListItemsFromMatches(matches, dashboard) : []), [dashboard, matches]);
+  const items = useMemo(() => (dashboard ? buildMatchListItemsFromMatches(matches, dashboard, locale) : []), [dashboard, locale, matches]);
 
   return {
     dashboard,

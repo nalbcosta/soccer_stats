@@ -2,6 +2,8 @@ import { CalendarDays, MapPin, Trophy } from "lucide-react";
 import type { Match } from "@soccer-stats/shared";
 import { ScoreboardCard } from "../sports/scoreboard-card";
 import { Card } from "../ui/card";
+import { useLocale, useTranslations } from "../../i18n/provider";
+import { formatDateTime } from "../../i18n/formatters";
 
 export function MatchOverviewPanel({
   awayName,
@@ -16,6 +18,9 @@ export function MatchOverviewPanel({
   tournament?: { name: string };
   venueLabel: string;
 }) {
+  const { locale } = useLocale();
+  const t = useTranslations("match");
+
   return (
     <div className="grid gap-4">
       <ScoreboardCard
@@ -27,11 +32,11 @@ export function MatchOverviewPanel({
         status={match.status}
       />
       <Card className="p-4">
-        <p className="text-xs font-black uppercase text-muted">Detalhes do jogo</p>
+        <p className="text-xs font-black uppercase text-muted">{t("details")}</p>
         <div className="mt-3 grid gap-2">
-          <InfoRow icon={CalendarDays} label="Data" value={new Date(match.playedAt).toLocaleString("pt-BR")} />
-          <InfoRow icon={MapPin} label="Local" value={venueLabel} />
-          <InfoRow icon={Trophy} label="Competição" value={tournament?.name ?? "Pelada avulsa"} />
+          <InfoRow icon={CalendarDays} label={t("date")} value={formatDateTime(match.playedAt, locale, { dateStyle: "medium", timeStyle: "short" })} />
+          <InfoRow icon={MapPin} label={t("venue")} value={venueLabel} />
+          <InfoRow icon={Trophy} label={t("competition")} value={tournament?.name ?? t("casual")} />
         </div>
       </Card>
     </div>

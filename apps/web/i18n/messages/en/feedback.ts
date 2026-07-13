@@ -1,0 +1,1 @@
+export const feedback = { loading: "Loading...", loadingLockerRoom: "Loading locker room...", notFoundDescription: "This record was not found in your locker room.", apiError: "We could not complete this action right now.", loadError: "We could not load the data right now.", previous: "Previous", next: "Next", page: "Page {page} of {total}", back: "Back" } as const;

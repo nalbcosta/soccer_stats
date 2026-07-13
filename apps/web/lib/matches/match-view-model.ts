@@ -1,5 +1,7 @@
 import type { Match, MatchEvent, MatchPresence, PublicUser, Team, Tournament, Venue } from "@soccer-stats/shared";
 import type { DashboardResponse } from "../api";
+import { defaultLocale, type Locale } from "../../i18n/config";
+import { formatMatchDate as formatLocalizedMatchDate } from "../../i18n/formatters";
 
 export type MatchPageTab = "mine" | "nearby";
 export type MatchDetailTab = "overview" | "presence" | "sheet";
@@ -39,31 +41,20 @@ export interface MatchGoalSummary {
   teamName: string;
 }
 
-const surfaceLabels: Record<NonNullable<NonNullable<Match["venue"]>["surface"]>, string> = {
-  grass: "Grama",
-  synthetic: "Sintético",
-  court: "Quadra",
-  sand: "Areia",
-  other: "Outro"
-};
+const surfaceLabels = {
+  "pt-BR": { grass: "Grama", synthetic: "Sintético", court: "Quadra", sand: "Areia", other: "Outro" },
+  en: { grass: "Grass", synthetic: "Synthetic", court: "Court", sand: "Sand", other: "Other" }
+} as const;
 
 export function resolveTeamName(teams: Team[], teamId: string, fallback: string): string {
   return teams.find((team) => team.id === teamId)?.name ?? fallback;
 }
 
-export function formatMatchDate(playedAt: string): string {
-  return new Intl.DateTimeFormat("pt-BR", {
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    month: "2-digit",
-    timeZone: "America/Sao_Paulo"
-  })
-    .format(new Date(playedAt))
-    .replace(",", " •");
+export function formatMatchDate(playedAt: string, locale: Locale = defaultLocale): string {
+  return formatLocalizedMatchDate(playedAt, locale);
 }
 
-export function formatVenueLabel(match: Match): string {
+export function formatVenueLabel(match: Match, locale: Locale = defaultLocale): string {
   if (match.venue?.name) {
     return match.venue.name;
   }
@@ -73,10 +64,10 @@ export function formatVenueLabel(match: Match): string {
   }
 
   if (match.venue?.surface) {
-    return surfaceLabels[match.venue.surface];
+    return surfaceLabels[locale][match.venue.surface];
   }
 
-  return "Local a definir";
+  return locale === "pt-BR" ? "Local a definir" : "Venue to be defined";
 }
 
 export function getUserRegion(dashboard: DashboardResponse): { city?: string; state?: string } {
@@ -107,11 +98,11 @@ export function isMatchInRegion(match: Match, venues: Venue[], region: { city?: 
   return false;
 }
 
-export function buildMatchListItems(dashboard: DashboardResponse): MatchListItem[] {
-  return buildMatchListItemsFromMatches(dashboard.matches, dashboard);
+export function buildMatchListItems(dashboard: DashboardResponse, locale: Locale = defaultLocale): MatchListItem[] {
+  return buildMatchListItemsFromMatches(dashboard.matches, dashboard, locale);
 }
 
-export function buildMatchListItemsFromMatches(matches: Match[], dashboard: DashboardResponse): MatchListItem[] {
+export function buildMatchListItemsFromMatches(matches: Match[], dashboard: DashboardResponse, locale: Locale = defaultLocale): MatchListItem[] {
   const region = getUserRegion(dashboard);
 
   return [...matches]
@@ -125,8 +116,8 @@ export function buildMatchListItemsFromMatches(matches: Match[], dashboard: Dash
         homeName: resolveTeamName(dashboard.teams, match.home.teamId, "Casa"),
         awayName: resolveTeamName(dashboard.teams, match.away.teamId, "Fora"),
         ...(tournament ? { tournament } : {}),
-        venueLabel: formatVenueLabel(match),
-        dateLabel: formatMatchDate(match.playedAt),
+      venueLabel: formatVenueLabel(match, locale),
+      dateLabel: formatMatchDate(match.playedAt, locale),
         isNearUserRegion: isMatchInRegion(match, dashboard.venues, region)
       };
     });

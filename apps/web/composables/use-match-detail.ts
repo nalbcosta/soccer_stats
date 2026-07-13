@@ -14,10 +14,12 @@ import {
   type MatchDetailTab
 } from "../lib/matches/match-view-model";
 import { useSession } from "../components/app/session-provider";
+import { useLocale } from "../i18n/provider";
 
 export function useMatchDetail() {
   const params = useParams<{ matchId: string }>();
   const { dashboard, refresh, setFeedback, user } = useSession();
+  const { locale } = useLocale();
   const [tab, setTab] = useState<MatchDetailTab>("overview");
   const [isPending, startTransition] = useTransition();
 
@@ -42,10 +44,10 @@ export function useMatchDetail() {
       tournament,
       participants,
       sheet: buildSheetSummary(match, participants),
-      venueLabel: formatVenueLabel(match),
+      venueLabel: formatVenueLabel(match, locale),
       canCheckIn: userCanCheckIn(match, user)
     };
-  }, [dashboard, match, user]);
+  }, [dashboard, locale, match, user]);
 
   const updatePresence = (status: "pending" | "confirmed" | "declined" | "maybe") => {
     if (!match) {

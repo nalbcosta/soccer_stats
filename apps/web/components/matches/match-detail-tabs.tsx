@@ -1,13 +1,15 @@
 import { ClipboardList, Users, Zap } from "lucide-react";
 import type { MatchDetailTab } from "../../composables/use-match-detail";
+import { useTranslations } from "../../i18n/provider";
 
 const tabs: Array<{ key: MatchDetailTab; label: string; icon: typeof Zap }> = [
-  { key: "overview", label: "Resumo", icon: Zap },
-  { key: "presence", label: "Presença", icon: Users },
-  { key: "sheet", label: "Súmula", icon: ClipboardList }
+  { key: "overview", label: "overview", icon: Zap },
+  { key: "presence", label: "presence", icon: Users },
+  { key: "sheet", label: "sheet", icon: ClipboardList }
 ];
 
 export function MatchDetailTabs({ activeTab, onChange }: { activeTab: MatchDetailTab; onChange: (tab: MatchDetailTab) => void }) {
+  const t = useTranslations("match");
   return (
     <div className="grid grid-cols-3 gap-1 rounded-lg border border-border bg-surface p-1 shadow-line">
       {tabs.map((tab) => {
@@ -24,7 +26,7 @@ export function MatchDetailTabs({ activeTab, onChange }: { activeTab: MatchDetai
             type="button"
           >
             <Icon size={15} />
-            {tab.label}
+            {t(tab.label)}
           </button>
         );
       })}

@@ -3,6 +3,7 @@ import type { Notification } from "@soccer-stats/shared";
 import { Bell, CheckCheck } from "lucide-react";
 import { Button } from "../ui/button";
 import { Card } from "../ui/card";
+import { useTranslations } from "../../i18n/provider";
 
 export function DashboardNotificationsPreview({
   notifications,
@@ -13,17 +14,18 @@ export function DashboardNotificationsPreview({
   onReadAll: () => Promise<void>;
   refreshing: boolean;
 }) {
+  const t = useTranslations("dashboard");
   return (
     <section className="grid gap-3">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <p className="text-xs font-black uppercase text-field">Avisos</p>
-          <h2 className="mt-1 text-xl font-black">Recados recentes</h2>
+          <p className="text-xs font-black uppercase text-field">{t("alerts")}</p>
+          <h2 className="mt-1 text-xl font-black">{t("recentNotes")}</h2>
         </div>
         {notifications.length > 0 ? (
           <Button className="min-h-9 px-3 text-xs" disabled={refreshing} onClick={() => void onReadAll()} type="button" variant="secondary">
             <CheckCheck size={15} />
-            Ler tudo
+            {t("readAll")}
           </Button>
         ) : null}
       </div>
@@ -32,8 +34,8 @@ export function DashboardNotificationsPreview({
         {notifications.length === 0 ? (
           <div className="grid gap-2 text-sm text-muted">
             <Bell className="text-primary-strong" size={20} />
-            <p className="font-bold">Tudo certo por aqui.</p>
-            <p>Convites, alterações de partida e campeonatos aparecem neste espaço.</p>
+            <p className="font-bold">{t("allGood")}</p>
+            <p>{t("alertsDescription")}</p>
           </div>
         ) : (
           <div className="grid gap-3">

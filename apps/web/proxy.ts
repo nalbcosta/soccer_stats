@@ -1,16 +1,12 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-
-const LOCALE_COOKIE = "soccer-stats-locale";
-
-const inferLocale = (languageHeader: string | null): "pt-BR" | "en" =>
-  languageHeader?.toLowerCase().includes("pt") ? "pt-BR" : "en";
+import { inferLocale, localeCookieName } from "./i18n/config";
 
 export function proxy(request: NextRequest) {
   const response = NextResponse.next();
 
-  if (!request.cookies.get(LOCALE_COOKIE)) {
-    response.cookies.set(LOCALE_COOKIE, inferLocale(request.headers.get("accept-language")), {
+  if (!request.cookies.get(localeCookieName)) {
+    response.cookies.set(localeCookieName, inferLocale(request.headers.get("accept-language")), {
       path: "/",
       sameSite: "lax"
     });

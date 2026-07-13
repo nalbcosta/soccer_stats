@@ -2,6 +2,7 @@
 
 import type { PaginationMeta } from "../../lib/api";
 import { Button } from "../ui/button";
+import { useTranslations } from "../../i18n/provider";
 
 export function MatchPagination({
   pagination,
@@ -10,6 +11,7 @@ export function MatchPagination({
   pagination: PaginationMeta;
   onPageChange: (page: number) => void;
 }) {
+  const t = useTranslations("feedback");
   if (pagination.totalPages <= 1) {
     return null;
   }
@@ -23,10 +25,10 @@ export function MatchPagination({
         variant="secondary"
         onClick={() => onPageChange(pagination.page - 1)}
       >
-        Anterior
+        {t("previous")}
       </Button>
       <span>
-        Página {pagination.page} de {pagination.totalPages}
+        {t("page", { page: pagination.page, total: pagination.totalPages })}
       </span>
       <Button
         className="min-h-10 px-3"
@@ -35,7 +37,7 @@ export function MatchPagination({
         variant="secondary"
         onClick={() => onPageChange(pagination.page + 1)}
       >
-        Próxima
+        {t("next")}
       </Button>
     </div>
   );

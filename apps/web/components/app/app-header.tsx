@@ -6,16 +6,18 @@ import { appNavItems } from "../../lib/routes";
 import { AppBackButton } from "./app-back-button";
 import { AlertsMenu } from "./alerts-menu";
 import { UserMenu } from "./user-menu";
+import { useTranslations } from "../../i18n/provider";
 
 export function AppHeader() {
   const pathname = usePathname();
+  const t = useTranslations("navigation");
 
   return (
     <header className="sticky top-0 z-30 border-b border-border bg-canvas/95 backdrop-blur">
       <div className="mx-auto flex h-14 max-w-7xl items-center justify-between gap-2 px-3 sm:px-4 md:h-16 md:px-6">
         <div className="flex min-w-0 items-center gap-2">
           <AppBackButton />
-          <Link href="/app" className="flex min-w-0 items-center gap-2 font-extrabold" aria-label="Ir para o resumo">
+          <Link href="/app" className="flex min-w-0 items-center gap-2 font-extrabold" aria-label={t("goHome")}>
             <span className="field-grid grid h-9 w-9 place-items-center rounded-lg bg-field text-sm text-white">NB</span>
             <span className="hidden sm:inline">NaBola</span>
           </Link>
@@ -35,7 +37,7 @@ export function AppHeader() {
                 key={item.href}
               >
                 <Icon size={17} />
-                {item.label}
+                {t(item.labelKey)}
               </Link>
             );
           })}

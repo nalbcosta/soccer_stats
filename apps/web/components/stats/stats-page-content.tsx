@@ -10,12 +10,14 @@ import { FormDots } from "../sports/form-dots";
 import { StatTile } from "../sports/stat-tile";
 import { Card } from "../ui/card";
 import { TeamCrest } from "../ui/team-crest";
+import { useTranslations } from "../../i18n/provider";
 
 export function StatsPageContent() {
   const { dashboard } = useSession();
+  const t = useTranslations("stats");
 
   if (!dashboard) {
-    return <LoadingState label="Puxando os números..." />;
+    return <LoadingState label={t("loading")} />;
   }
 
   const profileStats = dashboard.profile?.stats ?? createEmptyStats();
@@ -32,24 +34,24 @@ export function StatsPageContent() {
 
   return (
     <>
-      <PageHeading eyebrow="Números da resenha" title="Estatísticas" />
+      <PageHeading eyebrow={t("eyebrow")} title={t("title")} />
       <div className="grid gap-4">
         <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <StatTile icon={BarChart3} label="Jogos fechados" value={completedMatches} helper="Placares finalizados" tone="primary" />
-          <StatTile icon={Target} label="Gols dos times" value={totalGoals} helper="Volume ofensivo" tone="field" />
-          <StatTile icon={Trophy} label="Pontos somados" value={totalPoints} helper="Campanha geral" tone="marker" />
+          <StatTile icon={BarChart3} label={t("completedMatches")} value={completedMatches} helper={t("finalizedScores")} tone="primary" />
+          <StatTile icon={Target} label={t("teamGoals")} value={totalGoals} helper={t("offensiveVolume")} tone="field" />
+          <StatTile icon={Trophy} label={t("totalPoints")} value={totalPoints} helper={t("overallCampaign")} tone="marker" />
           <StatTile
             icon={Activity}
-            label="Seu aproveit."
+            label={t("yourRate")}
             value={`${profileStats.winRate}%`}
-            helper="Recorte do seu card"
+            helper={t("yourCard")}
             tone="primary"
           />
         </section>
 
         <section className="grid gap-4 lg:grid-cols-[1fr_0.8fr]">
           <Card className="p-4">
-            <p className="text-xs font-black uppercase text-muted">Seu desempenho</p>
+            <p className="text-xs font-black uppercase text-muted">{t("performance")}</p>
             <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
               <Mini label="Jogos" value={profileStats.matchesPlayed} />
               <Mini label="Gols" value={profileStats.goals} />
@@ -57,7 +59,7 @@ export function StatsPageContent() {
               <Mini label="Saldo" value={profileStats.goalDifference} />
             </div>
             <div className="mt-4 flex items-center justify-between rounded-md bg-canvas p-3">
-              <p className="text-xs font-black uppercase text-muted">Forma recente</p>
+              <p className="text-xs font-black uppercase text-muted">{t("recentForm")}</p>
               <FormDots form={profileStats.form} />
             </div>
           </Card>
@@ -65,7 +67,7 @@ export function StatsPageContent() {
           <Card className="p-4">
             <div className="flex items-center gap-2">
               <Gauge className="text-primary-strong" size={18} />
-              <p className="text-xs font-black uppercase text-muted">Métricas avançadas</p>
+              <p className="text-xs font-black uppercase text-muted">{t("advancedMetrics")}</p>
             </div>
             <div className="mt-4 grid gap-3">
               <MetricLine label="Contribuição ofensiva" value={profileMetrics.offensiveContribution} suffix="/jogo" />
@@ -78,7 +80,7 @@ export function StatsPageContent() {
 
         <section className="grid gap-4 lg:grid-cols-2">
           <Card className="p-4">
-            <p className="text-xs font-black uppercase text-muted">Ataque dos times</p>
+            <p className="text-xs font-black uppercase text-muted">{t("attack")}</p>
             <div className="mt-4 grid gap-4">
               {topAttackTeams.length === 0 ? (
                 <p className="text-sm font-semibold text-muted">Feche placares para comparar volume ofensivo.</p>
@@ -98,7 +100,7 @@ export function StatsPageContent() {
           </Card>
 
           <Card className="p-4">
-            <p className="text-xs font-black uppercase text-muted">Consistência</p>
+            <p className="text-xs font-black uppercase text-muted">{t("consistency")}</p>
             <div className="mt-4 grid gap-4">
               {topConsistencyTeams.length === 0 ? (
                 <p className="text-sm font-semibold text-muted">A regularidade aparece quando os times acumulam jogos.</p>

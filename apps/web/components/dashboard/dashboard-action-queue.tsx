@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ArrowRight, CircleAlert, CircleCheck, Clock3 } from "lucide-react";
 import type { DashboardActionItem } from "../../lib/dashboard/dashboard-notification-selectors";
 import { Card } from "../ui/card";
+import { useTranslations } from "../../i18n/provider";
 
 const toneClass: Record<DashboardActionItem["tone"], string> = {
   primary: "bg-primary-soft text-primary-strong",
@@ -16,11 +17,12 @@ const toneIcon = {
 };
 
 export function DashboardActionQueue({ actions }: { actions: DashboardActionItem[] }) {
+  const t = useTranslations("dashboard");
   return (
     <section className="grid gap-3">
       <div>
-        <p className="text-xs font-black uppercase text-field">Fila de jogo</p>
-        <h2 className="mt-1 text-xl font-black">O que pede sua atenção</h2>
+        <p className="text-xs font-black uppercase text-field">{t("actionQueue")}</p>
+        <h2 className="mt-1 text-xl font-black">{t("actionQueueTitle")}</h2>
       </div>
 
       <div className="grid gap-2">

@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { AlertCircle, CheckCircle2, Info, TriangleAlert, X } from "lucide-react";
 import clsx from "clsx";
 import { Button } from "../ui/button";
+import { useTranslations } from "../../i18n/provider";
 
 export type ToastTone = "success" | "error" | "warning" | "info";
 
@@ -29,6 +30,7 @@ export function ToastViewport({
   onDismiss: () => void;
   duration?: number;
 }) {
+  const t = useTranslations("common");
   useEffect(() => {
     if (!toast) {
       return;
@@ -57,7 +59,7 @@ export function ToastViewport({
       >
         <Icon className="mt-0.5 shrink-0" size={18} />
         <p className="min-w-0 flex-1 font-semibold text-text">{toast.message}</p>
-        <Button className="min-h-7 px-1.5" type="button" variant="ghost" onClick={onDismiss} title="Fechar aviso">
+        <Button className="min-h-7 px-1.5" type="button" variant="ghost" onClick={onDismiss} title={t("close")}>
           <X size={16} />
         </Button>
       </div>

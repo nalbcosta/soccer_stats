@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { LandingDictionary } from "./public-landing-content";
+import type { LandingDictionary } from "../../i18n/messages/landing";
 import {
   BackToTopModal,
   CallToActionSection,

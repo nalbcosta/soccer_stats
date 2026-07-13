@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { ChevronDown, LogOut, Settings, UserRound, X } from "lucide-react";
 import { useTheme } from "next-themes";
-import { useLocale } from "../locale-provider";
+import { useLocale, useTranslations } from "../../i18n/provider";
 import { LocaleToggle } from "../locale-toggle";
 import { ThemeToggle } from "../theme-toggle";
 import { ConfirmDialog } from "../overlays/confirm-dialog";
@@ -19,6 +19,7 @@ export function UserMenu({ mode }: { mode: UserMenuMode }) {
   const { user, logout, dashboard } = useSession();
   const { resolvedTheme } = useTheme();
   const { locale } = useLocale();
+  const t = useTranslations("navigation");
   const [open, setOpen] = useState(false);
   const [confirmLogout, setConfirmLogout] = useState(false);
 
@@ -102,7 +103,7 @@ export function UserMenu({ mode }: { mode: UserMenuMode }) {
               onClick={() => setOpen(false)}
             >
               <UserRound size={16} />
-              Perfil
+              {t("profile")}
             </Link>
             <Link
               className="flex min-h-11 items-center gap-2 rounded-lg border border-border bg-surface px-3 text-sm font-semibold text-text hover:bg-canvas"
@@ -110,7 +111,7 @@ export function UserMenu({ mode }: { mode: UserMenuMode }) {
               onClick={() => setOpen(false)}
             >
               <Settings size={16} />
-              Ajustes
+              {t("settings")}
             </Link>
           </div>
 
@@ -118,14 +119,14 @@ export function UserMenu({ mode }: { mode: UserMenuMode }) {
             <p className="mb-3 text-xs font-black uppercase text-muted">Preferencias</p>
             <div>
               <p className="mb-2 text-xs font-black uppercase text-muted">
-                Idioma
+                {t("language")}
                 <span className="ml-2 font-semibold normal-case text-muted">{localeLabel}</span>
               </p>
               <LocaleToggle compact />
             </div>
             <div className="mt-3">
               <p className="mb-2 text-xs font-black uppercase text-muted">
-                Tema
+                {t("theme")}
                 <span className="ml-2 font-semibold normal-case text-muted">{themeLabel}</span>
               </p>
               <ThemeToggle compact />
@@ -142,7 +143,7 @@ export function UserMenu({ mode }: { mode: UserMenuMode }) {
             }}
           >
             <LogOut size={16} />
-            Sair da conta
+            {t("signOut")}
           </Button>
         </div>
       </MenuShell>
