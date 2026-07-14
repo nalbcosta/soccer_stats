@@ -4,7 +4,18 @@ export const localeSchema = z.enum(["pt-BR", "en"]);
 export const themeSchema = z.enum(["light", "dark", "system"]);
 export const roleSchema = z.enum(["owner", "admin", "member"]);
 export const preferredFootSchema = z.enum(["right", "left", "both"]);
-export const playerPositionSchema = z.enum(["goalkeeper", "defender", "midfielder", "forward"]);
+const canonicalPlayerPositionSchema = z.enum([
+  "goalkeeper", "right-back", "center-back", "left-back", "defensive-midfielder", "central-midfielder", "attacking-midfielder", "right-winger", "left-winger", "striker"
+]);
+const legacyPositionMap: Record<string, z.infer<typeof canonicalPlayerPositionSchema>> = {
+  defender: "center-back",
+  midfielder: "central-midfielder",
+  forward: "striker"
+};
+export const playerPositionSchema = z.preprocess(
+  (value) => typeof value === "string" ? (legacyPositionMap[value] ?? value) : value,
+  canonicalPlayerPositionSchema
+);
 export const matchTypeSchema = z.enum(["casual", "tournament"]);
 export const matchStatusSchema = z.enum(["scheduled", "confirming", "completed", "cancelled"]);
 export const inviteRoleSchema = z.enum(["admin", "member"]);
@@ -30,6 +41,10 @@ export const passwordSchema = z
   .max(72)
   .regex(/[a-zA-Z]/, "A senha precisa ter pelo menos uma letra.")
   .regex(/[0-9]/, "A senha precisa ter pelo menos um numero.");
+export const photoUrlSchema = z.union([
+  z.url().max(500),
+  z.string().regex(/^\/uploads\/[a-zA-Z0-9-]+\.(jpg|png|webp)$/).max(500)
+]);
 
 export const statsSchema = z.object({
   matchesPlayed: z.number().int().nonnegative(),
@@ -61,13 +76,14 @@ export const playerProfileSchema = z.object({
   userId: z.string(),
   displayName: z.string().min(2).max(40),
   shirtNumber: z.number().int().positive().max(99).optional(),
-  photoUrl: z.url().max(500).optional(),
+  photoUrl: photoUrlSchema.optional(),
   photoMetadata: z.object({
     fileName: z.string(),
     mimeType: z.enum(["image/jpeg", "image/png", "image/webp"]),
     size: z.number().int().positive(),
     uploadedAt: z.string()
   }).optional(),
+  primaryTeamId: z.string().optional(),
   teamName: z.string().min(2).max(40).optional(),
   preferredFoot: preferredFootSchema,
   preferredPosition: playerPositionSchema,
@@ -345,14 +361,40 @@ export const googleAuthInputSchema = z.object({
 });
 
 export const updateProfileInputSchema = z.object({
-  displayName: z.string().min(2).max(40),
-  shirtNumber: z.number().int().positive().max(99).optional(),
-  photoUrl: z.url().max(500).optional(),
-  teamName: z.string().min(2).max(40).optional(),
+  displayName: z.string().trim().min(2).max(40),
+  shirtNumber: z.number().int().positive().max(99).nullable().optional(),
+  photoUrl: photoUrlSchema.nullable().optional(),
+  primaryTeamId: z.string().nullable().optional(),
   preferredFoot: preferredFootSchema,
   preferredPosition: playerPositionSchema,
-  bio: z.string().max(160).optional()
+  bio: z.string().trim().max(160).nullable().optional()
 });
+
+export const playerCardFactorKeySchema = z.enum([
+  "matches",
+  "goalsPerMatch",
+  "assistsPerMatch",
+  "saves",
+  "cleanSheets",
+  "attendance",
+  "checkIn",
+  "winRate",
+  "form",
+  "impact"
+]);
+
+export const playerCardProjectionSchema = z.object({
+  playerId: z.string(),
+  ratingVersion: z.literal("v3"),
+  score: z.number().int().min(35).max(99),
+  confidence: z.enum(["forming", "established"]),
+  stats: statsSchema,
+  factors: z.array(z.object({ key: playerCardFactorKeySchema, value: z.number().min(0).max(100), weight: z.number().positive() })),
+  sourceSignature: z.string().min(1),
+  updatedAt: z.string()
+});
+
+export type UpdateProfileInput = z.infer<typeof updateProfileInputSchema>;
 
 export const createTeamInputSchema = z.object({
   name: z.string().min(2).max(40),

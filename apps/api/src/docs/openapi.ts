@@ -123,7 +123,8 @@ export const playerRouteSchemas = {
     response: {
       200: { $ref: "playerProfileEnvelope#" },
       401: { $ref: "messageResponse#" },
-      404: { $ref: "messageResponse#" }
+      404: { $ref: "messageResponse#" },
+      422: { $ref: "messageResponse#" }
     }
   } satisfies FastifySchema,
   uploadPhoto: {
@@ -131,13 +132,7 @@ export const playerRouteSchemas = {
     summary: "Faz upload da foto do jogador autenticado",
     security: authSecurity,
     consumes: ["multipart/form-data"],
-    body: {
-      type: "object",
-      properties: {
-        photo: { type: "string", format: "binary" }
-      },
-      required: ["photo"]
-    },
+    description: "Envie o campo multipart `photo` com uma imagem JPG, PNG ou WebP de até 5 MB.",
     response: {
       200: { $ref: "playerProfileEnvelope#" },
       400: { $ref: "messageResponse#" },
@@ -147,10 +142,10 @@ export const playerRouteSchemas = {
   } satisfies FastifySchema,
   getCard: {
     tags: ["players"],
-    summary: "Retorna NaBola Card v2 de um jogador visivel",
+    summary: "Retorna a projeção atual do NaBola Card de um jogador visível",
     security: authSecurity,
     response: {
-      200: { $ref: "playerCardEnvelope#" },
+      200: { $ref: "playerCardProjectionEnvelope#" },
       401: { $ref: "messageResponse#" },
       404: { $ref: "messageResponse#" }
     }
@@ -745,7 +740,7 @@ const schemas = [
       userId: id,
       displayName: { type: "string" },
       shirtNumber: { type: "integer", minimum: 1, maximum: 99 },
-      photoUrl: { type: "string", format: "uri" },
+      photoUrl: { type: "string", description: "URL absoluta ou caminho interno /uploads/..." },
       photoMetadata: {
         type: "object",
         properties: {
@@ -756,9 +751,10 @@ const schemas = [
         },
         required: ["fileName", "mimeType", "size", "uploadedAt"]
       },
+      primaryTeamId: id,
       teamName: { type: "string", minLength: 2, maxLength: 40 },
       preferredFoot: { type: "string", enum: ["right", "left", "both"] },
-      preferredPosition: { type: "string", enum: ["goalkeeper", "defender", "midfielder", "forward"] },
+      preferredPosition: { type: "string", enum: ["goalkeeper", "right-back", "center-back", "left-back", "defensive-midfielder", "central-midfielder", "attacking-midfielder", "right-winger", "left-winger", "striker"] },
       bio: { type: "string" },
       stats: { $ref: "stats#" }
     },
@@ -1117,12 +1113,12 @@ const schemas = [
     type: "object",
     properties: {
       displayName: { type: "string", minLength: 2, maxLength: 40 },
-      shirtNumber: { type: "integer", minimum: 1, maximum: 99 },
-      photoUrl: { type: "string", format: "uri", maxLength: 500 },
-      teamName: { type: "string", minLength: 2, maxLength: 40 },
+      shirtNumber: { type: "integer", minimum: 1, maximum: 99, nullable: true },
+      photoUrl: { type: "string", maxLength: 500, nullable: true, description: "URL absoluta ou caminho interno /uploads/..." },
+      primaryTeamId: { ...id, nullable: true },
       preferredFoot: { type: "string", enum: ["right", "left", "both"] },
-      preferredPosition: { type: "string", enum: ["goalkeeper", "defender", "midfielder", "forward"] },
-      bio: { type: "string", maxLength: 160 }
+      preferredPosition: { type: "string", enum: ["goalkeeper", "right-back", "center-back", "left-back", "defensive-midfielder", "central-midfielder", "attacking-midfielder", "right-winger", "left-winger", "striker"] },
+      bio: { type: "string", maxLength: 160, nullable: true }
     },
     required: ["displayName", "preferredFoot", "preferredPosition"]
   },
@@ -1331,6 +1327,21 @@ const schemas = [
     required: ["playerId", "ratingVersion", "score", "factors", "explanation", "snapshot"]
   },
   {
+    $id: "playerCardProjection",
+    type: "object",
+    properties: {
+      playerId: id,
+      ratingVersion: { type: "string", enum: ["v3"] },
+      score: { type: "integer", minimum: 35, maximum: 99 },
+      confidence: { type: "string", enum: ["forming", "established"] },
+      stats: { $ref: "stats#" },
+      factors: { type: "array", items: { type: "object", properties: { key: { type: "string" }, value: { type: "number" }, weight: { type: "number" } }, required: ["key", "value", "weight"] } },
+      sourceSignature: { type: "string" },
+      updatedAt: isoDate
+    },
+    required: ["playerId", "ratingVersion", "score", "confidence", "stats", "factors", "sourceSignature", "updatedAt"]
+  },
+  {
     $id: "playerInsight",
     type: "object",
     properties: {
@@ -1506,6 +1517,12 @@ const schemas = [
     properties: {
       card: { $ref: "playerCardV2#" }
     },
+    required: ["card"]
+  },
+  {
+    $id: "playerCardProjectionEnvelope",
+    type: "object",
+    properties: { card: { $ref: "playerCardProjection#" } },
     required: ["card"]
   },
   {

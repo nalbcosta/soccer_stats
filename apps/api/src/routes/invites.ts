@@ -64,16 +64,12 @@ export const inviteRoutes: FastifyPluginAsync = async (app) => {
 
     await new NotificationService(app.repositories).notifyUsers(adminMemberIds(updatedTeam.members), {
       type: "invite-accepted",
-      title: "Convite aceito",
-      message: `${user.username} entrou no time ${updatedTeam.name}.`,
-      metadata: { teamId: updatedTeam.id, inviteId: invite.id, userId: user.id }
+      metadata: { teamId: updatedTeam.id, inviteId: invite.id, userId: user.id, teamName: updatedTeam.name, username: user.username }
     });
     await new NotificationService(app.repositories).create({
       userId: user.id,
       type: "team-member-added",
-      title: "Voce entrou em um time",
-      message: `Agora voce faz parte do time ${updatedTeam.name}.`,
-      metadata: { teamId: updatedTeam.id, inviteId: invite.id }
+      metadata: { teamId: updatedTeam.id, inviteId: invite.id, teamName: updatedTeam.name }
     });
     await new AuditService(app.repositories).record({
       actorUserId: user.id,

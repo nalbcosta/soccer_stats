@@ -16,7 +16,7 @@ export function AppBackButton() {
   return (
     <Button
       aria-label="Voltar"
-      className="h-10 min-h-10 w-10 shrink-0 rounded-xl px-0 md:hidden"
+      className="flex rounded-xl px-2.5 md:hidden"
       onClick={() => {
         if (canUseRouterBack(window.history.state)) {
           router.back();
@@ -29,7 +29,7 @@ export function AppBackButton() {
       type="button"
       variant="secondary"
     >
-      <ChevronLeft size={21} strokeWidth={2.4} />
+      <ChevronLeft size={18} strokeWidth={2.4} />
     </Button>
   );
 }

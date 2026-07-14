@@ -4,6 +4,7 @@ import { Bell, CheckCheck } from "lucide-react";
 import { Button } from "../ui/button";
 import { Card } from "../ui/card";
 import { useTranslations } from "../../i18n/provider";
+import { getNotificationPresentation } from "../../lib/notifications/notification-presentation";
 
 export function DashboardNotificationsPreview({
   notifications,
@@ -39,12 +40,16 @@ export function DashboardNotificationsPreview({
           </div>
         ) : (
           <div className="grid gap-3">
-            {notifications.map((notification) => (
-              <Link className="rounded-lg bg-canvas p-3" href="/app/notifications" key={notification.id}>
-                <p className="font-black leading-tight">{notification.title}</p>
-                <p className="mt-1 text-sm font-semibold text-muted">{notification.message}</p>
-              </Link>
-            ))}
+            {notifications.map((notification) => {
+              const presentation = getNotificationPresentation(notification, t);
+
+              return (
+                <Link className="rounded-lg bg-canvas p-3" href={presentation.href} key={notification.id}>
+                  <p className="font-black leading-tight">{presentation.title}</p>
+                  <p className="mt-1 text-sm font-semibold text-muted">{presentation.message}</p>
+                </Link>
+              );
+            })}
           </div>
         )}
       </Card>

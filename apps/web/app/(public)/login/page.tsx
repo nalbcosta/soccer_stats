@@ -1,8 +1,6 @@
 "use client";
 
-import Link from "next/link";
 import { AuthForm } from "../../../components/auth/auth-form";
-import { LocaleToggleButton, ThemeToggleButton } from "../../../components/public/landing/landing-shared";
 import { useTranslations } from "../../../i18n/provider";
 
 export default function LoginPage() {
@@ -16,17 +14,6 @@ export default function LoginPage() {
       </div>
 
       <div className="relative mx-auto flex min-h-[calc(100svh-1.5rem)] max-w-6xl flex-col sm:min-h-[calc(100vh-3rem)]">
-        <header className="flex items-center justify-between gap-3 rounded-xl border border-border bg-surface/72 p-3 shadow-line backdrop-blur sm:border-0 sm:bg-transparent sm:p-0 sm:shadow-none">
-          <Link href="/" className="flex min-w-0 items-center gap-3 font-black">
-            <span className="field-grid grid h-11 w-11 place-items-center rounded-lg bg-field text-sm text-white shadow-line">NB</span>
-            <span className="hidden text-lg sm:block">NaBola</span>
-          </Link>
-          <div className="flex shrink-0 items-center gap-2">
-            <LocaleToggleButton />
-            <ThemeToggleButton />
-          </div>
-        </header>
-
         <section className="grid flex-1 content-start gap-8 py-6 sm:content-center sm:py-10 md:grid-cols-[0.92fr_0.8fr] md:items-center md:gap-10">
           <div className="hidden md:flex md:flex-col max-w-2xl pt-2 sm:pt-0">
             <p className="text-xs font-black uppercase tracking-[0.18em] text-field">{t("loginEyebrow")}</p>

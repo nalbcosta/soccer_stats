@@ -1,6 +1,7 @@
 import type { FastifyPluginAsync } from "fastify";
 import { inviteSchema, matchSchema, notificationSchema, playerProfileSchema, teamSchema, tournamentSchema, venueSchema } from "@soccer-stats/shared";
 import { dashboardRouteSchemas } from "../docs/openapi.js";
+import { NotificationService } from "../modules/notifications/notification.service.js";
 
 export const dashboardRoutes: FastifyPluginAsync = async (app) => {
   app.get("/dashboard", { schema: dashboardRouteSchemas.get }, async (request, reply) => {
@@ -18,7 +19,7 @@ export const dashboardRoutes: FastifyPluginAsync = async (app) => {
     );
     const invites = await app.repositories.invites.findPendingByEmail(user.email);
     const venues = await app.repositories.venues.listVisibleToUser(user.id, { pageSize: 10 });
-    const notifications = await app.repositories.notifications.listByUser(user.id);
+    const notifications = await new NotificationService(app.repositories).listByUser(user.id);
     const profile = await app.repositories.playerProfiles.findByUserId(user.id);
 
     return {

@@ -1,5 +1,5 @@
 import mongoose, { Schema, type Connection, type Model } from "mongoose";
-import type { AuditLog, Invite, Match, Notification, PlayerFeatureSnapshot, PlayerProfile, Team, Tournament, Venue } from "@soccer-stats/shared";
+import type { AuditLog, Invite, Match, Notification, PlayerCardProjection, PlayerFeatureSnapshot, PlayerProfile, Team, Tournament, Venue } from "@soccer-stats/shared";
 import type {
   AuditLogRepository,
   InviteRepository,
@@ -7,6 +7,7 @@ import type {
   NotificationRepository,
   PlayerProfileRepository,
   PlayerFeatureSnapshotRepository,
+  PlayerCardProjectionRepository,
   Repositories,
   SessionRecord,
   SessionRepository,
@@ -149,9 +150,10 @@ const modelsFor = (connection: Connection) => {
         size: Number,
         uploadedAt: String
       },
+      primaryTeamId: String,
       teamName: String,
       preferredFoot: { type: String, enum: ["right", "left", "both"], required: true },
-      preferredPosition: { type: String, enum: ["goalkeeper", "defender", "midfielder", "forward"], required: true },
+      preferredPosition: { type: String, enum: ["goalkeeper", "right-back", "center-back", "left-back", "defensive-midfielder", "central-midfielder", "attacking-midfielder", "right-winger", "left-winger", "striker"], required: true },
       bio: String,
       stats: { type: statsSchema, required: true }
     },
@@ -363,6 +365,20 @@ const modelsFor = (connection: Connection) => {
   );
   playerFeatureSnapshotSchema.index({ playerId: 1, teamId: 1, tournamentId: 1, createdAt: -1 });
 
+  const playerCardProjectionSchema = new Schema<Persisted<PlayerCardProjection>>(
+    {
+      _id: { type: String, required: true },
+      ratingVersion: { type: String, enum: ["v3"], required: true },
+      score: { type: Number, required: true, min: 35, max: 99 },
+      confidence: { type: String, enum: ["forming", "established"], required: true },
+      stats: { type: statsSchema, required: true },
+      factors: [{ key: { type: String, required: true }, value: { type: Number, required: true }, weight: { type: Number, required: true } }],
+      sourceSignature: { type: String, required: true },
+      updatedAt: { type: String, required: true, index: true }
+    },
+    { collection: "player_card_projections", versionKey: false }
+  );
+
   return {
     users: connection.model<Persisted<StoredUser>>("User", userSchema),
     playerProfiles: connection.model<Persisted<PlayerProfile>>("PlayerProfile", playerProfileSchema),
@@ -374,7 +390,8 @@ const modelsFor = (connection: Connection) => {
     notifications: connection.model<Persisted<Notification>>("Notification", notificationSchema),
     sessions: connection.model<Persisted<SessionRecord>>("Session", sessionSchema),
     auditLogs: connection.model<Persisted<AuditLog>>("AuditLog", auditLogSchema),
-    playerFeatureSnapshots: connection.model<Persisted<PlayerFeatureSnapshot & { id: string }>>("PlayerFeatureSnapshot", playerFeatureSnapshotSchema)
+    playerFeatureSnapshots: connection.model<Persisted<PlayerFeatureSnapshot & { id: string }>>("PlayerFeatureSnapshot", playerFeatureSnapshotSchema),
+    playerCardProjections: connection.model<Persisted<PlayerCardProjection>>("PlayerCardProjection", playerCardProjectionSchema)
   };
 };
 
@@ -420,9 +437,12 @@ class MongoosePlayerProfileRepository implements PlayerProfileRepository {
   constructor(private readonly model: Model<Persisted<PlayerProfile>>) {}
 
   async upsert(profile: PlayerProfile): Promise<PlayerProfile> {
+    const optionalFields = ["shirtNumber", "photoUrl", "photoMetadata", "primaryTeamId", "teamName", "bio"] as const;
+    const unset = Object.fromEntries(optionalFields.filter((field) => !(field in profile)).map((field) => [field, 1]));
+
     await this.model.updateOne(
       { _id: profile.userId },
-      { $set: { ...profile, _id: profile.userId } },
+      { $set: { ...profile, _id: profile.userId }, ...(Object.keys(unset).length ? { $unset: unset } : {}) },
       { upsert: true, runValidators: true }
     );
     return profile;
@@ -452,6 +472,16 @@ class MongoosePlayerFeatureSnapshotRepository extends BaseMongooseRepository<Pla
     return this.save(snapshot);
   }
 
+  async findLatest(playerId: string, filters: { teamId?: string; tournamentId?: string } = {}): Promise<(PlayerFeatureSnapshot & { id: string }) | null> {
+    const query = {
+      playerId,
+      ...(filters.teamId ? { teamId: filters.teamId } : {}),
+      ...(filters.tournamentId ? { tournamentId: filters.tournamentId } : {})
+    };
+    const snapshot = await this.model.findOne(query).sort({ createdAt: -1 }).lean();
+    return snapshot ? toDomain<PlayerFeatureSnapshot & { id: string }>(snapshot) : null;
+  }
+
   async listByPlayer(playerId: string, filters: { teamId?: string; tournamentId?: string; limit?: number } = {}): Promise<Array<PlayerFeatureSnapshot & { id: string }>> {
     const query = {
       playerId,
@@ -462,6 +492,29 @@ class MongoosePlayerFeatureSnapshotRepository extends BaseMongooseRepository<Pla
     return (await this.model.find(query).sort({ createdAt: -1 }).limit(filters.limit ?? 20).lean())
       .map((doc) => toDomain<PlayerFeatureSnapshot & { id: string }>(doc))
       .filter(Boolean) as Array<PlayerFeatureSnapshot & { id: string }>;
+  }
+}
+
+class MongoosePlayerCardProjectionRepository implements PlayerCardProjectionRepository {
+  constructor(private readonly model: Model<Persisted<PlayerCardProjection>>) {}
+
+  async upsert(projection: PlayerCardProjection): Promise<PlayerCardProjection> {
+    await this.model.updateOne({ _id: projection.playerId }, { $set: { ...projection, _id: projection.playerId } }, { upsert: true, runValidators: true });
+    return projection;
+  }
+
+  async findByPlayerId(playerId: string): Promise<PlayerCardProjection | null> {
+    const projection = await this.model.findById(playerId).lean();
+    if (!projection) return null;
+    const { _id: _ignored, ...rest } = clean(projection);
+    return rest as PlayerCardProjection;
+  }
+
+  async listByPlayerIds(playerIds: string[]): Promise<PlayerCardProjection[]> {
+    return (await this.model.find({ _id: { $in: playerIds } }).lean()).map((projection) => {
+      const { _id: _ignored, ...rest } = clean(projection);
+      return rest as PlayerCardProjection;
+    });
   }
 }
 
@@ -512,6 +565,12 @@ class MongooseMatchRepository extends BaseMongooseRepository<Match> implements M
 
   async listByTeamIds(teamIds: string[]): Promise<Match[]> {
     return (await this.model.find({ $or: [{ "home.teamId": { $in: teamIds } }, { "away.teamId": { $in: teamIds } }] }).lean())
+      .map((doc) => toDomain<Match>(doc))
+      .filter(Boolean) as Match[];
+  }
+
+  async listByPlayerId(playerId: string): Promise<Match[]> {
+    return (await this.model.find({ $or: [{ "home.playerIds": playerId }, { "away.playerIds": playerId }] }).lean())
       .map((doc) => toDomain<Match>(doc))
       .filter(Boolean) as Match[];
   }
@@ -701,6 +760,7 @@ export const createMongoRepositories = async (uri: string, dbName: string): Prom
       users: new MongooseUserRepository(models.users),
       playerProfiles: new MongoosePlayerProfileRepository(models.playerProfiles),
       playerFeatureSnapshots: new MongoosePlayerFeatureSnapshotRepository(models.playerFeatureSnapshots),
+      playerCardProjections: new MongoosePlayerCardProjectionRepository(models.playerCardProjections),
       teams: new MongooseTeamRepository(models.teams),
       matches: new MongooseMatchRepository(models.matches),
       tournaments: new MongooseTournamentRepository(models.tournaments),

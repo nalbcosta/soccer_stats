@@ -1,48 +1,50 @@
 "use client";
 
 import { PageHeading } from "../app/page-heading";
-import { useSession } from "../app/session-provider";
 import { LoadingState } from "../feedback/loading-state";
 import { PlayerCard } from "../sports/player-card";
 import { Card } from "../ui/card";
 import { Tabs } from "../ui/tabs";
-import { PreferencesPanel } from "./preferences-panel";
 import { ProfileForm } from "./profile-form";
 import { useTranslations } from "../../i18n/provider";
+import { useProfilePage } from "../../composables/use-profile-page";
+import { buildPlayerCardViewModel } from "../../lib/player-card/build-player-card-view-model";
 
 export function ProfilePageContent() {
-  const { dashboard, user } = useSession();
-  const t = useTranslations("dashboard");
+  const { card, profile, teams, user, isLoading } = useProfilePage();
+  const t = useTranslations("profile");
   const navigation = useTranslations("navigation");
 
-  if (!dashboard || !user) {
+  if (isLoading || !profile || !user) {
     return <LoadingState />;
   }
 
   return (
     <>
-      <PageHeading eyebrow={navigation("profile")} title={t("profileCard")} />
+      <PageHeading eyebrow={navigation("profile")} title={t("title")} />
       <Tabs
         items={[
-          { href: "/app/profile", label: "Card", active: true },
+          { href: "/app/profile", label: t("card"), active: true },
           { href: "/app/settings", label: navigation("settings") }
         ]}
         label={navigation("profileNavigation")}
       />
-      <div className="grid gap-4 lg:grid-cols-[1fr_0.8fr]">
-        <PlayerCard className="lg:col-span-2" profile={dashboard.profile} size="full" user={user} />
-        <section className="rounded-lg border border-border bg-surface p-4">
-          <p className="mb-4 font-bold">{t("playerData")}</p>
-          <ProfileForm />
-        </section>
-        <div className="grid gap-4">
-          <Card className="p-4">
-            <p className="text-xs font-bold uppercase text-muted">{t("cardUsage")}</p>
-            <p className="mt-2 text-xl font-black">{t("cardUsageTitle")}</p>
-            <p className="mt-1 text-sm text-muted">{t("cardUsageDescription")}</p>
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(22rem,0.78fr)] xl:items-start">
+        <div className="grid gap-4 xl:sticky xl:top-24">
+          <PlayerCard size="full" viewModel={buildPlayerCardViewModel(profile, user, card, t)} />
+          <Card className="p-4 sm:p-5">
+            <p className="text-xs font-bold uppercase tracking-[0.12em] text-muted">{t("cardUsage")}</p>
+            <p className="mt-2 text-lg font-black sm:text-xl">{t("cardUsageTitle")}</p>
+            <p className="mt-1 text-sm leading-6 text-muted">{t("cardUsageDescription")}</p>
           </Card>
-          <PreferencesPanel />
         </div>
+        <section className="rounded-xl border border-border bg-surface p-4 shadow-line sm:p-5">
+          <div className="mb-6 border-b border-border pb-5">
+            <h2 className="text-lg font-black">{t("playerData")}</h2>
+            <p className="mt-1 text-sm leading-6 text-muted">{t("editDescription")}</p>
+          </div>
+          <ProfileForm profile={profile} teams={teams} />
+        </section>
       </div>
     </>
   );

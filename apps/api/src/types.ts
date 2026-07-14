@@ -5,6 +5,7 @@ import type {
   Notification,
   PlayerProfile,
   PlayerFeatureSnapshot,
+  PlayerCardProjection,
   PublicUser,
   SupportedLocale,
   Team,
@@ -38,6 +39,7 @@ export interface Repositories {
   users: UserRepository;
   playerProfiles: PlayerProfileRepository;
   playerFeatureSnapshots: PlayerFeatureSnapshotRepository;
+  playerCardProjections: PlayerCardProjectionRepository;
   teams: TeamRepository;
   matches: MatchRepository;
   tournaments: TournamentRepository;
@@ -64,7 +66,14 @@ export interface PlayerProfileRepository {
 
 export interface PlayerFeatureSnapshotRepository {
   create(snapshot: PlayerFeatureSnapshot & { id: string }): Promise<PlayerFeatureSnapshot & { id: string }>;
+  findLatest(playerId: string, filters?: { teamId?: string; tournamentId?: string }): Promise<(PlayerFeatureSnapshot & { id: string }) | null>;
   listByPlayer(playerId: string, filters?: { teamId?: string; tournamentId?: string; limit?: number }): Promise<Array<PlayerFeatureSnapshot & { id: string }>>;
+}
+
+export interface PlayerCardProjectionRepository {
+  upsert(projection: PlayerCardProjection): Promise<PlayerCardProjection>;
+  findByPlayerId(playerId: string): Promise<PlayerCardProjection | null>;
+  listByPlayerIds(playerIds: string[]): Promise<PlayerCardProjection[]>;
 }
 
 export interface TeamRepository {
@@ -82,6 +91,7 @@ export interface MatchRepository {
   findById(id: string): Promise<Match | null>;
   listAll(): Promise<Match[]>;
   listByTeamIds(teamIds: string[]): Promise<Match[]>;
+  listByPlayerId(playerId: string): Promise<Match[]>;
   listByTournamentId(tournamentId: string): Promise<Match[]>;
 }
 

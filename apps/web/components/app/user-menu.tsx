@@ -1,161 +1,153 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
-import { ChevronDown, LogOut, Settings, UserRound, X } from "lucide-react";
-import { useTheme } from "next-themes";
-import { useLocale, useTranslations } from "../../i18n/provider";
+import { ChevronDown, LogOut, X } from "lucide-react";
+import { useUserMenu } from "../../composables/use-user-menu";
+import { useTranslations } from "../../i18n/provider";
 import { LocaleToggle } from "../locale-toggle";
 import { ThemeToggle } from "../theme-toggle";
 import { ConfirmDialog } from "../overlays/confirm-dialog";
 import { Button } from "../ui/button";
-import { Badge } from "../ui/badge";
-import { useSession } from "./session-provider";
+import { UserAvatar } from "../ui/user-avatar";
 import { MenuShell } from "./menu-shell";
 
 type UserMenuMode = "header" | "mobile";
 
 export function UserMenu({ mode }: { mode: UserMenuMode }) {
-  const { user, logout, dashboard } = useSession();
-  const { resolvedTheme } = useTheme();
-  const { locale } = useLocale();
-  const t = useTranslations("navigation");
-  const [open, setOpen] = useState(false);
-  const [confirmLogout, setConfirmLogout] = useState(false);
+  const commonText = useTranslations("common");
+  const {
+    accountLinks,
+    accountSummary,
+    buttonRef,
+    confirmLogout,
+    displayName,
+    initials,
+    photoUrl,
+    localeLabel,
+    logout,
+    open,
+    requestLogout,
+    setConfirmLogout,
+    setOpen,
+    text,
+    themeKey
+  } = useUserMenu();
 
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        setOpen(false);
-      }
-    };
-
-    window.addEventListener("keydown", onKeyDown);
-
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, []);
-
-  const pendingCount =
-    (dashboard?.invites.filter((invite) => invite.status === "pending").length ?? 0) +
-    (dashboard?.matches.filter((match) => match.status === "scheduled").length ?? 0);
-
-  const displayName = dashboard?.profile?.displayName ?? user?.username ?? "jogador";
-  const initials = displayName.slice(0, 2).toUpperCase();
-  const localeLabel = locale === "pt-BR" ? "PT-BR" : "EN";
-  const themeLabel = resolvedTheme === "dark" ? "Escuro" : resolvedTheme === "light" ? "Claro" : "Auto";
+  const isHeader = mode === "header";
 
   return (
     <>
       <Button
-        className={
-          mode === "header"
-            ? "h-10 min-h-10 gap-2 rounded-xl px-2 md:h-11 md:px-3.5"
-            : "relative flex h-full min-h-touch w-full items-center justify-center rounded-none border-0 bg-transparent px-0 text-[11px] font-black text-muted shadow-none hover:bg-transparent"
-        }
-        type="button"
-        variant={mode === "header" ? "secondary" : "ghost"}
-        onClick={() => setOpen((value) => !value)}
+        ref={buttonRef}
         aria-expanded={open}
         aria-haspopup="menu"
+        aria-label={text("accountMenu")}
+        className={
+          isHeader
+            ? "h-11 min-h-11 rounded-xl px-1.5 sm:px-2 md:gap-2.5 md:px-3"
+            : "flex h-full min-h-touch w-full flex-col items-center justify-center gap-1 rounded-none border-0 bg-transparent px-0 text-[11px] font-black text-muted shadow-none hover:bg-transparent"
+        }
+        type="button"
+        variant={isHeader ? "secondary" : "ghost"}
+        onClick={() => setOpen((value) => !value)}
       >
-        {mode === "header" ? (
+        <UserAvatar alt={text("profilePhotoAlt")} className="h-9 w-9" initials={initials} src={photoUrl} />
+        {isHeader ? (
           <>
-            <span className="grid h-10 w-10 place-items-center rounded-xl bg-field text-xs font-black text-white md:h-8 md:w-8 md:rounded-md">
-              {initials}
-            </span>
-            <span className="hidden max-w-28 truncate text-sm font-semibold md:inline">@{displayName}</span>
-            <ChevronDown className="hidden md:block" size={16} />
+            <span className="hidden max-w-32 truncate text-sm font-bold md:inline">@{displayName}</span>
+            <ChevronDown className={`hidden text-muted transition-transform md:block ${open ? "rotate-180" : ""}`} size={16} />
           </>
         ) : (
-          <>
-            <span className="relative grid h-10 w-10 place-items-center rounded-full bg-primary-soft text-primary-strong">
-              <UserRound size={18} />
-              {pendingCount > 0 ? (
-                <Badge className="absolute -right-1 -top-1 min-h-5 px-1.5 text-[10px]" tone="warning">
-                  {pendingCount > 9 ? "9+" : pendingCount}
-                </Badge>
-              ) : null}
-            </span>
-            <span className="sr-only">Perfil</span>
-          </>
+          <span>{text("profile")}</span>
         )}
       </Button>
 
-      <MenuShell mobileFullScreen onClose={() => setOpen(false)} open={open}>
-        <div className="flex items-start justify-between gap-3 border-b border-border px-4 py-3">
-          <div className="space-y-1">
-            <p className="text-xs font-black uppercase text-muted">Conta</p>
-            <p className="text-lg font-black leading-none">{displayName}</p>
-            <p className="text-sm font-semibold text-muted">
-              {dashboard?.profile?.stats.recentHighlight ?? "Seu perfil, ajustes e preferencias em um so lugar."}
-            </p>
+      <MenuShell anchorRef={buttonRef} mobileFullScreen onClose={() => setOpen(false)} open={open}>
+        <div className="border-b border-border bg-canvas/65 px-4 py-4 md:px-5">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex min-w-0 items-center gap-3">
+              <UserAvatar alt={text("profilePhotoAlt")} className="h-11 w-11 rounded-xl text-sm" initials={initials} src={photoUrl} />
+              <div className="min-w-0">
+                <p className="text-[11px] font-black uppercase tracking-[0.14em] text-muted">{text("account")}</p>
+                <p className="truncate text-lg font-black leading-tight">{displayName}</p>
+                <p className="mt-1 line-clamp-2 text-sm font-semibold leading-5 text-muted">{accountSummary}</p>
+              </div>
+            </div>
+            <Button aria-label={commonText("close")} className="min-h-9 shrink-0 px-2" type="button" variant="ghost" onClick={() => setOpen(false)}>
+              <X size={18} />
+            </Button>
           </div>
-          <Button className="min-h-9 px-2" type="button" variant="ghost" onClick={() => setOpen(false)} title="Fechar">
-            <X size={18} />
-          </Button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-3">
-          <div className="grid gap-2">
-            <Link
-              className="flex min-h-11 items-center gap-2 rounded-lg border border-border bg-surface px-3 text-sm font-semibold text-text hover:bg-canvas"
-              href="/app/profile"
-              onClick={() => setOpen(false)}
-            >
-              <UserRound size={16} />
-              {t("profile")}
-            </Link>
-            <Link
-              className="flex min-h-11 items-center gap-2 rounded-lg border border-border bg-surface px-3 text-sm font-semibold text-text hover:bg-canvas"
-              href="/app/settings"
-              onClick={() => setOpen(false)}
-            >
-              <Settings size={16} />
-              {t("settings")}
-            </Link>
-          </div>
+        <div className="flex-1 overflow-y-auto p-3 md:p-4">
+          <nav className="grid grid-cols-2 gap-2" aria-label={text("accountNavigation")}>
+            {accountLinks.map((item) => {
+              const Icon = item.icon;
 
-          <div className="mt-3 rounded-lg bg-canvas p-3">
-            <p className="mb-3 text-xs font-black uppercase text-muted">Preferencias</p>
-            <div>
-              <p className="mb-2 text-xs font-black uppercase text-muted">
-                {t("language")}
-                <span className="ml-2 font-semibold normal-case text-muted">{localeLabel}</span>
-              </p>
-              <LocaleToggle compact />
-            </div>
-            <div className="mt-3">
-              <p className="mb-2 text-xs font-black uppercase text-muted">
-                {t("theme")}
-                <span className="ml-2 font-semibold normal-case text-muted">{themeLabel}</span>
-              </p>
-              <ThemeToggle compact />
-            </div>
-          </div>
+              return (
+                <Link
+                  className="flex min-h-16 flex-col justify-center gap-1 rounded-lg border border-border bg-surface px-3 text-sm font-bold text-text transition hover:border-primary/30 hover:bg-primary-soft/40"
+                  href={item.href}
+                  key={item.href}
+                  onClick={() => setOpen(false)}
+                >
+                  <Icon className="text-primary-strong" size={18} />
+                  {item.label}
+                </Link>
+              );
+            })}
+          </nav>
 
-          <Button
-            className="mt-3 w-full justify-start"
-            type="button"
-            variant="secondary"
-            onClick={() => {
-              setOpen(false);
-              setConfirmLogout(true);
-            }}
-          >
-            <LogOut size={16} />
-            {t("signOut")}
+          <section className="mt-4 rounded-xl border border-border bg-canvas p-3.5" aria-labelledby="preferences-title">
+            <div className="flex items-baseline justify-between gap-3">
+              <p id="preferences-title" className="text-xs font-black uppercase tracking-[0.12em] text-muted">{text("preferences")}</p>
+              <p className="text-xs font-semibold text-muted">{text("preferencesDescription")}</p>
+            </div>
+            <div className="mt-4 grid gap-4">
+              <PreferenceRow label={text("language")} value={localeLabel}>
+                <LocaleToggle compact />
+              </PreferenceRow>
+              <PreferenceRow label={text("theme")} value={text(themeKey)}>
+                <ThemeToggle compact />
+              </PreferenceRow>
+            </div>
+          </section>
+
+          <Button className="mt-4 w-full justify-center text-error hover:text-error" type="button" variant="secondary" onClick={requestLogout}>
+            <LogOut size={17} />
+            {text("signOut")}
           </Button>
         </div>
       </MenuShell>
 
       <ConfirmDialog
-        confirmLabel="Sair"
-        description="Voce volta para o login e pode entrar de novo quando quiser."
+        confirmLabel={text("confirmSignout")}
+        description={text("signoutDescription")}
         onClose={() => setConfirmLogout(false)}
         onConfirm={() => void logout()}
         open={confirmLogout}
-        title="Sair da conta?"
+        title={text("signOut")}
       />
     </>
+  );
+}
+
+function PreferenceRow({
+  children,
+  label,
+  value
+}: {
+  children: React.ReactNode;
+  label: string;
+  value: string;
+}) {
+  return (
+    <div>
+      <div className="mb-2 flex items-center justify-between gap-3">
+        <p className="text-xs font-black uppercase tracking-[0.1em] text-muted">{label}</p>
+        <p className="text-xs font-bold text-text">{value}</p>
+      </div>
+      {children}
+    </div>
   );
 }

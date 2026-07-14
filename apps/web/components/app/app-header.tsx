@@ -14,11 +14,11 @@ export function AppHeader() {
 
   return (
     <header className="sticky top-0 z-30 border-b border-border bg-canvas/95 backdrop-blur">
-      <div className="mx-auto flex h-14 max-w-7xl items-center justify-between gap-2 px-3 sm:px-4 md:h-16 md:px-6">
+      <div className="mx-auto flex h-14 md:max-w-7xl items-center justify-between gap-3 px-3 sm:px-5 md:h-20 ">
         <div className="flex min-w-0 items-center gap-2">
           <AppBackButton />
           <Link href="/app" className="flex min-w-0 items-center gap-2 font-extrabold" aria-label={t("goHome")}>
-            <span className="field-grid grid h-9 w-9 place-items-center rounded-lg bg-field text-sm text-white">NB</span>
+            <span className="field-grid grid h-10 w-10 place-items-center rounded-lg bg-field text-sm text-white">NB</span>
             <span className="hidden sm:inline">NaBola</span>
           </Link>
         </div>
@@ -36,14 +36,14 @@ export function AppHeader() {
                 href={item.href}
                 key={item.href}
               >
-                <Icon size={17} />
+                <Icon size={18} />
                 {t(item.labelKey)}
               </Link>
             );
           })}
         </nav>
 
-        <div className="flex min-w-0 items-center gap-2 md:gap-3">
+        <div className="flex items-center gap-2 md:gap-3">
           <AlertsMenu mode="header" />
           <UserMenu mode="header" />
         </div>

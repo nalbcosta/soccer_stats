@@ -1,8 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { Notification, PlayerCardV2, PlayerInsight, PlayerRankingEntry } from "@soccer-stats/shared";
+import type { PlayerCardProjection, PlayerRankingEntry } from "@soccer-stats/shared";
 import { useSession } from "../components/app/session-provider";
+import { useTranslations } from "../i18n/provider";
 import { api, type DashboardResponse } from "../lib/api";
 import { buildDashboardViewModel, type DashboardHomeViewModel } from "../lib/dashboard/build-dashboard-view-model";
 
@@ -25,11 +26,10 @@ async function settle<T>(task: Promise<T>): Promise<T | null> {
 }
 
 export function useDashboardHome(): DashboardHomeState {
-  const { dashboard, user, refresh, status, setFeedback } = useSession();
-  const [card, setCard] = useState<PlayerCardV2 | null>(null);
-  const [insights, setInsights] = useState<PlayerInsight[]>([]);
+  const { dashboard, user, refresh, status, setFeedback, markAllNotificationsRead: markAllSessionNotificationsRead } = useSession();
+  const text = useTranslations("dashboard");
+  const [card, setCard] = useState<PlayerCardProjection | null>(null);
   const [playerRanking, setPlayerRanking] = useState<PlayerRankingEntry[]>([]);
-  const [notifications, setNotifications] = useState<Notification[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -39,17 +39,13 @@ export function useDashboardHome(): DashboardHomeState {
     }
 
     setRefreshing(true);
-    const [cardResult, insightsResult, rankingResult, notificationsResult] = await Promise.all([
+    const [cardResult, rankingResult] = await Promise.all([
       settle(api.getPlayerCard(user.id)),
-      settle(api.getPlayerInsights(user.id)),
-      settle(api.getPlayerRankings({ metric: "overall", period: "all" })),
-      settle(api.listNotifications())
+      settle(api.getPlayerRankings({ metric: "overall", period: "all" }))
     ]);
 
     setCard(cardResult?.card ?? null);
-    setInsights(insightsResult?.insights ?? []);
     setPlayerRanking(rankingResult?.players ?? []);
-    setNotifications(notificationsResult?.notifications ?? null);
     setError(rankingResult ? null : "Alguns dados avançados não carregaram agora.");
     setRefreshing(false);
   }, [user]);
@@ -66,39 +62,26 @@ export function useDashboardHome(): DashboardHomeState {
   }, [loadExtras, refresh]);
 
   const markAllNotificationsRead = useCallback(async () => {
-    await api.markAllNotificationsRead();
-    setFeedback("Avisos marcados como lidos.");
-    await retry();
-  }, [retry, setFeedback]);
-
-  const enrichedDashboard = useMemo<DashboardResponse | null>(() => {
-    if (!dashboard) {
-      return null;
-    }
-
-    return {
-      ...dashboard,
-      notifications: notifications ?? dashboard.notifications
-    };
-  }, [dashboard, notifications]);
+    await markAllSessionNotificationsRead();
+    setFeedback(text("notificationsMarkedRead"));
+  }, [markAllSessionNotificationsRead, setFeedback, text]);
 
   const viewModel = useMemo(() => {
-    if (!enrichedDashboard || !user) {
+    if (!dashboard || !user) {
       return null;
     }
 
     return buildDashboardViewModel({
       card,
-      dashboard: enrichedDashboard,
-      insights,
+      dashboard,
       playerRanking,
       user
     });
-  }, [card, enrichedDashboard, insights, playerRanking, user]);
+  }, [card, dashboard, playerRanking, user]);
 
   return {
     viewModel,
-    dashboard: enrichedDashboard,
+    dashboard,
     error,
     loading: status === "loading" || !dashboard || !user,
     refreshing,

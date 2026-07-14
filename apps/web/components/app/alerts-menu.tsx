@@ -1,79 +1,26 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
-import { Bell, CalendarDays, CheckCheck, MailPlus, X } from "lucide-react";
-import { useSession } from "./session-provider";
+import { Bell, CheckCheck, X } from "lucide-react";
+import { useAlertsMenu } from "../../composables/use-alerts-menu";
+import { useTranslations } from "../../i18n/provider";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { MenuShell } from "./menu-shell";
-import { useLocale } from "../../i18n/provider";
-import { formatDateTime } from "../../i18n/formatters";
-import { useTranslations } from "../../i18n/provider";
 
 type AlertsMenuMode = "header" | "mobile";
 
 export function AlertsMenu({ mode }: { mode: AlertsMenuMode }) {
-  const { dashboard } = useSession();
-  const { locale } = useLocale();
-  const t = useTranslations("dashboard");
-  const [open, setOpen] = useState(false);
-  const [cleared, setCleared] = useState(false);
-
-  const items = useMemo(() => {
-    const unreadNotifications = dashboard?.notifications?.filter((notification) => !notification.readAt).slice(0, 4) ?? [];
-    const scheduled = dashboard?.matches.filter((match) => match.status === "scheduled").slice(0, 4) ?? [];
-    const pendingInvites = dashboard?.invites.filter((invite) => invite.status === "pending").slice(0, 4) ?? [];
-
-    return [
-      ...unreadNotifications.map((notification) => ({
-        href: "/app/notifications",
-        icon: Bell,
-        label: notification.title,
-        meta: notification.message
-      })),
-      ...scheduled.map((match) => ({
-        href: `/app/matches/${match.id}`,
-        icon: CalendarDays,
-        label: t("matchScheduled"),
-        meta: formatDateTime(match.playedAt, locale, { dateStyle: "medium", timeStyle: "short" })
-      })),
-      ...pendingInvites.map((invite) => ({
-        href: "/app/invites",
-        icon: MailPlus,
-        label: t("invitePending"),
-        meta: invite.email
-      }))
-    ];
-  }, [dashboard, locale, t]);
-
-  useEffect(() => {
-    if (!open) {
-      setCleared(false);
-    }
-  }, [open]);
-
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        setOpen(false);
-      }
-    };
-
-    window.addEventListener("keydown", onKeyDown);
-
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, []);
-
-  const visibleItems = cleared ? [] : items;
-  const unreadCount = cleared ? 0 : dashboard?.notifications?.filter((notification) => !notification.readAt).length ?? 0;
+  const { buttonRef, handleMarkAllRead, items, markingRead, open, setOpen, text, unreadCount } = useAlertsMenu();
+  const commonText = useTranslations("common");
 
   return (
     <>
       <Button
+        ref={buttonRef}
         className={
           mode === "header"
-            ? "relative h-10 min-h-10 w-10 rounded-xl px-0 md:w-auto md:gap-2 md:px-3.5"
+            ? "relative min-h-10 rounded-xl px-0 md:w-auto md:gap-2 md:px-3.5"
             : "relative flex h-full min-h-touch w-full flex-col items-center justify-center gap-1 rounded-none border-0 bg-transparent px-0 text-[11px] font-black text-muted shadow-none hover:bg-transparent"
         }
         type="button"
@@ -81,24 +28,25 @@ export function AlertsMenu({ mode }: { mode: AlertsMenuMode }) {
         onClick={() => setOpen((value) => !value)}
         aria-expanded={open}
         aria-haspopup="menu"
+        aria-label={`${text("alerts")}${unreadCount > 0 ? ` (${unreadCount})` : ""}`}
       >
-        <Bell size={mode === "header" ? 20 : 20} strokeWidth={2.3} />
-        <span className={mode === "header" ? "sr-only md:not-sr-only" : ""}>{t("alerts")}</span>
+        <Bell size={16} strokeWidth={2.3} />
+        <span className={mode === "header" ? "sr-only md:not-sr-only" : ""}>{text("alerts")}</span>
         {unreadCount > 0 ? (
-          <Badge className="absolute -right-1 -top-1 min-h-5 min-w-5 px-1.5 text-[10px]" tone="warning">
+            <Badge className="absolute -right-2 -top-2 min-h-5 min-w-5 rounded-full px-1.5 text-[10px] ring-2 ring-canvas" tone="warning">
             {unreadCount > 9 ? "9+" : unreadCount}
           </Badge>
         ) : null}
       </Button>
 
-      <MenuShell mobileFullScreen onClose={() => setOpen(false)} open={open}>
+      <MenuShell anchorRef={buttonRef} mobileFullScreen onClose={() => setOpen(false)} open={open}>
         <div className="border-b border-border px-4 py-3">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <p className="text-xs font-black uppercase text-muted">{t("alerts")}</p>
-              <p className="mt-1 text-sm font-semibold text-muted">{t("alertsDescription")}</p>
+              <p className="text-xs font-black uppercase text-muted">{text("alerts")}</p>
+              <p className="mt-1 text-sm font-semibold text-muted">{text("alertsDescription")}</p>
             </div>
-            <Button className="min-h-9 px-2" type="button" variant="ghost" onClick={() => setOpen(false)} title="Fechar">
+            <Button className="min-h-9 px-2" type="button" variant="ghost" onClick={() => setOpen(false)} title={commonText("close")}>
               <X size={18} />
             </Button>
           </div>
@@ -109,40 +57,41 @@ export function AlertsMenu({ mode }: { mode: AlertsMenuMode }) {
               onClick={() => setOpen(false)}
             >
               <Bell size={16} />
-              {t("viewAll")}
+              {text("viewAll")}
             </Link>
             <Button
               className="min-h-9 px-3 text-sm font-semibold"
+              disabled={unreadCount === 0 || markingRead}
               type="button"
               variant="secondary"
-              onClick={() => setCleared(true)}
+              onClick={() => void handleMarkAllRead()}
             >
               <CheckCheck size={16} />
-              {t("clear")}
+              {text("readAll")}
             </Button>
           </div>
         </div>
         <div className="flex-1 overflow-y-auto p-3">
-          {visibleItems.length === 0 ? (
-            <div className="rounded-lg bg-canvas p-4 text-sm font-semibold text-muted">{t("notificationsEmpty")}</div>
+          {items.length === 0 ? (
+            <div className="rounded-lg bg-canvas p-4 text-sm font-semibold text-muted">{text("notificationsEmpty")}</div>
           ) : (
             <div className="grid gap-2">
-              {visibleItems.map((item) => {
+              {items.map((item) => {
                 const Icon = item.icon;
 
                 return (
                   <Link
                     className="flex min-h-12 items-start gap-3 rounded-lg px-3 py-3 hover:bg-canvas"
                     href={item.href}
-                    key={`${item.href}-${item.label}-${item.meta}`}
+                    key={item.id}
                     onClick={() => setOpen(false)}
                   >
                     <div className="grid h-9 w-9 shrink-0 place-items-center rounded-md bg-primary-soft text-primary-strong">
                       <Icon size={16} />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="font-black">{item.label}</p>
-                      <p className="mt-1 text-sm font-semibold text-muted">{item.meta}</p>
+                      <p className="font-black">{item.title}</p>
+                      <p className="mt-1 text-sm font-semibold text-muted">{item.message}</p>
                     </div>
                   </Link>
                 );

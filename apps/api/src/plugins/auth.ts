@@ -63,7 +63,7 @@ const findOrCreateProfile = async (repositories: Repositories, user: StoredUser)
       userId: user.id,
       displayName: user.username,
       preferredFoot: "right",
-      preferredPosition: "midfielder",
+      preferredPosition: "central-midfielder",
       stats: createEmptyStats()
     });
   }

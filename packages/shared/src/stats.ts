@@ -1,4 +1,4 @@
-import type { AggregatedStats, PlayerCardV2, PlayerFeatureSnapshot, PlayerInsight, RatingVersion } from "./domain";
+import type { AggregatedStats, PlayerCardFactor, PlayerCardProjection, PlayerCardV2, PlayerFeatureSnapshot, PlayerInsight, PlayerProfile, RatingVersion } from "./domain";
 
 export const CURRENT_RATING_VERSION: RatingVersion = "v1";
 export const CURRENT_RATING_VERSION_V2: RatingVersion = "v2";
@@ -275,3 +275,42 @@ export const buildPlayerInsightsV2 = (card: PlayerCardV2): PlayerInsight[] => {
 
   return insights;
 };
+
+export function buildPlayerCardProjection(
+  playerId: string,
+  position: PlayerProfile["preferredPosition"],
+  stats: AggregatedStats,
+  context: { attendanceRate: number; checkInRate: number; impactScore: number; sourceSignature: string; updatedAt: string }
+): PlayerCardProjection {
+  const isGoalkeeper = position === "goalkeeper";
+  const matches = Math.max(stats.matchesPlayed, 1);
+  const factorValues = {
+    matches: normalizePercent(Math.min(stats.matchesPlayed, 20) * 5),
+    goalsPerMatch: normalizePercent(Math.min(stats.goalsPerMatch, 2.5) * 40),
+    assistsPerMatch: normalizePercent(Math.min(stats.assists / matches, 2) * 50),
+    saves: normalizePercent(Math.min(stats.saves / matches, 6) * (100 / 6)),
+    cleanSheets: normalizePercent((stats.cleanSheets / matches) * 100),
+    attendance: normalizePercent(context.attendanceRate),
+    checkIn: normalizePercent(context.checkInRate),
+    winRate: normalizePercent(stats.winRate),
+    form: recentFormScore(stats.form),
+    impact: normalizePercent(50 + context.impactScore * 8)
+  };
+  const weightRules: Record<"line" | "goalkeeper", Array<[PlayerCardFactor["key"], number]>> = {
+    line: [["matches", 0.12], ["goalsPerMatch", 0.18], ["assistsPerMatch", 0.14], ["attendance", 0.14], ["checkIn", 0.08], ["winRate", 0.14], ["form", 0.1], ["impact", 0.1]],
+    goalkeeper: [["matches", 0.14], ["saves", 0.2], ["cleanSheets", 0.16], ["attendance", 0.14], ["checkIn", 0.08], ["winRate", 0.12], ["form", 0.08], ["impact", 0.08]]
+  };
+  const factors = weightRules[isGoalkeeper ? "goalkeeper" : "line"].map(([key, weight]) => ({ key, weight, value: factorValues[key] }));
+  const score = clampRating(35 + factors.reduce((total, factor) => total + factor.value * factor.weight, 0) * 0.64);
+
+  return {
+    playerId,
+    ratingVersion: "v3",
+    score,
+    confidence: stats.matchesPlayed < 5 ? "forming" : "established",
+    stats,
+    factors,
+    sourceSignature: context.sourceSignature,
+    updatedAt: context.updatedAt
+  };
+}

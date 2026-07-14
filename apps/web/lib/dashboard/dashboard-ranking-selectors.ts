@@ -1,4 +1,4 @@
-import type { PlayerCardV2, PlayerRankingEntry, Team } from "@soccer-stats/shared";
+import type { PlayerCardProjection, PlayerRankingEntry, Team } from "@soccer-stats/shared";
 
 export interface DashboardTeamRankingItem {
   id: string;
@@ -12,7 +12,7 @@ export function selectPlayerRankingPreview(players: PlayerRankingEntry[], limit 
   return [...players].sort((left, right) => left.rank - right.rank).slice(0, limit);
 }
 
-export function alignOwnRankingWithCard(players: PlayerRankingEntry[], card: PlayerCardV2 | null): PlayerRankingEntry[] {
+export function alignOwnRankingWithCard(players: PlayerRankingEntry[], card: PlayerCardProjection | null): PlayerRankingEntry[] {
   if (!card) {
     return players;
   }
@@ -23,10 +23,9 @@ export function alignOwnRankingWithCard(players: PlayerRankingEntry[], card: Pla
           ...player,
           ratings: {
             ...player.ratings,
-            ratingVersion: card.ratingVersion,
             overall: card.score
           },
-          explanation: card.explanation
+          explanation: card.confidence === "forming" ? "Card em formação." : "Card baseado no histórico do jogador."
         }
       : player
   );

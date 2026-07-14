@@ -17,7 +17,7 @@ vi.mock("../app/session-provider", () => ({
         userId: "user-1",
         displayName: "Camisa 10",
         preferredFoot: "right",
-        preferredPosition: "midfielder",
+        preferredPosition: "central-midfielder",
         stats: {
           matchesPlayed: 0,
           wins: 0,
@@ -45,6 +45,10 @@ vi.mock("../app/session-provider", () => ({
     logout: vi.fn(),
     feedback: ""
   })
+}));
+
+vi.mock("../../composables/use-player-card", () => ({
+  usePlayerCard: () => ({ card: null, loading: false, refresh: vi.fn() })
 }));
 
 vi.mock("./profile-form", () => ({

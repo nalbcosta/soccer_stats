@@ -1,7 +1,6 @@
 "use client";
 
-import Link from "next/link";
-import { ArrowLeft, CheckCircle2, ShieldCheck } from "lucide-react";
+import { CheckCircle2, ShieldCheck } from "lucide-react";
 import { useState } from "react";
 import { Button } from "../../../components/ui/button";
 import { Card } from "../../../components/ui/card";
@@ -28,10 +27,6 @@ export default function TermsPage() {
   return (
     <main className="min-h-screen bg-canvas px-4 py-5 text-text sm:px-6 sm:py-8">
       <div className="mx-auto max-w-4xl">
-        <header className="flex items-center justify-between gap-4">
-          <Link href="/" className="flex items-center gap-3 font-black"><span className="field-grid grid h-11 w-11 place-items-center rounded-lg bg-field text-sm text-white shadow-line">NB</span><span>NaBola</span></Link>
-          <Link className="inline-flex min-h-11 items-center gap-2 text-sm font-bold text-muted transition hover:text-text" href="/"><ArrowLeft size={17} /> Voltar</Link>
-        </header>
         <section className="mt-10 max-w-3xl">
           <div className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.16em] text-field"><ShieldCheck size={16} /> Transparência e segurança</div>
           <h1 className="mt-3 text-3xl font-black leading-tight sm:text-5xl">Termos de uso e cookies</h1>

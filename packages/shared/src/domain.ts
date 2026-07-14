@@ -5,7 +5,17 @@ export type MatchType = "casual" | "tournament";
 export type MatchStatus = "scheduled" | "confirming" | "completed" | "cancelled";
 export type TournamentFormat = "league";
 export type PreferredFoot = "right" | "left" | "both";
-export type PlayerPosition = "goalkeeper" | "defender" | "midfielder" | "forward";
+export type PlayerPosition =
+  | "goalkeeper"
+  | "right-back"
+  | "center-back"
+  | "left-back"
+  | "defensive-midfielder"
+  | "central-midfielder"
+  | "attacking-midfielder"
+  | "right-winger"
+  | "left-winger"
+  | "striker";
 export type InviteStatus = "pending" | "accepted" | "revoked";
 export type AuthProvider = "credentials" | "google";
 export type EntityVisibility = "private" | "public";
@@ -59,6 +69,7 @@ export interface PlayerProfile {
     size: number;
     uploadedAt: string;
   };
+  primaryTeamId?: string;
   teamName?: string;
   preferredFoot: PreferredFoot;
   preferredPosition: PlayerPosition;
@@ -285,6 +296,35 @@ export interface PlayerCardV2 {
   factors: PlayerCardV2Factor[];
   explanation: string;
   snapshot: PlayerFeatureSnapshot;
+}
+
+export type PlayerCardFactorKey =
+  | "matches"
+  | "goalsPerMatch"
+  | "assistsPerMatch"
+  | "saves"
+  | "cleanSheets"
+  | "attendance"
+  | "checkIn"
+  | "winRate"
+  | "form"
+  | "impact";
+
+export interface PlayerCardFactor {
+  key: PlayerCardFactorKey;
+  value: number;
+  weight: number;
+}
+
+export interface PlayerCardProjection {
+  playerId: string;
+  ratingVersion: "v3";
+  score: number;
+  confidence: "forming" | "established";
+  stats: AggregatedStats;
+  factors: PlayerCardFactor[];
+  sourceSignature: string;
+  updatedAt: string;
 }
 
 export interface PlayerInsight {

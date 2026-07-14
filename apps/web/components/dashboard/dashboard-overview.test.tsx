@@ -2,7 +2,7 @@ import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { DashboardResponse } from "../../lib/api";
 import type { DashboardHomeViewModel } from "../../lib/dashboard/build-dashboard-view-model";
-import type { AggregatedStats, Match, PlayerCardV2, PublicUser, Team } from "@soccer-stats/shared";
+import type { AggregatedStats, Match, PlayerCardProjection, PublicUser, Team } from "@soccer-stats/shared";
 import { DashboardOverview } from "./dashboard-overview";
 
 const user: PublicUser = {
@@ -65,7 +65,7 @@ const dashboard: DashboardResponse = {
     userId: "user-1",
     displayName: "Camisa 10",
     preferredFoot: "right",
-    preferredPosition: "midfielder",
+    preferredPosition: "central-midfielder",
     stats
   },
   teams: [team],
@@ -76,25 +76,15 @@ const dashboard: DashboardResponse = {
   notifications: []
 };
 
-const card: PlayerCardV2 = {
+const card: PlayerCardProjection = {
   playerId: "user-1",
-  ratingVersion: "v2",
+  ratingVersion: "v3",
   score: 82,
-  factors: [{ key: "goals", label: "Gols", value: 80, weight: 0.2 }],
-  explanation: "Card v2 calculado com dados reais.",
-  snapshot: {
-    playerId: "user-1",
-    ratingVersion: "v2",
-    matchesPlayed: 1,
-    goalsPerMatch: 2,
-    assistsPerMatch: 1,
-    presenceRate: 100,
-    checkInRate: 100,
-    winRate: 100,
-    recentFormScore: 100,
-    impactScore: 80,
-    createdAt: "2026-07-01T10:00:00.000Z"
-  }
+  confidence: "forming",
+  stats,
+  factors: [{ key: "goalsPerMatch", value: 80, weight: 0.2 }],
+  sourceSignature: "match-1",
+  updatedAt: "2026-07-01T10:00:00.000Z"
 };
 
 function makeViewModel(input: Partial<DashboardHomeViewModel> = {}): DashboardHomeViewModel {
@@ -147,7 +137,7 @@ vi.mock("../../composables/use-dashboard-home", () => ({
 }));
 
 vi.mock("../sports/player-card", () => ({
-  PlayerCard: () => <article>PlayerCard fallback</article>
+  PlayerCard: ({ viewModel }: { viewModel: { overall: number } }) => <article>NaBola Card {viewModel.overall}</article>
 }));
 
 describe("DashboardOverview", () => {
@@ -200,7 +190,7 @@ describe("DashboardOverview", () => {
     expect(screen.getByText("Bola FC")).toBeInTheDocument();
   });
 
-  it("renderiza card v2 quando disponivel", () => {
+  it("renderiza o card unificado com o score persistido quando disponivel", () => {
     homeState.value = {
       ...homeState.value,
       loading: false,
@@ -209,8 +199,7 @@ describe("DashboardOverview", () => {
 
     render(<DashboardOverview />);
 
-    expect(screen.getByText("NaBola Card v2")).toBeInTheDocument();
-    expect(screen.getByText("82")).toBeInTheDocument();
+    expect(screen.getByText("NaBola Card 82")).toBeInTheDocument();
   });
 
   it("usa fallback de profile quando card v2 nao existe", () => {
@@ -222,6 +211,6 @@ describe("DashboardOverview", () => {
 
     render(<DashboardOverview />);
 
-    expect(screen.getByText("PlayerCard fallback")).toBeInTheDocument();
+    expect(screen.getByText("NaBola Card 35")).toBeInTheDocument();
   });
 });

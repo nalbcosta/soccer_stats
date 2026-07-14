@@ -1,4 +1,4 @@
-import type { PlayerCardV2, PlayerInsight, PlayerRankingEntry, PublicUser } from "@soccer-stats/shared";
+import type { PlayerCardProjection, PlayerInsight, PlayerRankingEntry, PublicUser } from "@soccer-stats/shared";
 import type { DashboardResponse } from "../api";
 import { buildDashboardMetrics, type DashboardMetric } from "./dashboard-metrics";
 import { toMatchSummary, selectNextMatch, type DashboardMatchSummary } from "./dashboard-match-selectors";
@@ -13,7 +13,7 @@ export interface DashboardHomeViewModel {
   teamRanking: DashboardTeamRankingItem[];
   unreadNotifications: DashboardResponse["notifications"];
   venues: DashboardResponse["venues"];
-  card: PlayerCardV2 | null;
+  card: PlayerCardProjection | null;
   insights: PlayerInsight[];
   hasTeams: boolean;
   hasMatches: boolean;
@@ -24,14 +24,14 @@ export interface DashboardHomeViewModel {
 
 export function buildDashboardViewModel({
   card,
+  insights = [],
   dashboard,
-  insights,
   playerRanking,
   user
 }: {
-  card: PlayerCardV2 | null;
+  card: PlayerCardProjection | null;
+  insights?: PlayerInsight[];
   dashboard: DashboardResponse;
-  insights: PlayerInsight[];
   playerRanking: PlayerRankingEntry[];
   user: PublicUser;
 }): DashboardHomeViewModel {

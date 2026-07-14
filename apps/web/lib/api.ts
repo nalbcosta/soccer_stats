@@ -2,7 +2,7 @@ import type {
   Invite,
   Match,
   Notification,
-  PlayerCardV2,
+  PlayerCardProjection,
   PlayerInsight,
   PlayerProfile,
   PlayerRankingEntry,
@@ -11,6 +11,16 @@ import type {
   Tournament,
   Venue
 } from "@soccer-stats/shared";
+
+export interface UpdateProfileInput {
+  displayName: string;
+  shirtNumber?: number | null;
+  photoUrl?: string | null;
+  primaryTeamId?: string | null;
+  preferredFoot: PlayerProfile["preferredFoot"];
+  preferredPosition: PlayerProfile["preferredPosition"];
+  bio?: string | null;
+}
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/v1";
 const API_BASE_URL = API_URL.replace(/\/v1$/, "");
@@ -135,7 +145,7 @@ export const api = {
   signOut: () => request<{ ok: true }>("/auth/signout", { method: "POST" }),
   me: () => request<{ user: PublicUser }>("/auth/me"),
   dashboard: () => request<DashboardResponse>("/dashboard"),
-  getPlayerCard: (userId: string) => request<{ card: PlayerCardV2 }>(`/players/${encodeURIComponent(userId)}/card`),
+  getPlayerCard: (userId: string) => request<{ card: PlayerCardProjection }>(`/players/${encodeURIComponent(userId)}/card`),
   getPlayerInsights: (userId: string) =>
     request<{ insights: PlayerInsight[] }>(`/players/${encodeURIComponent(userId)}/insights`),
   getPlayerRankings: (filters: PlayerRankingFilters = {}) =>
@@ -174,7 +184,7 @@ export const api = {
   markNotificationRead: (notificationId: string) =>
     request<{ notification: Notification }>(`/notifications/${encodeURIComponent(notificationId)}/read`, { method: "PATCH" }),
   markAllNotificationsRead: () => request<{ ok: true }>("/notifications/read-all", { method: "POST" }),
-  updateProfile: (input: Partial<Pick<PlayerProfile, "displayName" | "shirtNumber" | "photoUrl" | "teamName" | "preferredFoot" | "preferredPosition" | "bio">>) =>
+  updateProfile: (input: UpdateProfileInput) =>
     request<{ profile: PlayerProfile }>("/players/me", { method: "PUT", body: JSON.stringify(input) }),
   uploadProfilePhoto: async (photo: File) => {
     const formData = new FormData();

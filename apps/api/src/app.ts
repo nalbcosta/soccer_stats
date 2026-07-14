@@ -65,9 +65,13 @@ export const createApp = async (config: AppConfig, repositories: Repositories) =
   await app.register(cookie, { secret: config.sessionSecret });
   await app.register(cors, {
     origin: config.webOrigin,
-    credentials: true
+    credentials: true,
+    methods: ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "X-CSRF-Token"]
   });
-  await app.register(helmet);
+  await app.register(helmet, {
+    crossOriginResourcePolicy: { policy: "cross-origin" }
+  });
   await app.register(multipart, {
     limits: {
       fileSize: 5 * 1024 * 1024,

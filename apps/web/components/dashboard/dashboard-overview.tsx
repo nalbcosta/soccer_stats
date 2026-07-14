@@ -14,9 +14,11 @@ import { DashboardPlayerCardPanel } from "./dashboard-player-card-panel";
 import { DashboardPlayerRankingPreview } from "./dashboard-player-ranking-preview";
 import { DashboardVenuesPreview } from "./dashboard-venues-preview";
 import { useTranslations } from "../../i18n/provider";
+import { buildPlayerCardViewModel } from "../../lib/player-card/build-player-card-view-model";
 
 export function DashboardOverview() {
   const t = useTranslations("dashboard");
+  const profileText = useTranslations("profile");
   const teams = useTranslations("teams");
   const { user } = useSession();
   const { dashboard, error, loading, markAllNotificationsRead, refreshing, retry, viewModel } = useDashboardHome();
@@ -62,7 +64,7 @@ export function DashboardOverview() {
         </main>
 
         <aside className="grid min-w-0 content-start gap-4">
-          <DashboardPlayerCardPanel card={viewModel.card} insights={viewModel.insights} profile={dashboard.profile} user={user} />
+          <DashboardPlayerCardPanel viewModel={buildPlayerCardViewModel(dashboard.profile, user, viewModel.card, profileText)} />
           <DashboardPlayerRankingPreview players={viewModel.playerRanking} />
           {viewModel.showNotifications ? (
             <DashboardNotificationsPreview

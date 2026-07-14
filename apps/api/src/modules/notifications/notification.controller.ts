@@ -1,5 +1,6 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
 import { notificationSchema } from "@soccer-stats/shared";
+import { NotificationService } from "./notification.service.js";
 
 export const listNotifications = async (request: FastifyRequest, reply: FastifyReply) => {
   const user = await request.server.auth.requireUser(request, reply);
@@ -8,7 +9,7 @@ export const listNotifications = async (request: FastifyRequest, reply: FastifyR
     return;
   }
 
-  const notifications = await request.server.repositories.notifications.listByUser(user.id);
+  const notifications = await new NotificationService(request.server.repositories).listByUser(user.id);
   return { notifications: notifications.map((notification) => notificationSchema.parse(notification)) };
 };
 

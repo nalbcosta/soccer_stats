@@ -149,9 +149,7 @@ export const teamRoutes: FastifyPluginAsync = async (app) => {
       await new NotificationService(app.repositories).create({
         userId: invitedUser.id,
         type: "invite-created",
-        title: "Novo convite de time",
-        message: `Voce foi convidado para participar do time ${team.name}.`,
-        metadata: { teamId: team.id, inviteId: invite.id }
+        metadata: { teamId: team.id, inviteId: invite.id, teamName: team.name }
       });
     }
     await new AuditService(app.repositories).record({

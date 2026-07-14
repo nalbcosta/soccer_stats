@@ -1,4 +1,4 @@
-import type { AuditLog, Invite, Match, Notification, PlayerFeatureSnapshot, PlayerProfile, Team, Tournament, Venue } from "@soccer-stats/shared";
+import type { AuditLog, Invite, Match, Notification, PlayerCardProjection, PlayerFeatureSnapshot, PlayerProfile, Team, Tournament, Venue } from "@soccer-stats/shared";
 import type {
   AuditLogRepository,
   InviteRepository,
@@ -6,6 +6,7 @@ import type {
   NotificationRepository,
   PlayerProfileRepository,
   PlayerFeatureSnapshotRepository,
+  PlayerCardProjectionRepository,
   Repositories,
   SessionRecord,
   SessionRepository,
@@ -67,6 +68,16 @@ class MemoryPlayerFeatureSnapshotRepository implements PlayerFeatureSnapshotRepo
     return snapshot;
   }
 
+  async findLatest(playerId: string, filters: { teamId?: string; tournamentId?: string } = {}): Promise<(PlayerFeatureSnapshot & { id: string }) | null> {
+    return (
+      [...this.items.values()]
+        .filter((snapshot) => snapshot.playerId === playerId)
+        .filter((snapshot) => !filters.teamId || snapshot.teamId === filters.teamId)
+        .filter((snapshot) => !filters.tournamentId || snapshot.tournamentId === filters.tournamentId)
+        .sort((left, right) => right.createdAt.localeCompare(left.createdAt))[0] ?? null
+    );
+  }
+
   async listByPlayer(playerId: string, filters: { teamId?: string; tournamentId?: string; limit?: number } = {}): Promise<Array<PlayerFeatureSnapshot & { id: string }>> {
     return [...this.items.values()]
       .filter((snapshot) => snapshot.playerId === playerId)
@@ -74,6 +85,23 @@ class MemoryPlayerFeatureSnapshotRepository implements PlayerFeatureSnapshotRepo
       .filter((snapshot) => !filters.tournamentId || snapshot.tournamentId === filters.tournamentId)
       .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
       .slice(0, filters.limit ?? 20);
+  }
+}
+
+class MemoryPlayerCardProjectionRepository implements PlayerCardProjectionRepository {
+  private readonly items = new Map<string, PlayerCardProjection>();
+
+  async upsert(projection: PlayerCardProjection): Promise<PlayerCardProjection> {
+    this.items.set(projection.playerId, projection);
+    return projection;
+  }
+
+  async findByPlayerId(playerId: string): Promise<PlayerCardProjection | null> {
+    return this.items.get(playerId) ?? null;
+  }
+
+  async listByPlayerIds(playerIds: string[]): Promise<PlayerCardProjection[]> {
+    return playerIds.map((playerId) => this.items.get(playerId)).filter((projection): projection is PlayerCardProjection => Boolean(projection));
   }
 }
 
@@ -132,6 +160,10 @@ class MemoryMatchRepository implements MatchRepository {
 
   async listByTeamIds(teamIds: string[]): Promise<Match[]> {
     return [...this.items.values()].filter((match) => teamIds.includes(match.home.teamId) || teamIds.includes(match.away.teamId));
+  }
+
+  async listByPlayerId(playerId: string): Promise<Match[]> {
+    return [...this.items.values()].filter((match) => [...match.home.playerIds, ...match.away.playerIds].includes(playerId));
   }
 
   async listByTournamentId(tournamentId: string): Promise<Match[]> {
@@ -329,6 +361,7 @@ export const createMemoryRepositories = (): Repositories => ({
   users: new MemoryUserRepository(),
   playerProfiles: new MemoryPlayerProfileRepository(),
   playerFeatureSnapshots: new MemoryPlayerFeatureSnapshotRepository(),
+  playerCardProjections: new MemoryPlayerCardProjectionRepository(),
   teams: new MemoryTeamRepository(),
   matches: new MemoryMatchRepository(),
   tournaments: new MemoryTournamentRepository(),

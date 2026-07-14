@@ -163,21 +163,13 @@ describe("dashboard selectors", () => {
     const viewModel = buildDashboardViewModel({
       card: {
         playerId: "user-1",
-        ratingVersion: "v2",
+        ratingVersion: "v3",
         score: 59,
+        confidence: "forming",
+        stats,
         factors: [],
-        explanation: "Score v2 com baixa amostra.",
-        snapshot: {
-          playerId: "user-1",
-          ratingVersion: "v2",
-          matchesPlayed: 1,
-          goalsPerMatch: 0,
-          assistsPerMatch: 0,
-          presenceRate: 0,
-          winRate: 0,
-          recentFormScore: 0,
-          createdAt: "2026-07-01T10:00:00.000Z"
-        }
+        sourceSignature: "match-1",
+        updatedAt: "2026-07-01T10:00:00.000Z"
       },
       dashboard: makeDashboard(),
       insights: [],
@@ -186,6 +178,6 @@ describe("dashboard selectors", () => {
     });
 
     expect(viewModel.playerRanking[0]?.ratings.overall).toBe(59);
-    expect(viewModel.playerRanking[0]?.ratings.ratingVersion).toBe("v2");
+    expect(viewModel.playerRanking[0]?.ratings.ratingVersion).toBe("v1");
   });
 });

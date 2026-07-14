@@ -1,5 +1,5 @@
 import type { FastifyPluginAsync } from "fastify";
-import { buildPlayerCardRatings, buildPlayerFeatureSnapshot, buildPlayerRatingExplanation } from "@soccer-stats/shared";
+import { buildPlayerCardProjection, buildPlayerCardRatings } from "@soccer-stats/shared";
 import { playerRankingEntrySchema, playerRankingQuerySchema } from "@soccer-stats/shared";
 import type { Match, PlayerRankingEntry, Team } from "@soccer-stats/shared";
 import { rankingRouteSchemas } from "../docs/openapi.js";
@@ -29,9 +29,22 @@ const buildRanking = async (
   const profiles = await app.repositories.playerProfiles.listByUserIds(playerIds);
   const entries = profiles.map((profile) => {
     const stats = calculatePlayerStats(profile.userId, completedMatches);
-    const ratings = buildPlayerCardRatings(stats);
     const presenceRate = presenceRateFor(profile.userId, matches);
-    const featureSnapshot = buildPlayerFeatureSnapshot(profile.userId, stats, presenceRate);
+    const checkInRate = matches.length === 0 ? 0 : Number(((matches.filter((match) => (match.checkIns ?? []).some((checkIn) => checkIn.userId === profile.userId)).length / matches.length) * 100).toFixed(1));
+    const impactScore = completedMatches.reduce((total, match) => {
+      const goals = match.eventLog.filter((event) => event.type === "goal" && event.playerId === profile.userId).length;
+      const assists = match.eventLog.filter((event) => event.assistPlayerId === profile.userId).length;
+      const checkedIn = (match.checkIns ?? []).some((checkIn) => checkIn.userId === profile.userId);
+      return total + goals * 3 + assists * 2 + (checkedIn ? 1 : 0);
+    }, 0);
+    const projection = buildPlayerCardProjection(profile.userId, profile.preferredPosition, stats, {
+      attendanceRate: presenceRate,
+      checkInRate,
+      impactScore,
+      sourceSignature: matches.map((match) => `${match.id}:${match.updatedAt}`).sort().join("|") || "empty",
+      updatedAt: new Date().toISOString()
+    });
+    const ratings = { ...buildPlayerCardRatings(stats), overall: projection.score };
 
     return {
       playerId: profile.userId,
@@ -39,7 +52,7 @@ const buildRanking = async (
       stats,
       ratings,
       rank: 0,
-      explanation: `${buildPlayerRatingExplanation(stats)} Presenca confirmada: ${featureSnapshot.presenceRate}%.`
+      explanation: projection.confidence === "forming" ? "Card em formação: a amostra ainda é pequena." : "Overall calculado pelo histórico registrado."
     };
   });
 

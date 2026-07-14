@@ -219,9 +219,7 @@ export const matchRoutes: FastifyPluginAsync = async (app) => {
 
     await new NotificationService(app.repositories).notifyUsers(teamMemberIds([homeTeam, awayTeam]), {
       type: "match-scheduled",
-      title: "Partida marcada",
-      message: `${homeTeam.name} x ${awayTeam.name} foi marcada no NaBola.`,
-      metadata: { matchId: match.id, homeTeamId: homeTeam.id, awayTeamId: awayTeam.id }
+      metadata: { matchId: match.id, homeTeamId: homeTeam.id, awayTeamId: awayTeam.id, homeTeam: homeTeam.name, awayTeam: awayTeam.name }
     });
     await new AuditService(app.repositories).record({
       actorUserId: user.id,
@@ -286,11 +284,10 @@ export const matchRoutes: FastifyPluginAsync = async (app) => {
       presences: upsertPresence(match.presences ?? [], user.id, payload.status, user.id),
       updatedAt: new Date().toISOString()
     });
+    await new StatsService(app.repositories).refreshPlayerCardProjection(user.id);
 
     await new NotificationService(app.repositories).notifyUsers([match.createdBy], {
       type: "presence-updated",
-      title: "Presenca atualizada",
-      message: "Um jogador atualizou a presenca na partida.",
       metadata: { matchId: match.id, userId: user.id, status: payload.status }
     });
 
@@ -334,12 +331,11 @@ export const matchRoutes: FastifyPluginAsync = async (app) => {
       presences: upsertPresence(match.presences ?? [], userId, payload.status, user.id),
       updatedAt: new Date().toISOString()
     });
+    await new StatsService(app.repositories).refreshPlayerCardProjection(userId);
 
     await new NotificationService(app.repositories).create({
       userId,
       type: "presence-updated",
-      title: "Sua presenca foi atualizada",
-      message: "Um admin atualizou sua presenca na partida.",
       metadata: { matchId: match.id, status: payload.status }
     });
 
@@ -389,8 +385,6 @@ export const matchRoutes: FastifyPluginAsync = async (app) => {
     const involvedTeams: Team[] = [homeTeam, awayTeam].filter((team): team is Team => Boolean(team));
     await new NotificationService(app.repositories).notifyUsers(teamMemberIds(involvedTeams), {
       type: "match-cancelled",
-      title: "Partida cancelada",
-      message: "Uma partida foi cancelada no NaBola.",
       metadata: { matchId: match.id }
     });
 
@@ -491,6 +485,7 @@ export const matchRoutes: FastifyPluginAsync = async (app) => {
       checkIns,
       updatedAt: new Date().toISOString()
     });
+    await new StatsService(app.repositories).refreshPlayerCardProjection(user.id);
 
     return { match: matchSchema.parse(updated) };
   });
@@ -725,18 +720,14 @@ export const matchRoutes: FastifyPluginAsync = async (app) => {
         const teams = await app.repositories.teams.listByIds(tournament.teamIds);
         await new NotificationService(app.repositories).notifyUsers(teamMemberIds(teams), {
           type: "tournament-updated",
-          title: "Tabela atualizada",
-          message: `A tabela do campeonato ${tournament.name} foi atualizada.`,
-          metadata: { tournamentId: tournament.id, matchId: completed.id }
+          metadata: { tournamentId: tournament.id, matchId: completed.id, tournamentName: tournament.name }
         });
       }
     }
 
     await new NotificationService(app.repositories).notifyUsers(teamMemberIds(involvedTeams), {
       type: "match-completed",
-      title: "Partida encerrada",
-      message: `${homeTeam.name} ${payload.homeScore} x ${payload.awayScore} ${awayTeam.name}.`,
-      metadata: { matchId: completed.id, homeTeamId: homeTeam.id, awayTeamId: awayTeam.id }
+      metadata: { matchId: completed.id, homeTeamId: homeTeam.id, awayTeamId: awayTeam.id, homeTeam: homeTeam.name, awayTeam: awayTeam.name, homeScore: String(payload.homeScore), awayScore: String(payload.awayScore) }
     });
     await new AuditService(app.repositories).record({
       actorUserId: user.id,
