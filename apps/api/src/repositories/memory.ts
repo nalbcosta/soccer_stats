@@ -1,4 +1,4 @@
-import type { AuditLog, Invite, Match, Notification, PlayerCardProjection, PlayerFeatureSnapshot, PlayerProfile, Team, Tournament, Venue } from "@soccer-stats/shared";
+import type { AuditLog, Invite, Match, MatchComment, MatchJoinRequest, Notification, PlayerCardProjection, PlayerFeatureSnapshot, PlayerProfile, Team, TeamJoinRequest, TeamMessage, Tournament, Venue } from "@soccer-stats/shared";
 import type {
   AuditLogRepository,
   InviteRepository,
@@ -12,6 +12,10 @@ import type {
   SessionRepository,
   StoredUser,
   TeamRepository,
+  TeamJoinRequestRepository,
+  MatchJoinRequestRepository,
+  TeamMessageRepository,
+  MatchCommentRepository,
   TournamentRepository,
   VenueRepository,
   UserRepository
@@ -169,6 +173,40 @@ class MemoryMatchRepository implements MatchRepository {
   async listByTournamentId(tournamentId: string): Promise<Match[]> {
     return [...this.items.values()].filter((match) => match.tournamentId === tournamentId);
   }
+}
+
+class MemoryTeamJoinRequestRepository implements TeamJoinRequestRepository {
+  private readonly items = new Map<string, TeamJoinRequest>();
+  async create(request: TeamJoinRequest): Promise<TeamJoinRequest> { this.items.set(request.id, request); return request; }
+  async update(request: TeamJoinRequest): Promise<TeamJoinRequest> { this.items.set(request.id, request); return request; }
+  async findById(id: string): Promise<TeamJoinRequest | null> { return this.items.get(id) ?? null; }
+  async findByTeamAndUser(teamId: string, userId: string): Promise<TeamJoinRequest | null> { return [...this.items.values()].find((item) => item.teamId === teamId && item.userId === userId && item.status === "pending") ?? null; }
+  async listByTeam(teamId: string): Promise<TeamJoinRequest[]> { return [...this.items.values()].filter((item) => item.teamId === teamId).sort((a, b) => b.requestedAt.localeCompare(a.requestedAt)); }
+}
+
+class MemoryMatchJoinRequestRepository implements MatchJoinRequestRepository {
+  private readonly items = new Map<string, MatchJoinRequest>();
+  async create(request: MatchJoinRequest): Promise<MatchJoinRequest> { this.items.set(request.id, request); return request; }
+  async update(request: MatchJoinRequest): Promise<MatchJoinRequest> { this.items.set(request.id, request); return request; }
+  async findById(id: string): Promise<MatchJoinRequest | null> { return this.items.get(id) ?? null; }
+  async findByMatchAndUser(matchId: string, userId: string): Promise<MatchJoinRequest | null> { return [...this.items.values()].find((item) => item.matchId === matchId && item.userId === userId && item.status === "pending") ?? null; }
+  async listByMatch(matchId: string): Promise<MatchJoinRequest[]> { return [...this.items.values()].filter((item) => item.matchId === matchId).sort((a, b) => b.requestedAt.localeCompare(a.requestedAt)); }
+}
+
+class MemoryTeamMessageRepository implements TeamMessageRepository {
+  private readonly items = new Map<string, TeamMessage>();
+  async create(message: TeamMessage): Promise<TeamMessage> { this.items.set(message.id, message); return message; }
+  async findById(id: string): Promise<TeamMessage | null> { return this.items.get(id) ?? null; }
+  async listByTeam(teamId: string, page: number, pageSize: number): Promise<TeamMessage[]> { return [...this.items.values()].filter((item) => item.teamId === teamId).sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice((page - 1) * pageSize, page * pageSize); }
+  async deleteById(id: string): Promise<void> { this.items.delete(id); }
+}
+
+class MemoryMatchCommentRepository implements MatchCommentRepository {
+  private readonly items = new Map<string, MatchComment>();
+  async create(comment: MatchComment): Promise<MatchComment> { this.items.set(comment.id, comment); return comment; }
+  async findById(id: string): Promise<MatchComment | null> { return this.items.get(id) ?? null; }
+  async listByMatch(matchId: string, page: number, pageSize: number): Promise<MatchComment[]> { return [...this.items.values()].filter((item) => item.matchId === matchId).sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice((page - 1) * pageSize, page * pageSize); }
+  async deleteById(id: string): Promise<void> { this.items.delete(id); }
 }
 
 class MemoryTournamentRepository implements TournamentRepository {
@@ -363,6 +401,10 @@ export const createMemoryRepositories = (): Repositories => ({
   playerFeatureSnapshots: new MemoryPlayerFeatureSnapshotRepository(),
   playerCardProjections: new MemoryPlayerCardProjectionRepository(),
   teams: new MemoryTeamRepository(),
+  teamJoinRequests: new MemoryTeamJoinRequestRepository(),
+  matchJoinRequests: new MemoryMatchJoinRequestRepository(),
+  teamMessages: new MemoryTeamMessageRepository(),
+  matchComments: new MemoryMatchCommentRepository(),
   matches: new MemoryMatchRepository(),
   tournaments: new MemoryTournamentRepository(),
   invites: new MemoryInviteRepository(),

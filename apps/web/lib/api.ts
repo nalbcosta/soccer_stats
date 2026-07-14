@@ -1,6 +1,8 @@
 import type {
   Invite,
   Match,
+  MatchComment,
+  MatchJoinRequest,
   Notification,
   PlayerCardProjection,
   PlayerInsight,
@@ -8,6 +10,8 @@ import type {
   PlayerRankingEntry,
   PublicUser,
   Team,
+  TeamJoinRequest,
+  TeamMessage,
   Tournament,
   Venue
 } from "@soccer-stats/shared";
@@ -111,6 +115,18 @@ export interface MatchListFilters {
   pageSize?: number;
 }
 
+export interface TeamListFilters {
+  scope?: "mine" | "discover";
+  q?: string;
+  city?: string;
+  state?: string;
+  latitude?: number;
+  longitude?: number;
+  radiusKm?: number;
+  page?: number;
+  pageSize?: number;
+}
+
 export interface LocationResult {
   latitude: number;
   longitude: number;
@@ -174,6 +190,27 @@ export const api = {
         pageSize: filters.pageSize
       })}`
     ),
+  listTeams: (filters: TeamListFilters = {}) => request<{ teams: Team[]; pagination?: PaginationMeta }>(`/teams${toQueryString({ scope: filters.scope, q: filters.q, city: filters.city, state: filters.state, latitude: filters.latitude, longitude: filters.longitude, radiusKm: filters.radiusKm, page: filters.page, pageSize: filters.pageSize })}`),
+  requestTeamJoin: (teamId: string) => request<{ request: TeamJoinRequest }>(`/teams/${encodeURIComponent(teamId)}/join-requests`, { method: "POST" }),
+  listTeamJoinRequests: (teamId: string) => request<{ requests: TeamJoinRequest[] }>(`/teams/${encodeURIComponent(teamId)}/join-requests`),
+  reviewTeamJoinRequest: (teamId: string, requestId: string, decision: "approve" | "reject") => request<{ request: TeamJoinRequest }>(`/teams/${encodeURIComponent(teamId)}/join-requests/${encodeURIComponent(requestId)}/${decision}`, { method: "POST" }),
+  updateTeamMemberRole: (teamId: string, userId: string, role: "admin" | "captain" | "member") => request<{ team: Team }>(`/teams/${encodeURIComponent(teamId)}/members/${encodeURIComponent(userId)}/role`, { method: "PATCH", body: JSON.stringify({ role }) }),
+  uploadTeamLogo: async (teamId: string, logo: File) => {
+    const body = new FormData(); body.set("logo", logo);
+    const response = await fetch(`${API_URL}/teams/${encodeURIComponent(teamId)}/logo`, { method: "POST", body, credentials: "include", headers: { "x-csrf-token": await getCsrfToken() } });
+    if (!response.ok) { const error = await response.json().catch(() => ({ message: "Erro inesperado." })) as { message?: string }; throw new Error(error.message ?? "Erro inesperado."); }
+    return response.json() as Promise<{ team: Team }>;
+  },
+  removeTeamLogo: (teamId: string) => request<{ team: Team }>(`/teams/${encodeURIComponent(teamId)}/logo`, { method: "DELETE" }),
+  requestMatchJoin: (matchId: string) => request<{ request: MatchJoinRequest }>(`/matches/${encodeURIComponent(matchId)}/join-requests`, { method: "POST" }),
+  listMatchJoinRequests: (matchId: string) => request<{ requests: MatchJoinRequest[] }>(`/matches/${encodeURIComponent(matchId)}/join-requests`),
+  reviewMatchJoinRequest: (matchId: string, requestId: string, decision: "approve" | "reject", side?: "home" | "away") => request<{ request: MatchJoinRequest }>(`/matches/${encodeURIComponent(matchId)}/join-requests/${encodeURIComponent(requestId)}/${decision}`, { method: "POST", ...(side ? { body: JSON.stringify({ side }) } : {}) }),
+  listTeamMessages: (teamId: string, page = 1) => request<{ messages: TeamMessage[] }>(`/teams/${encodeURIComponent(teamId)}/messages${toQueryString({ page })}`),
+  sendTeamMessage: (teamId: string, text: string) => request<{ message: TeamMessage }>(`/teams/${encodeURIComponent(teamId)}/messages`, { method: "POST", body: JSON.stringify({ text }) }),
+  deleteTeamMessage: (teamId: string, messageId: string) => request<{ ok: true }>(`/teams/${encodeURIComponent(teamId)}/messages/${encodeURIComponent(messageId)}`, { method: "DELETE" }),
+  listMatchComments: (matchId: string, page = 1) => request<{ comments: MatchComment[] }>(`/matches/${encodeURIComponent(matchId)}/comments${toQueryString({ page })}`),
+  sendMatchComment: (matchId: string, text: string) => request<{ comment: MatchComment }>(`/matches/${encodeURIComponent(matchId)}/comments`, { method: "POST", body: JSON.stringify({ text }) }),
+  deleteMatchComment: (matchId: string, commentId: string) => request<{ ok: true }>(`/matches/${encodeURIComponent(matchId)}/comments/${encodeURIComponent(commentId)}`, { method: "DELETE" }),
   reverseLocation: (input: { latitude: number; longitude: number }) =>
     request<{ location: LocationResult }>(
       `/locations/reverse${toQueryString({ latitude: input.latitude, longitude: input.longitude })}`
@@ -206,7 +243,7 @@ export const api = {
 
     return response.json() as Promise<{ profile: PlayerProfile }>;
   },
-  createTeam: (input: { name: string }) => request<{ team: Team }>("/teams", { method: "POST", body: JSON.stringify(input) }),
+  createTeam: (input: { name: string; visibility?: Team["visibility"]; joinPolicy?: "closed" | "request"; description?: string; city?: string; state?: string; latitude?: number; longitude?: number }) => request<{ team: Team }>("/teams", { method: "POST", body: JSON.stringify(input) }),
   createInvite: (input: { resourceType: "team" | "tournament"; resourceId: string; email: string; role: "admin" | "member" }) =>
     request<{ invite: Invite }>("/teams/invites", { method: "POST", body: JSON.stringify(input) }),
   createTournament: (input: { name: string; teamIds: string[] }) =>
@@ -218,6 +255,8 @@ export const api = {
     tournamentId?: string;
     durationMinutes?: number;
     venue?: Match["venue"];
+    participationPolicy?: "closed" | "request";
+    slotsPerSide?: number;
     playedAt: string;
   }) => request<{ match: Match }>("/matches", { method: "POST", body: JSON.stringify(input) }),
   getMatch: (matchId: string) => request<{ match: Match }>(`/matches/${encodeURIComponent(matchId)}`),

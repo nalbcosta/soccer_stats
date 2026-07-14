@@ -17,6 +17,9 @@ export type LooseMatchEvent = Omit<MatchEvent, "assistPlayerId"> & {
 export const canManageTeam = (userId: string, team: Team | null): team is Team =>
   Boolean(team?.members.some((member) => member.userId === userId && (member.role === "owner" || member.role === "admin")));
 
+export const canOrganizeTeam = (userId: string, team: Team | null): team is Team =>
+  Boolean(team?.members.some((member) => member.userId === userId && (member.role === "owner" || member.role === "admin" || member.role === "captain")));
+
 export const cleanVenue = (venue: LooseVenue | undefined): MatchVenue | undefined => {
   if (
     !venue?.name &&

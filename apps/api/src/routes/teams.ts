@@ -1,5 +1,8 @@
 import type { FastifyPluginAsync } from "fastify";
-import { createEmptyStats, createInviteInputSchema, createTeamInputSchema, inviteSchema, teamSchema } from "@soccer-stats/shared";
+import { unlink, writeFile } from "node:fs/promises";
+import { extname } from "node:path";
+import { fileURLToPath } from "node:url";
+import { createEmptyStats, createInviteInputSchema, createTeamInputSchema, inviteSchema, listTeamsQuerySchema, teamJoinRequestSchema, teamSchema, updateMembershipRoleInputSchema } from "@soccer-stats/shared";
 import { teamRouteSchemas } from "../docs/openapi.js";
 import { createId, slugify } from "../lib/ids.js";
 import { NotificationService } from "../modules/notifications/notification.service.js";
@@ -16,6 +19,35 @@ const ensureTeamPermission = (teamId: string, userId: string, app: Parameters<Fa
       : undefined;
   });
 
+const normalizeSearch = (value: string) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+const degreesToRadians = (value: number) => (value * Math.PI) / 180;
+const distanceInKm = (from: { latitude: number; longitude: number }, to: { latitude: number; longitude: number }) => {
+  const latitude = degreesToRadians(to.latitude - from.latitude);
+  const longitude = degreesToRadians(to.longitude - from.longitude);
+  const a = Math.sin(latitude / 2) ** 2 + Math.cos(degreesToRadians(from.latitude)) * Math.cos(degreesToRadians(to.latitude)) * Math.sin(longitude / 2) ** 2;
+  return 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+};
+const allowedLogoMimeTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
+const resolveLogoExtension = (filename: string, mimeType: string): ".jpg" | ".png" | ".webp" | null => {
+  const extension = extname(filename).toLowerCase();
+  if (extension === ".jpg" || extension === ".jpeg") return ".jpg";
+  if (extension === ".png") return ".png";
+  if (extension === ".webp") return ".webp";
+  return mimeType === "image/jpeg" ? ".jpg" : mimeType === "image/png" ? ".png" : mimeType === "image/webp" ? ".webp" : null;
+};
+const detectImageMimeType = (buffer: Buffer): "image/jpeg" | "image/png" | "image/webp" | null => {
+  if (buffer.length >= 3 && buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) return "image/jpeg";
+  if (buffer.length >= 8 && buffer.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))) return "image/png";
+  if (buffer.length >= 12 && buffer.subarray(0, 4).toString("ascii") === "RIFF" && buffer.subarray(8, 12).toString("ascii") === "WEBP") return "image/webp";
+  return null;
+};
+const removeStoredLogo = async (logoUrl: string | undefined) => {
+  if (!logoUrl?.startsWith("/uploads/")) return;
+  const fileName = logoUrl.slice("/uploads/".length);
+  if (!/^team-[a-zA-Z0-9-]+\.(jpg|png|webp)$/.test(fileName)) return;
+  try { await unlink(fileURLToPath(new URL(`../../uploads/${fileName}`, import.meta.url))); } catch (error: unknown) { if (!(error instanceof Error && "code" in error && error.code === "ENOENT")) throw error; }
+};
+
 export const teamRoutes: FastifyPluginAsync = async (app) => {
   app.get("/teams", { schema: teamRouteSchemas.list }, async (request, reply) => {
     const user = await app.auth.requireUser(request, reply);
@@ -24,8 +56,21 @@ export const teamRoutes: FastifyPluginAsync = async (app) => {
       return;
     }
 
-    const teams = await app.repositories.teams.listVisibleToUser(user.id);
-    return { teams: teams.map((team) => teamSchema.parse(team)) };
+    const query = listTeamsQuerySchema.parse(request.query);
+    const teams = query.scope === "mine" ? await app.repositories.teams.listByMember(user.id) : await app.repositories.teams.listVisibleToUser(user.id);
+    const search = query.q ? normalizeSearch(query.q) : undefined;
+    const filtered = teams
+      .filter((team) => query.scope === "mine" || (team.visibility === "public" && team.joinPolicy === "request"))
+      .filter((team) => !search || [team.name, team.city, team.state, team.description].filter((value): value is string => Boolean(value)).map(normalizeSearch).join(" ").includes(search))
+      .filter((team) => !query.city || normalizeSearch(team.city ?? "") === normalizeSearch(query.city))
+      .filter((team) => !query.state || (team.state ?? "").toLowerCase() === query.state.toLowerCase())
+      .filter((team) => {
+        if (query.latitude === undefined || query.longitude === undefined || team.latitude === undefined || team.longitude === undefined) return true;
+        return distanceInKm({ latitude: query.latitude, longitude: query.longitude }, { latitude: team.latitude, longitude: team.longitude }) <= query.radiusKm;
+      });
+    const total = filtered.length;
+    const start = (query.page - 1) * query.pageSize;
+    return { teams: filtered.slice(start, start + query.pageSize).map((team) => teamSchema.parse(team)), pagination: { page: query.page, pageSize: query.pageSize, total, totalPages: Math.max(1, Math.ceil(total / query.pageSize)) } };
   });
 
   app.get("/teams/:teamId", { schema: teamRouteSchemas.get }, async (request, reply) => {
@@ -61,8 +106,12 @@ export const teamRoutes: FastifyPluginAsync = async (app) => {
       slug: `${slugify(payload.name)}-${createId().slice(0, 6)}`,
       ownerId: user.id,
       visibility: payload.visibility,
+      joinPolicy: payload.joinPolicy,
+      ...(payload.description ? { description: payload.description } : {}),
       ...(payload.city ? { city: payload.city } : {}),
       ...(payload.state ? { state: payload.state.toUpperCase() } : {}),
+      ...(payload.latitude !== undefined ? { latitude: payload.latitude } : {}),
+      ...(payload.longitude !== undefined ? { longitude: payload.longitude } : {}),
       members: [{ userId: user.id, role: "owner", joinedAt: now }],
       stats: createEmptyStats(),
       createdAt: now,
@@ -98,8 +147,12 @@ export const teamRoutes: FastifyPluginAsync = async (app) => {
       ...team,
       ...(payload.name ? { name: payload.name } : {}),
       ...(payload.visibility ? { visibility: payload.visibility } : {}),
+      ...(payload.joinPolicy ? { joinPolicy: payload.joinPolicy } : {}),
+      ...(payload.description !== undefined ? { description: payload.description } : {}),
       ...(payload.city ? { city: payload.city } : {}),
       ...(payload.state ? { state: payload.state.toUpperCase() } : {}),
+      ...(payload.latitude !== undefined ? { latitude: payload.latitude } : {}),
+      ...(payload.longitude !== undefined ? { longitude: payload.longitude } : {}),
       updatedAt: new Date().toISOString()
     });
     await new AuditService(app.repositories).record({
@@ -161,5 +214,89 @@ export const teamRoutes: FastifyPluginAsync = async (app) => {
     });
 
     return { invite: inviteSchema.parse(invite) };
+  });
+
+  app.post("/teams/:teamId/logo", async (request, reply) => {
+    const user = await app.auth.requireUser(request, reply);
+    if (!user) return;
+    const { teamId } = request.params as { teamId: string };
+    const team = await ensureTeamPermission(teamId, user.id, app);
+    if (!team) { reply.code(403); return { message: "Sem permissao para alterar o logo." }; }
+    const part = await request.file();
+    if (!part) { reply.code(400); return { message: "Arquivo de logo nao enviado." }; }
+    const extension = resolveLogoExtension(part.filename, part.mimetype);
+    const buffer = await part.toBuffer();
+    const detectedMimeType = detectImageMimeType(buffer);
+    if (!extension || !allowedLogoMimeTypes.has(part.mimetype) || detectedMimeType !== part.mimetype) { reply.code(400); return { message: "Envie uma imagem JPG, PNG ou WebP valida." }; }
+    const fileName = `team-${team.id}-${createId()}${extension}`;
+    await writeFile(fileURLToPath(new URL(`../../uploads/${fileName}`, import.meta.url)), buffer);
+    const updated = await app.repositories.teams.update({ ...team, logoUrl: `/uploads/${fileName}`, logoMetadata: { fileName, mimeType: detectedMimeType, size: buffer.length, uploadedAt: new Date().toISOString() }, updatedAt: new Date().toISOString() });
+    await removeStoredLogo(team.logoUrl);
+    return { team: teamSchema.parse(updated) };
+  });
+
+  app.delete("/teams/:teamId/logo", async (request, reply) => {
+    const user = await app.auth.requireUser(request, reply);
+    if (!user) return;
+    const { teamId } = request.params as { teamId: string };
+    const team = await ensureTeamPermission(teamId, user.id, app);
+    if (!team) { reply.code(403); return { message: "Sem permissao para alterar o logo." }; }
+    const { logoUrl: _logoUrl, logoMetadata: _logoMetadata, ...teamWithoutLogo } = team;
+    const updated = await app.repositories.teams.update({ ...teamWithoutLogo, updatedAt: new Date().toISOString() });
+    await removeStoredLogo(team.logoUrl);
+    return { team: teamSchema.parse(updated) };
+  });
+
+  app.post("/teams/:teamId/join-requests", async (request, reply) => {
+    const user = await app.auth.requireUser(request, reply);
+    if (!user) return;
+    const { teamId } = request.params as { teamId: string };
+    const team = await app.repositories.teams.findById(teamId);
+    if (!team || team.visibility !== "public" || team.joinPolicy !== "request") { reply.code(404); return { message: "Este time nao aceita solicitacoes." }; }
+    if (team.members.some((member) => member.userId === user.id)) { reply.code(409); return { message: "Voce ja faz parte deste time." }; }
+    if (await app.repositories.teamJoinRequests.findByTeamAndUser(teamId, user.id)) { reply.code(409); return { message: "Voce ja possui uma solicitacao pendente." }; }
+    const requestItem = await app.repositories.teamJoinRequests.create({ id: createId(), teamId, userId: user.id, status: "pending", requestedAt: new Date().toISOString() });
+    await new AuditService(app.repositories).record({ actorUserId: user.id, action: "team.join-request.create", resourceType: "team", resourceId: teamId });
+    return { request: teamJoinRequestSchema.parse(requestItem) };
+  });
+
+  app.get("/teams/:teamId/join-requests", async (request, reply) => {
+    const user = await app.auth.requireUser(request, reply);
+    if (!user) return;
+    const { teamId } = request.params as { teamId: string };
+    if (!await ensureTeamPermission(teamId, user.id, app)) { reply.code(403); return { message: "Sem permissao para ver solicitacoes." }; }
+    return { requests: (await app.repositories.teamJoinRequests.listByTeam(teamId)).map((item) => teamJoinRequestSchema.parse(item)) };
+  });
+
+  for (const decision of ["approve", "reject"] as const) {
+    app.post(`/teams/:teamId/join-requests/:requestId/${decision}`, async (request, reply) => {
+      const user = await app.auth.requireUser(request, reply);
+      if (!user) return;
+      const { teamId, requestId } = request.params as { teamId: string; requestId: string };
+      const team = await ensureTeamPermission(teamId, user.id, app);
+      const joinRequest = await app.repositories.teamJoinRequests.findById(requestId);
+      if (!team || !joinRequest || joinRequest.teamId !== teamId) { reply.code(404); return { message: "Solicitacao nao encontrada." }; }
+      if (joinRequest.status !== "pending") { reply.code(409); return { message: "Esta solicitacao ja foi processada." }; }
+      const now = new Date().toISOString();
+      const updatedRequest = await app.repositories.teamJoinRequests.update({ ...joinRequest, status: decision === "approve" ? "approved" : "rejected", reviewedAt: now, reviewedBy: user.id });
+      if (decision === "approve" && !team.members.some((member) => member.userId === joinRequest.userId)) {
+        await app.repositories.teams.update({ ...team, members: [...team.members, { userId: joinRequest.userId, role: "member", joinedAt: now }], updatedAt: now });
+      }
+      await new AuditService(app.repositories).record({ actorUserId: user.id, action: `team.join-request.${decision}`, resourceType: "team", resourceId: teamId, metadata: { requestId } });
+      return { request: teamJoinRequestSchema.parse(updatedRequest) };
+    });
+  }
+
+  app.patch("/teams/:teamId/members/:userId/role", async (request, reply) => {
+    const user = await app.auth.requireUser(request, reply);
+    if (!user) return;
+    const { teamId, userId } = request.params as { teamId: string; userId: string };
+    const team = await ensureTeamPermission(teamId, user.id, app);
+    if (!team) { reply.code(403); return { message: "Sem permissao para alterar papeis." }; }
+    if (userId === team.ownerId) { reply.code(409); return { message: "O papel do owner nao pode ser alterado." }; }
+    const payload = updateMembershipRoleInputSchema.parse(request.body);
+    if (!team.members.some((member) => member.userId === userId)) { reply.code(404); return { message: "Membro nao encontrado." }; }
+    const updated = await app.repositories.teams.update({ ...team, members: team.members.map((member) => member.userId === userId ? { ...member, role: payload.role } : member), updatedAt: new Date().toISOString() });
+    return { team: teamSchema.parse(updated) };
   });
 };

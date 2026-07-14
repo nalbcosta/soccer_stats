@@ -1,5 +1,5 @@
 import mongoose, { Schema, type Connection, type Model } from "mongoose";
-import type { AuditLog, Invite, Match, Notification, PlayerCardProjection, PlayerFeatureSnapshot, PlayerProfile, Team, Tournament, Venue } from "@soccer-stats/shared";
+import type { AuditLog, Invite, Match, MatchComment, MatchJoinRequest, Notification, PlayerCardProjection, PlayerFeatureSnapshot, PlayerProfile, Team, TeamJoinRequest, TeamMessage, Tournament, Venue } from "@soccer-stats/shared";
 import type {
   AuditLogRepository,
   InviteRepository,
@@ -13,6 +13,10 @@ import type {
   SessionRepository,
   StoredUser,
   TeamRepository,
+  TeamJoinRequestRepository,
+  MatchJoinRequestRepository,
+  TeamMessageRepository,
+  MatchCommentRepository,
   TournamentRepository,
   UserRepository,
   VenueRepository
@@ -54,7 +58,7 @@ const statsSchema = new Schema(
 const membershipSchema = new Schema(
   {
     userId: { type: String, required: true },
-    role: { type: String, enum: ["owner", "admin", "member"], required: true },
+    role: { type: String, enum: ["owner", "admin", "captain", "member", "guest"], required: true },
     joinedAt: { type: String, required: true }
   },
   { _id: false }
@@ -167,8 +171,14 @@ const modelsFor = (connection: Connection) => {
       slug: { type: String, required: true, unique: true, index: true },
       ownerId: { type: String, required: true, index: true },
       visibility: { type: String, enum: ["private", "public"], required: true, default: "private", index: true },
+      joinPolicy: { type: String, enum: ["closed", "request"], required: true, default: "closed", index: true },
+      description: String,
+      logoUrl: String,
+      logoMetadata: { fileName: String, mimeType: { type: String, enum: ["image/jpeg", "image/png", "image/webp"] }, size: Number, uploadedAt: String },
       city: String,
       state: String,
+      latitude: Number,
+      longitude: Number,
       members: [membershipSchema],
       stats: { type: statsSchema, required: true },
       createdAt: { type: String, required: true },
@@ -177,6 +187,7 @@ const modelsFor = (connection: Connection) => {
     { collection: "teams", versionKey: false }
   );
   teamSchema.index({ "members.userId": 1 });
+  teamSchema.index({ visibility: 1, joinPolicy: 1, city: 1, state: 1 });
 
   const matchSchema = new Schema<Persisted<Match>>(
     {
@@ -184,6 +195,8 @@ const modelsFor = (connection: Connection) => {
       type: { type: String, enum: ["casual", "tournament"], required: true },
       status: { type: String, enum: ["scheduled", "confirming", "completed", "cancelled"], required: true, index: true },
       createdBy: { type: String, required: true },
+      participationPolicy: { type: String, enum: ["closed", "request"], required: true, default: "closed", index: true },
+      slotsPerSide: { type: Number, min: 1, max: 30 },
       home: { type: matchSideSchema, required: true },
       away: { type: matchSideSchema, required: true },
       eventLog: [matchEventSchema],
@@ -207,6 +220,13 @@ const modelsFor = (connection: Connection) => {
   );
   matchSchema.index({ "home.teamId": 1 });
   matchSchema.index({ "away.teamId": 1 });
+
+  const teamJoinRequestSchema = new Schema<Persisted<TeamJoinRequest>>({ _id: { type: String, required: true }, teamId: { type: String, required: true, index: true }, userId: { type: String, required: true, index: true }, status: { type: String, enum: ["pending", "approved", "rejected", "cancelled"], required: true, index: true }, requestedAt: { type: String, required: true }, reviewedAt: String, reviewedBy: String }, { collection: "team_join_requests", versionKey: false });
+  teamJoinRequestSchema.index({ teamId: 1, userId: 1, status: 1 });
+  const matchJoinRequestSchema = new Schema<Persisted<MatchJoinRequest>>({ _id: { type: String, required: true }, matchId: { type: String, required: true, index: true }, userId: { type: String, required: true, index: true }, status: { type: String, enum: ["pending", "approved", "rejected", "cancelled"], required: true, index: true }, side: { type: String, enum: ["home", "away"] }, requestedAt: { type: String, required: true }, reviewedAt: String, reviewedBy: String }, { collection: "match_join_requests", versionKey: false });
+  matchJoinRequestSchema.index({ matchId: 1, userId: 1, status: 1 });
+  const teamMessageSchema = new Schema<Persisted<TeamMessage>>({ _id: { type: String, required: true }, teamId: { type: String, required: true, index: true }, authorId: { type: String, required: true }, text: { type: String, required: true, maxlength: 1000 }, createdAt: { type: String, required: true, index: true } }, { collection: "team_messages", versionKey: false });
+  const matchCommentSchema = new Schema<Persisted<MatchComment>>({ _id: { type: String, required: true }, matchId: { type: String, required: true, index: true }, authorId: { type: String, required: true }, text: { type: String, required: true, maxlength: 1000 }, createdAt: { type: String, required: true, index: true } }, { collection: "match_comments", versionKey: false });
 
   const tournamentSchema = new Schema<Persisted<Tournament>>(
     {
@@ -383,6 +403,10 @@ const modelsFor = (connection: Connection) => {
     users: connection.model<Persisted<StoredUser>>("User", userSchema),
     playerProfiles: connection.model<Persisted<PlayerProfile>>("PlayerProfile", playerProfileSchema),
     teams: connection.model<Persisted<Team>>("Team", teamSchema),
+    teamJoinRequests: connection.model<Persisted<TeamJoinRequest>>("TeamJoinRequest", teamJoinRequestSchema),
+    matchJoinRequests: connection.model<Persisted<MatchJoinRequest>>("MatchJoinRequest", matchJoinRequestSchema),
+    teamMessages: connection.model<Persisted<TeamMessage>>("TeamMessage", teamMessageSchema),
+    matchComments: connection.model<Persisted<MatchComment>>("MatchComment", matchCommentSchema),
     matches: connection.model<Persisted<Match>>("Match", matchSchema),
     tournaments: connection.model<Persisted<Tournament>>("Tournament", tournamentSchema),
     venues: connection.model<Persisted<Venue>>("Venue", venueSchema),
@@ -518,13 +542,46 @@ class MongoosePlayerCardProjectionRepository implements PlayerCardProjectionRepo
   }
 }
 
+class MongooseTeamJoinRequestRepository extends BaseMongooseRepository<TeamJoinRequest> implements TeamJoinRequestRepository {
+  async create(request: TeamJoinRequest): Promise<TeamJoinRequest> { return this.save(request); }
+  async update(request: TeamJoinRequest): Promise<TeamJoinRequest> { return this.save(request); }
+  async findById(id: string): Promise<TeamJoinRequest | null> { return toDomain<TeamJoinRequest>(await this.model.findById(id).lean()); }
+  async findByTeamAndUser(teamId: string, userId: string): Promise<TeamJoinRequest | null> { return toDomain<TeamJoinRequest>(await this.model.findOne({ teamId, userId, status: "pending" }).lean()); }
+  async listByTeam(teamId: string): Promise<TeamJoinRequest[]> { return (await this.model.find({ teamId }).sort({ requestedAt: -1 }).lean()).map((doc) => toDomain<TeamJoinRequest>(doc)).filter(Boolean) as TeamJoinRequest[]; }
+}
+
+class MongooseMatchJoinRequestRepository extends BaseMongooseRepository<MatchJoinRequest> implements MatchJoinRequestRepository {
+  async create(request: MatchJoinRequest): Promise<MatchJoinRequest> { return this.save(request); }
+  async update(request: MatchJoinRequest): Promise<MatchJoinRequest> { return this.save(request); }
+  async findById(id: string): Promise<MatchJoinRequest | null> { return toDomain<MatchJoinRequest>(await this.model.findById(id).lean()); }
+  async findByMatchAndUser(matchId: string, userId: string): Promise<MatchJoinRequest | null> { return toDomain<MatchJoinRequest>(await this.model.findOne({ matchId, userId, status: "pending" }).lean()); }
+  async listByMatch(matchId: string): Promise<MatchJoinRequest[]> { return (await this.model.find({ matchId }).sort({ requestedAt: -1 }).lean()).map((doc) => toDomain<MatchJoinRequest>(doc)).filter(Boolean) as MatchJoinRequest[]; }
+}
+
+class MongooseTeamMessageRepository extends BaseMongooseRepository<TeamMessage> implements TeamMessageRepository {
+  async create(message: TeamMessage): Promise<TeamMessage> { return this.save(message); }
+  async findById(id: string): Promise<TeamMessage | null> { return toDomain<TeamMessage>(await this.model.findById(id).lean()); }
+  async listByTeam(teamId: string, page: number, pageSize: number): Promise<TeamMessage[]> { return (await this.model.find({ teamId }).sort({ createdAt: -1 }).skip((page - 1) * pageSize).limit(pageSize).lean()).map((doc) => toDomain<TeamMessage>(doc)).filter(Boolean) as TeamMessage[]; }
+  async deleteById(id: string): Promise<void> { await this.model.deleteOne({ _id: id }); }
+}
+
+class MongooseMatchCommentRepository extends BaseMongooseRepository<MatchComment> implements MatchCommentRepository {
+  async create(comment: MatchComment): Promise<MatchComment> { return this.save(comment); }
+  async findById(id: string): Promise<MatchComment | null> { return toDomain<MatchComment>(await this.model.findById(id).lean()); }
+  async listByMatch(matchId: string, page: number, pageSize: number): Promise<MatchComment[]> { return (await this.model.find({ matchId }).sort({ createdAt: -1 }).skip((page - 1) * pageSize).limit(pageSize).lean()).map((doc) => toDomain<MatchComment>(doc)).filter(Boolean) as MatchComment[]; }
+  async deleteById(id: string): Promise<void> { await this.model.deleteOne({ _id: id }); }
+}
+
 class MongooseTeamRepository extends BaseMongooseRepository<Team> implements TeamRepository {
   async create(team: Team): Promise<Team> {
     return this.save(team);
   }
 
   async update(team: Team): Promise<Team> {
-    return this.save(team);
+    const { id, ...rest } = team;
+    const unset = Object.fromEntries(["description", "logoUrl", "logoMetadata", "city", "state", "latitude", "longitude"].filter((field) => team[field as keyof Team] === undefined).map((field) => [field, 1]));
+    await this.model.updateOne({ _id: id }, { $set: { ...rest, _id: id }, ...(Object.keys(unset).length ? { $unset: unset } : {}) }, { upsert: true, runValidators: true });
+    return team;
   }
 
   async findById(id: string): Promise<Team | null> {
@@ -762,6 +819,10 @@ export const createMongoRepositories = async (uri: string, dbName: string): Prom
       playerFeatureSnapshots: new MongoosePlayerFeatureSnapshotRepository(models.playerFeatureSnapshots),
       playerCardProjections: new MongoosePlayerCardProjectionRepository(models.playerCardProjections),
       teams: new MongooseTeamRepository(models.teams),
+      teamJoinRequests: new MongooseTeamJoinRequestRepository(models.teamJoinRequests),
+      matchJoinRequests: new MongooseMatchJoinRequestRepository(models.matchJoinRequests),
+      teamMessages: new MongooseTeamMessageRepository(models.teamMessages),
+      matchComments: new MongooseMatchCommentRepository(models.matchComments),
       matches: new MongooseMatchRepository(models.matches),
       tournaments: new MongooseTournamentRepository(models.tournaments),
       venues: new MongooseVenueRepository(models.venues),

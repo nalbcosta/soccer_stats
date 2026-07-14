@@ -765,7 +765,7 @@ const schemas = [
     type: "object",
     properties: {
       userId: id,
-      role: { type: "string", enum: ["owner", "admin", "member"] },
+      role: { type: "string", enum: ["owner", "admin", "captain", "member", "guest"] },
       joinedAt: isoDate
     },
     required: ["userId", "role", "joinedAt"]
@@ -779,8 +779,16 @@ const schemas = [
       slug: { type: "string" },
       ownerId: id,
       visibility: { type: "string", enum: ["private", "public"] },
+      joinPolicy: { type: "string", enum: ["closed", "request"] },
+      description: { type: "string", maxLength: 240 },
+      logoUrl: { type: "string" },
+      logoMetadata: {
+        type: "object", properties: { fileName: { type: "string" }, mimeType: { type: "string", enum: ["image/jpeg", "image/png", "image/webp"] }, size: { type: "integer" }, uploadedAt: isoDate }, required: ["fileName", "mimeType", "size", "uploadedAt"]
+      },
       city: { type: "string" },
       state: { type: "string", minLength: 2, maxLength: 2 },
+      latitude: { type: "number" },
+      longitude: { type: "number" },
       members: {
         type: "array",
         items: { $ref: "membership#" }

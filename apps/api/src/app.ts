@@ -25,6 +25,7 @@ import { venueRoutes } from "./modules/venues/venue.routes.js";
 import { validateCsrfToken } from "./modules/auth/csrf.js";
 import { auditRoutes } from "./modules/audit/audit.routes.js";
 import { locationRoutes } from "./modules/locations/location.routes.js";
+import { socialRoutes } from "./routes/social.js";
 
 declare module "fastify" {
   interface FastifyInstance {
@@ -112,6 +113,7 @@ export const createApp = async (config: AppConfig, repositories: Repositories) =
       await v1.register(venueRoutes);
       await v1.register(locationRoutes);
       await v1.register(matchRoutes);
+      await v1.register(socialRoutes);
       await v1.register(tournamentRoutes);
       await v1.register(rankingRoutes);
       await v1.register(notificationRoutes);

@@ -1,11 +1,11 @@
 import type { FastifyPluginAsync } from "fastify";
-import { cancelMatchInputSchema, completeMatchInputSchema, createMatchInputSchema, listMatchesQuerySchema, matchPresenceSchema, matchSchema, reviewMatchInputSchema, updateMatchLineupInputSchema, updatePresenceInputSchema } from "@soccer-stats/shared";
+import { approveMatchJoinRequestInputSchema, cancelMatchInputSchema, completeMatchInputSchema, createMatchInputSchema, listMatchesQuerySchema, matchJoinRequestSchema, matchPresenceSchema, matchSchema, reviewMatchInputSchema, updateMatchLineupInputSchema, updatePresenceInputSchema } from "@soccer-stats/shared";
 import type { Match, MatchPresence, Team } from "@soccer-stats/shared";
 import { matchRouteSchemas } from "../docs/openapi.js";
 import { validateMatchEventLog, validateScoreAgainstGoalEvents } from "../lib/stats-service.js";
 import { createId } from "../lib/ids.js";
 import { NotificationService } from "../modules/notifications/notification.service.js";
-import { canManageTeam, cleanEventLog, cleanVenue, teamMemberIds, venueToMatchSnapshot } from "../modules/matches/match.service.js";
+import { canManageTeam, canOrganizeTeam, cleanEventLog, cleanVenue, teamMemberIds, venueToMatchSnapshot } from "../modules/matches/match.service.js";
 import { AuditService } from "../modules/audit/audit.service.js";
 import { StatsService } from "../modules/stats/stats.service.js";
 
@@ -194,6 +194,8 @@ export const matchRoutes: FastifyPluginAsync = async (app) => {
       type: payload.type,
       status: "scheduled",
       createdBy: user.id,
+      participationPolicy: payload.participationPolicy,
+      ...(payload.slotsPerSide ? { slotsPerSide: payload.slotsPerSide } : {}),
       home: payload.home,
       away: payload.away,
       eventLog: [],
@@ -231,6 +233,51 @@ export const matchRoutes: FastifyPluginAsync = async (app) => {
 
     return { match: matchSchema.parse(match) };
   });
+
+  app.post("/matches/:matchId/join-requests", async (request, reply) => {
+    const user = await app.auth.requireUser(request, reply);
+    if (!user) return;
+    const { matchId } = request.params as { matchId: string };
+    const match = await app.repositories.matches.findById(matchId);
+    if (!match || match.participationPolicy !== "request" || match.status === "completed" || match.status === "cancelled") { reply.code(404); return { message: "Esta partida nao aceita solicitacoes." }; }
+    if ([...match.home.playerIds, ...match.away.playerIds].includes(user.id)) { reply.code(409); return { message: "Voce ja esta relacionado a esta partida." }; }
+    if (await app.repositories.matchJoinRequests.findByMatchAndUser(matchId, user.id)) { reply.code(409); return { message: "Voce ja possui uma solicitacao pendente." }; }
+    const requestItem = await app.repositories.matchJoinRequests.create({ id: createId(), matchId, userId: user.id, status: "pending", requestedAt: new Date().toISOString() });
+    return { request: matchJoinRequestSchema.parse(requestItem) };
+  });
+
+  app.get("/matches/:matchId/join-requests", async (request, reply) => {
+    const user = await app.auth.requireUser(request, reply);
+    if (!user) return;
+    const { matchId } = request.params as { matchId: string };
+    const match = await app.repositories.matches.findById(matchId);
+    if (!match) { reply.code(404); return { message: "Partida nao encontrada." }; }
+    const [home, away] = await Promise.all([app.repositories.teams.findById(match.home.teamId), app.repositories.teams.findById(match.away.teamId)]);
+    if (!canOrganizeTeam(user.id, home) && !canOrganizeTeam(user.id, away)) { reply.code(403); return { message: "Sem permissao para ver solicitacoes." }; }
+    return { requests: (await app.repositories.matchJoinRequests.listByMatch(matchId)).map((item) => matchJoinRequestSchema.parse(item)) };
+  });
+
+  for (const decision of ["approve", "reject"] as const) {
+    app.post(`/matches/:matchId/join-requests/:requestId/${decision}`, async (request, reply) => {
+      const user = await app.auth.requireUser(request, reply);
+      if (!user) return;
+      const { matchId, requestId } = request.params as { matchId: string; requestId: string };
+      const match = await app.repositories.matches.findById(matchId);
+      const joinRequest = await app.repositories.matchJoinRequests.findById(requestId);
+      if (!match || !joinRequest || joinRequest.matchId !== matchId) { reply.code(404); return { message: "Solicitacao nao encontrada." }; }
+      if (match.status === "completed" || match.status === "cancelled" || joinRequest.status !== "pending") { reply.code(409); return { message: "Esta solicitacao nao pode ser processada." }; }
+      const [home, away] = await Promise.all([app.repositories.teams.findById(match.home.teamId), app.repositories.teams.findById(match.away.teamId)]);
+      if (!canOrganizeTeam(user.id, home) && !canOrganizeTeam(user.id, away)) { reply.code(403); return { message: "Sem permissao para organizar esta partida." }; }
+      const payload = decision === "approve" ? approveMatchJoinRequestInputSchema.parse(request.body) : undefined;
+      const side = payload?.side;
+      if (side && match.slotsPerSide && match[side].playerIds.length >= match.slotsPerSide) { reply.code(409); return { message: "Nao ha mais vagas neste lado." }; }
+      const now = new Date().toISOString();
+      if (side) await app.repositories.matches.update({ ...match, [side]: { ...match[side], playerIds: [...match[side].playerIds, joinRequest.userId] }, presences: upsertPresence(match.presences ?? [], joinRequest.userId, "pending", user.id), updatedAt: now });
+      const updatedRequest = await app.repositories.matchJoinRequests.update({ ...joinRequest, status: decision === "approve" ? "approved" : "rejected", ...(side ? { side } : {}), reviewedAt: now, reviewedBy: user.id });
+      await new AuditService(app.repositories).record({ actorUserId: user.id, action: `match.join-request.${decision}`, resourceType: "match", resourceId: matchId, metadata: { requestId, ...(side ? { side } : {}) } });
+      return { request: matchJoinRequestSchema.parse(updatedRequest) };
+    });
+  }
 
   app.get("/matches/:matchId/presences", { schema: matchRouteSchemas.listPresences }, async (request, reply) => {
     const user = await app.auth.requireUser(request, reply);

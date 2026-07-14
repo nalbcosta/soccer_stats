@@ -1,6 +1,9 @@
 export type SupportedLocale = "pt-BR" | "en";
 export type ThemeMode = "light" | "dark" | "system";
-export type Role = "owner" | "admin" | "member";
+export type Role = "owner" | "admin" | "captain" | "member" | "guest";
+export type TeamJoinPolicy = "closed" | "request";
+export type RequestStatus = "pending" | "approved" | "rejected" | "cancelled";
+export type MatchParticipationPolicy = "closed" | "request";
 export type MatchType = "casual" | "tournament";
 export type MatchStatus = "scheduled" | "confirming" | "completed" | "cancelled";
 export type TournamentFormat = "league";
@@ -108,8 +111,14 @@ export interface Team {
   slug: string;
   ownerId: string;
   visibility: EntityVisibility;
+  joinPolicy?: TeamJoinPolicy;
+  description?: string;
+  logoUrl?: string;
+  logoMetadata?: PlayerProfile["photoMetadata"];
   city?: string;
   state?: string;
+  latitude?: number;
+  longitude?: number;
   members: Membership[];
   stats: AggregatedStats;
   createdAt: string;
@@ -161,6 +170,8 @@ export interface Match {
   type: MatchType;
   status: MatchStatus;
   createdBy: string;
+  participationPolicy?: MatchParticipationPolicy;
+  slotsPerSide?: number;
   home: MatchSide;
   away: MatchSide;
   eventLog: MatchEvent[];
@@ -297,6 +308,11 @@ export interface PlayerCardV2 {
   explanation: string;
   snapshot: PlayerFeatureSnapshot;
 }
+
+export interface TeamJoinRequest { id: string; teamId: string; userId: string; status: RequestStatus; requestedAt: string; reviewedAt?: string; reviewedBy?: string; }
+export interface MatchJoinRequest { id: string; matchId: string; userId: string; status: RequestStatus; side?: "home" | "away"; requestedAt: string; reviewedAt?: string; reviewedBy?: string; }
+export interface TeamMessage { id: string; teamId: string; authorId: string; text: string; createdAt: string; }
+export interface MatchComment { id: string; matchId: string; authorId: string; text: string; createdAt: string; }
 
 export type PlayerCardFactorKey =
   | "matches"

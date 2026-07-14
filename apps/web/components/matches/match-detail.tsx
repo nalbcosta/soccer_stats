@@ -8,9 +8,12 @@ import { MatchDetailTabs } from "./match-detail-tabs";
 import { MatchOverviewPanel } from "./match-overview-panel";
 import { MatchPresencePanel } from "./match-presence-panel";
 import { MatchSheetPanel } from "./match-sheet-panel";
+import { MatchCommentsPanel } from "./match-comments-panel";
+import { useSession } from "../app/session-provider";
 
 export function MatchDetail() {
   const { checkIn, isPending, model, result, setTab, tab, updatePresence } = useMatchDetail();
+  const { user } = useSession();
 
   if (result.status === "loading") {
     return <LoadingState />;
@@ -44,6 +47,7 @@ export function MatchDetail() {
           />
         ) : null}
         {tab === "sheet" ? <MatchSheetPanel awayName={model.awayName} homeName={model.homeName} match={model.match} sheet={model.sheet} /> : null}
+        {user ? <MatchCommentsPanel canModerate={model.match.createdBy === user.id} matchId={model.match.id} userId={user.id} /> : null}
       </div>
     </>
   );

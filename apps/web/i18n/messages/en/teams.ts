@@ -15,5 +15,12 @@ export const teams = {
   leaderSummary: "{points} points and {goals} goals scored.",
   leaderEmpty: "The top appears when the ball starts rolling.",
   currentCriteria: "Current criteria",
-  criteriaDescription: "The ranking uses points, goals and recent form as a quick read. In the next cycle, it can gain filters for players, scorers and attendance."
+  criteriaDescription: "The ranking uses points, goals and recent form as a quick read. In the next cycle, it can gain filters for players, scorers and attendance.",
+  discoveryLoading: "Finding open teams...",
+  discoveryError: "Could not load teams",
+  discoveryEmptyTitle: "No open teams nearby",
+  discoveryEmptyDescription: "Adjust your region or come back later to find new crews.",
+  requestJoin: "Request to join",
+  requesting: "Sending request...",
+  tryAgain: "Try again"
 } as const;

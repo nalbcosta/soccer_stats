@@ -2,6 +2,8 @@ import type {
   Invite,
   AuditLog,
   Match,
+  MatchComment,
+  MatchJoinRequest,
   Notification,
   PlayerProfile,
   PlayerFeatureSnapshot,
@@ -9,6 +11,8 @@ import type {
   PublicUser,
   SupportedLocale,
   Team,
+  TeamJoinRequest,
+  TeamMessage,
   ThemeMode,
   Tournament,
   Venue
@@ -41,6 +45,10 @@ export interface Repositories {
   playerFeatureSnapshots: PlayerFeatureSnapshotRepository;
   playerCardProjections: PlayerCardProjectionRepository;
   teams: TeamRepository;
+  teamJoinRequests: TeamJoinRequestRepository;
+  matchJoinRequests: MatchJoinRequestRepository;
+  teamMessages: TeamMessageRepository;
+  matchComments: MatchCommentRepository;
   matches: MatchRepository;
   tournaments: TournamentRepository;
   invites: InviteRepository;
@@ -83,6 +91,36 @@ export interface TeamRepository {
   listByMember(userId: string): Promise<Team[]>;
   listVisibleToUser(userId: string): Promise<Team[]>;
   listByIds(ids: string[]): Promise<Team[]>;
+}
+
+export interface TeamJoinRequestRepository {
+  create(request: TeamJoinRequest): Promise<TeamJoinRequest>;
+  update(request: TeamJoinRequest): Promise<TeamJoinRequest>;
+  findById(id: string): Promise<TeamJoinRequest | null>;
+  findByTeamAndUser(teamId: string, userId: string): Promise<TeamJoinRequest | null>;
+  listByTeam(teamId: string): Promise<TeamJoinRequest[]>;
+}
+
+export interface MatchJoinRequestRepository {
+  create(request: MatchJoinRequest): Promise<MatchJoinRequest>;
+  update(request: MatchJoinRequest): Promise<MatchJoinRequest>;
+  findById(id: string): Promise<MatchJoinRequest | null>;
+  findByMatchAndUser(matchId: string, userId: string): Promise<MatchJoinRequest | null>;
+  listByMatch(matchId: string): Promise<MatchJoinRequest[]>;
+}
+
+export interface TeamMessageRepository {
+  create(message: TeamMessage): Promise<TeamMessage>;
+  findById(id: string): Promise<TeamMessage | null>;
+  listByTeam(teamId: string, page: number, pageSize: number): Promise<TeamMessage[]>;
+  deleteById(id: string): Promise<void>;
+}
+
+export interface MatchCommentRepository {
+  create(comment: MatchComment): Promise<MatchComment>;
+  findById(id: string): Promise<MatchComment | null>;
+  listByMatch(matchId: string, page: number, pageSize: number): Promise<MatchComment[]>;
+  deleteById(id: string): Promise<void>;
 }
 
 export interface MatchRepository {

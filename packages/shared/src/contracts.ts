@@ -2,7 +2,7 @@ import { z } from "zod";
 
 export const localeSchema = z.enum(["pt-BR", "en"]);
 export const themeSchema = z.enum(["light", "dark", "system"]);
-export const roleSchema = z.enum(["owner", "admin", "member"]);
+export const roleSchema = z.enum(["owner", "admin", "captain", "member", "guest"]);
 export const preferredFootSchema = z.enum(["right", "left", "both"]);
 const canonicalPlayerPositionSchema = z.enum([
   "goalkeeper", "right-back", "center-back", "left-back", "defensive-midfielder", "central-midfielder", "attacking-midfielder", "right-winger", "left-winger", "striker"
@@ -18,7 +18,10 @@ export const playerPositionSchema = z.preprocess(
 );
 export const matchTypeSchema = z.enum(["casual", "tournament"]);
 export const matchStatusSchema = z.enum(["scheduled", "confirming", "completed", "cancelled"]);
-export const inviteRoleSchema = z.enum(["admin", "member"]);
+export const inviteRoleSchema = z.enum(["admin", "captain", "member"]);
+export const teamJoinPolicySchema = z.enum(["closed", "request"]);
+export const requestStatusSchema = z.enum(["pending", "approved", "rejected", "cancelled"]);
+export const matchParticipationPolicySchema = z.enum(["closed", "request"]);
 export const inviteStatusSchema = z.enum(["pending", "accepted", "revoked"]);
 export const entityVisibilitySchema = z.enum(["private", "public"]);
 export const notificationTypeSchema = z.enum([
@@ -103,8 +106,14 @@ export const teamSchema = z.object({
   slug: z.string(),
   ownerId: z.string(),
   visibility: entityVisibilitySchema.default("private"),
+  joinPolicy: teamJoinPolicySchema.default("closed"),
+  description: z.string().max(240).optional(),
+  logoUrl: photoUrlSchema.optional(),
+  logoMetadata: z.object({ fileName: z.string(), mimeType: z.enum(["image/jpeg", "image/png", "image/webp"]), size: z.number().int().positive(), uploadedAt: z.string() }).optional(),
   city: z.string().min(2).max(80).optional(),
   state: z.string().min(2).max(2).optional(),
+  latitude: z.number().min(-90).max(90).optional(),
+  longitude: z.number().min(-180).max(180).optional(),
   members: z.array(membershipSchema),
   stats: statsSchema,
   createdAt: z.string(),
@@ -175,6 +184,8 @@ export const matchSchema = z.object({
   type: matchTypeSchema,
   status: matchStatusSchema,
   createdBy: z.string(),
+  participationPolicy: matchParticipationPolicySchema.default("closed"),
+  slotsPerSide: z.number().int().positive().max(30).optional(),
   home: matchSideSchema,
   away: matchSideSchema,
   eventLog: z.array(matchEventSchema),
@@ -370,6 +381,11 @@ export const updateProfileInputSchema = z.object({
   bio: z.string().trim().max(160).nullable().optional()
 });
 
+export const teamJoinRequestSchema = z.object({ id: z.string(), teamId: z.string(), userId: z.string(), status: requestStatusSchema, requestedAt: z.string(), reviewedAt: z.string().optional(), reviewedBy: z.string().optional() });
+export const matchJoinRequestSchema = z.object({ id: z.string(), matchId: z.string(), userId: z.string(), status: requestStatusSchema, side: z.enum(["home", "away"]).optional(), requestedAt: z.string(), reviewedAt: z.string().optional(), reviewedBy: z.string().optional() });
+export const teamMessageSchema = z.object({ id: z.string(), teamId: z.string(), authorId: z.string(), text: z.string().min(1).max(1000), createdAt: z.string() });
+export const matchCommentSchema = z.object({ id: z.string(), matchId: z.string(), authorId: z.string(), text: z.string().min(1).max(1000), createdAt: z.string() });
+
 export const playerCardFactorKeySchema = z.enum([
   "matches",
   "goalsPerMatch",
@@ -399,8 +415,12 @@ export type UpdateProfileInput = z.infer<typeof updateProfileInputSchema>;
 export const createTeamInputSchema = z.object({
   name: z.string().min(2).max(40),
   visibility: entityVisibilitySchema.default("private"),
+  joinPolicy: teamJoinPolicySchema.default("closed"),
+  description: z.string().trim().max(240).optional(),
   city: z.string().min(2).max(80).optional(),
-  state: z.string().min(2).max(2).optional()
+  state: z.string().min(2).max(2).optional(),
+  latitude: z.number().min(-90).max(90).optional(),
+  longitude: z.number().min(-180).max(180).optional()
 });
 
 export const createInviteInputSchema = z.object({
@@ -418,8 +438,16 @@ export const createMatchInputSchema = z.object({
   durationMinutes: z.number().int().positive().max(180).optional(),
   venueId: z.string().optional(),
   venue: matchVenueSchema.optional(),
+  participationPolicy: matchParticipationPolicySchema.default("closed"),
+  slotsPerSide: z.number().int().positive().max(30).optional(),
   playedAt: z.string()
 });
+
+export const updateMembershipRoleInputSchema = z.object({ role: z.enum(["admin", "captain", "member"]) });
+export const approveMatchJoinRequestInputSchema = z.object({ side: z.enum(["home", "away"]) });
+export const createTextContentInputSchema = z.object({ text: z.string().trim().min(1).max(1000) });
+export const listContentQuerySchema = z.object({ page: z.coerce.number().int().positive().default(1), pageSize: z.coerce.number().int().positive().max(50).default(20) });
+export const listTeamsQuerySchema = z.object({ scope: z.enum(["mine", "discover"]).default("mine"), q: z.string().trim().min(1).max(80).optional(), city: z.string().min(2).max(80).optional(), state: z.string().min(2).max(2).optional(), latitude: z.coerce.number().min(-90).max(90).optional(), longitude: z.coerce.number().min(-180).max(180).optional(), radiusKm: z.coerce.number().positive().max(500).default(30), page: z.coerce.number().int().positive().default(1), pageSize: z.coerce.number().int().positive().max(50).default(20) });
 
 export const completeMatchInputSchema = z.object({
   id: z.string(),
