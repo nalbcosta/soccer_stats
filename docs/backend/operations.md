@@ -159,7 +159,7 @@ O Fastify expoe:
 Limites atuais:
 
 - 1 arquivo por request.
-- 5 MB por arquivo.
+- 4 MB por arquivo.
 - Apenas JPG, PNG e WebP.
 - MIME declarado precisa bater com assinatura basica do arquivo.
 - Metadata do upload fica em `player_profiles.photoMetadata`.
