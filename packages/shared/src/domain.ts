@@ -1,11 +1,24 @@
 export type SupportedLocale = "pt-BR" | "en";
 export type ThemeMode = "light" | "dark" | "system";
-export type Role = "owner" | "admin" | "member";
+export type Role = "owner" | "admin" | "captain" | "member" | "guest";
+export type TeamJoinPolicy = "closed" | "request";
+export type RequestStatus = "pending" | "approved" | "rejected" | "cancelled";
+export type MatchParticipationPolicy = "closed" | "request";
 export type MatchType = "casual" | "tournament";
 export type MatchStatus = "scheduled" | "confirming" | "completed" | "cancelled";
 export type TournamentFormat = "league";
 export type PreferredFoot = "right" | "left" | "both";
-export type PlayerPosition = "goalkeeper" | "defender" | "midfielder" | "forward";
+export type PlayerPosition =
+  | "goalkeeper"
+  | "right-back"
+  | "center-back"
+  | "left-back"
+  | "defensive-midfielder"
+  | "central-midfielder"
+  | "attacking-midfielder"
+  | "right-winger"
+  | "left-winger"
+  | "striker";
 export type InviteStatus = "pending" | "accepted" | "revoked";
 export type AuthProvider = "credentials" | "google";
 export type EntityVisibility = "private" | "public";
@@ -59,6 +72,7 @@ export interface PlayerProfile {
     size: number;
     uploadedAt: string;
   };
+  primaryTeamId?: string;
   teamName?: string;
   preferredFoot: PreferredFoot;
   preferredPosition: PlayerPosition;
@@ -97,8 +111,14 @@ export interface Team {
   slug: string;
   ownerId: string;
   visibility: EntityVisibility;
+  joinPolicy?: TeamJoinPolicy;
+  description?: string;
+  logoUrl?: string;
+  logoMetadata?: PlayerProfile["photoMetadata"];
   city?: string;
   state?: string;
+  latitude?: number;
+  longitude?: number;
   members: Membership[];
   stats: AggregatedStats;
   createdAt: string;
@@ -119,6 +139,8 @@ export interface MatchVenue {
   city?: string;
   state?: string;
   surface?: "grass" | "synthetic" | "court" | "sand" | "other";
+  latitude?: number;
+  longitude?: number;
 }
 
 export interface Venue {
@@ -131,6 +153,8 @@ export interface Venue {
   city: string;
   state: string;
   surface: NonNullable<MatchVenue["surface"]>;
+  latitude?: number;
+  longitude?: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -146,6 +170,8 @@ export interface Match {
   type: MatchType;
   status: MatchStatus;
   createdBy: string;
+  participationPolicy?: MatchParticipationPolicy;
+  slotsPerSide?: number;
   home: MatchSide;
   away: MatchSide;
   eventLog: MatchEvent[];
@@ -281,6 +307,40 @@ export interface PlayerCardV2 {
   factors: PlayerCardV2Factor[];
   explanation: string;
   snapshot: PlayerFeatureSnapshot;
+}
+
+export interface TeamJoinRequest { id: string; teamId: string; userId: string; status: RequestStatus; requestedAt: string; reviewedAt?: string; reviewedBy?: string; }
+export interface MatchJoinRequest { id: string; matchId: string; userId: string; status: RequestStatus; side?: "home" | "away"; requestedAt: string; reviewedAt?: string; reviewedBy?: string; }
+export interface TeamMessage { id: string; teamId: string; authorId: string; text: string; createdAt: string; }
+export interface MatchComment { id: string; matchId: string; authorId: string; text: string; createdAt: string; }
+
+export type PlayerCardFactorKey =
+  | "matches"
+  | "goalsPerMatch"
+  | "assistsPerMatch"
+  | "saves"
+  | "cleanSheets"
+  | "attendance"
+  | "checkIn"
+  | "winRate"
+  | "form"
+  | "impact";
+
+export interface PlayerCardFactor {
+  key: PlayerCardFactorKey;
+  value: number;
+  weight: number;
+}
+
+export interface PlayerCardProjection {
+  playerId: string;
+  ratingVersion: "v3";
+  score: number;
+  confidence: "forming" | "established";
+  stats: AggregatedStats;
+  factors: PlayerCardFactor[];
+  sourceSignature: string;
+  updatedAt: string;
 }
 
 export interface PlayerInsight {

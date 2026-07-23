@@ -2,12 +2,17 @@ import type {
   Invite,
   AuditLog,
   Match,
+  MatchComment,
+  MatchJoinRequest,
   Notification,
   PlayerProfile,
   PlayerFeatureSnapshot,
+  PlayerCardProjection,
   PublicUser,
   SupportedLocale,
   Team,
+  TeamJoinRequest,
+  TeamMessage,
   ThemeMode,
   Tournament,
   Venue
@@ -38,7 +43,12 @@ export interface Repositories {
   users: UserRepository;
   playerProfiles: PlayerProfileRepository;
   playerFeatureSnapshots: PlayerFeatureSnapshotRepository;
+  playerCardProjections: PlayerCardProjectionRepository;
   teams: TeamRepository;
+  teamJoinRequests: TeamJoinRequestRepository;
+  matchJoinRequests: MatchJoinRequestRepository;
+  teamMessages: TeamMessageRepository;
+  matchComments: MatchCommentRepository;
   matches: MatchRepository;
   tournaments: TournamentRepository;
   invites: InviteRepository;
@@ -64,7 +74,14 @@ export interface PlayerProfileRepository {
 
 export interface PlayerFeatureSnapshotRepository {
   create(snapshot: PlayerFeatureSnapshot & { id: string }): Promise<PlayerFeatureSnapshot & { id: string }>;
+  findLatest(playerId: string, filters?: { teamId?: string; tournamentId?: string }): Promise<(PlayerFeatureSnapshot & { id: string }) | null>;
   listByPlayer(playerId: string, filters?: { teamId?: string; tournamentId?: string; limit?: number }): Promise<Array<PlayerFeatureSnapshot & { id: string }>>;
+}
+
+export interface PlayerCardProjectionRepository {
+  upsert(projection: PlayerCardProjection): Promise<PlayerCardProjection>;
+  findByPlayerId(playerId: string): Promise<PlayerCardProjection | null>;
+  listByPlayerIds(playerIds: string[]): Promise<PlayerCardProjection[]>;
 }
 
 export interface TeamRepository {
@@ -76,11 +93,43 @@ export interface TeamRepository {
   listByIds(ids: string[]): Promise<Team[]>;
 }
 
+export interface TeamJoinRequestRepository {
+  create(request: TeamJoinRequest): Promise<TeamJoinRequest>;
+  update(request: TeamJoinRequest): Promise<TeamJoinRequest>;
+  findById(id: string): Promise<TeamJoinRequest | null>;
+  findByTeamAndUser(teamId: string, userId: string): Promise<TeamJoinRequest | null>;
+  listByTeam(teamId: string): Promise<TeamJoinRequest[]>;
+}
+
+export interface MatchJoinRequestRepository {
+  create(request: MatchJoinRequest): Promise<MatchJoinRequest>;
+  update(request: MatchJoinRequest): Promise<MatchJoinRequest>;
+  findById(id: string): Promise<MatchJoinRequest | null>;
+  findByMatchAndUser(matchId: string, userId: string): Promise<MatchJoinRequest | null>;
+  listByMatch(matchId: string): Promise<MatchJoinRequest[]>;
+}
+
+export interface TeamMessageRepository {
+  create(message: TeamMessage): Promise<TeamMessage>;
+  findById(id: string): Promise<TeamMessage | null>;
+  listByTeam(teamId: string, page: number, pageSize: number): Promise<TeamMessage[]>;
+  deleteById(id: string): Promise<void>;
+}
+
+export interface MatchCommentRepository {
+  create(comment: MatchComment): Promise<MatchComment>;
+  findById(id: string): Promise<MatchComment | null>;
+  listByMatch(matchId: string, page: number, pageSize: number): Promise<MatchComment[]>;
+  deleteById(id: string): Promise<void>;
+}
+
 export interface MatchRepository {
   create(match: Match): Promise<Match>;
   update(match: Match): Promise<Match>;
   findById(id: string): Promise<Match | null>;
+  listAll(): Promise<Match[]>;
   listByTeamIds(teamIds: string[]): Promise<Match[]>;
+  listByPlayerId(playerId: string): Promise<Match[]>;
   listByTournamentId(tournamentId: string): Promise<Match[]>;
 }
 
@@ -144,4 +193,7 @@ export interface AppConfig {
   cookieDomain?: string;
   defaultLocale: SupportedLocale;
   defaultTheme: ThemeMode;
+  nominatimBaseUrl: string;
+  nominatimUserAgent: string;
+  nominatimEmail?: string;
 }

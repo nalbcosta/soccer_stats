@@ -1,13 +1,27 @@
 import type { FastifyPluginAsync } from "fastify";
-import { writeFile } from "node:fs/promises";
+import { unlink, writeFile } from "node:fs/promises";
 import { extname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { playerProfileSchema, updateProfileInputSchema } from "@soccer-stats/shared";
+import { playerCardProjectionSchema, playerProfileSchema, updateProfileInputSchema } from "@soccer-stats/shared";
 import { playerRouteSchemas } from "../docs/openapi.js";
 import { createId } from "../lib/ids.js";
+import { ProfileService } from "../modules/players/profile.service.js";
 import { StatsService } from "../modules/stats/stats.service.js";
 
 const allowedPhotoMimeTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
+
+async function removeStoredPhoto(photoUrl: string | undefined, nextPhotoUrl?: string) {
+  if (!photoUrl || photoUrl === nextPhotoUrl || !photoUrl.startsWith("/uploads/")) return;
+
+  const fileName = photoUrl.slice("/uploads/".length);
+  if (!/^[a-zA-Z0-9-]+\.(jpg|png|webp)$/.test(fileName)) return;
+
+  try {
+    await unlink(fileURLToPath(new URL(`../../uploads/${fileName}`, import.meta.url)));
+  } catch (error: unknown) {
+    if (!(error instanceof Error && "code" in error && error.code === "ENOENT")) throw error;
+  }
+}
 
 function resolvePhotoExtension(filename: string, mimeType: string): ".jpg" | ".png" | ".webp" | null {
   const normalizedExtension = extname(filename).toLowerCase();
@@ -66,6 +80,8 @@ function detectImageMimeType(buffer: Buffer): "image/jpeg" | "image/png" | "imag
 }
 
 export const playerRoutes: FastifyPluginAsync = async (app) => {
+  const profileService = new ProfileService(app.repositories);
+
   app.get("/players/me", { schema: playerRouteSchemas.getMe }, async (request, reply) => {
     const user = await app.auth.requireUser(request, reply);
 
@@ -85,26 +101,21 @@ export const playerRoutes: FastifyPluginAsync = async (app) => {
     }
 
     const payload = updateProfileInputSchema.parse(request.body);
-    const existing = await app.repositories.playerProfiles.findByUserId(user.id);
+    const result = await profileService.update(user.id, payload);
 
-    if (!existing) {
-      reply.code(404);
-      return { message: "Perfil nao encontrado." };
+    if ("reason" in result) {
+      if (result.reason === "not-found") {
+        reply.code(404);
+        return { message: "Perfil nao encontrado." };
+      }
+
+      reply.code(422);
+      return { message: "O time principal precisa pertencer ao jogador." };
     }
 
-    const nextProfile = {
-      ...existing,
-      displayName: payload.displayName,
-      ...(payload.shirtNumber ? { shirtNumber: payload.shirtNumber } : {}),
-      ...(payload.teamName ? { teamName: payload.teamName } : {}),
-      preferredFoot: payload.preferredFoot,
-      preferredPosition: payload.preferredPosition,
-      ...(payload.bio ? { bio: payload.bio } : {}),
-      ...(payload.photoUrl ? { photoUrl: payload.photoUrl } : {})
-    };
-    const profile = await app.repositories.playerProfiles.upsert(nextProfile);
-
-    return { profile: playerProfileSchema.parse(profile) };
+    await removeStoredPhoto(result.previousPhotoUrl, result.profile.photoUrl);
+    await new StatsService(app.repositories).refreshPlayerCardProjection(user.id);
+    return { profile: playerProfileSchema.parse(result.profile) };
   });
 
   app.post("/players/me/photo", { schema: playerRouteSchemas.uploadPhoto }, async (request, reply) => {
@@ -112,13 +123,6 @@ export const playerRoutes: FastifyPluginAsync = async (app) => {
 
     if (!user) {
       return;
-    }
-
-    const existing = await app.repositories.playerProfiles.findByUserId(user.id);
-
-    if (!existing) {
-      reply.code(404);
-      return { message: "Perfil nao encontrado." };
     }
 
     const part = await request.file();
@@ -141,18 +145,20 @@ export const playerRoutes: FastifyPluginAsync = async (app) => {
     const filePath = fileURLToPath(new URL(`../../uploads/${fileName}`, import.meta.url));
     await writeFile(filePath, buffer);
 
-    const profile = await app.repositories.playerProfiles.upsert({
-      ...existing,
-      photoUrl: `/uploads/${fileName}`,
-      photoMetadata: {
-        fileName,
-        mimeType: detectedMimeType,
-        size: buffer.length,
-        uploadedAt: new Date().toISOString()
-      }
+    const profile = await profileService.setPhoto(user.id, `/uploads/${fileName}`, {
+      fileName,
+      mimeType: detectedMimeType,
+      size: buffer.length,
+      uploadedAt: new Date().toISOString()
     });
 
-    return { profile: playerProfileSchema.parse(profile) };
+    if (!profile) {
+      reply.code(404);
+      return { message: "Perfil nao encontrado." };
+    }
+
+    await removeStoredPhoto(profile.previousPhotoUrl, profile.profile.photoUrl);
+    return { profile: playerProfileSchema.parse(profile.profile) };
   });
 
   app.get("/players/:userId/card", { schema: playerRouteSchemas.getCard }, async (request, reply) => {
@@ -163,23 +169,29 @@ export const playerRoutes: FastifyPluginAsync = async (app) => {
     }
 
     const { userId } = request.params as { userId: string };
-    const teams = await app.repositories.teams.listVisibleToUser(user.id);
-    const readableTeamIds = teams.filter((team) => userId === user.id || team.members.some((member) => member.userId === userId)).map((team) => team.id);
-
-    if (readableTeamIds.length === 0) {
+    const profile = await app.repositories.playerProfiles.findByUserId(userId);
+    if (!profile) {
       reply.code(404);
       return { message: "Jogador nao encontrado." };
     }
 
-    const matches = await app.repositories.matches.listByTeamIds(readableTeamIds);
-    const card = await new StatsService(app.repositories).buildPlayerCard(userId, matches);
+    if (userId !== user.id) {
+      const visibleTeams = await app.repositories.teams.listVisibleToUser(user.id);
+      const canReadCard = visibleTeams.some((team) => team.members.some((member) => member.userId === userId));
+      if (!canReadCard) {
+        reply.code(404);
+        return { message: "Jogador nao encontrado." };
+      }
+    }
+
+    const card = await new StatsService(app.repositories).getPlayerCardProjection(userId);
 
     if (!card) {
       reply.code(404);
       return { message: "Jogador nao encontrado." };
     }
 
-    return { card };
+    return { card: playerCardProjectionSchema.parse(card) };
   });
 
   app.get("/players/:userId/insights", { schema: playerRouteSchemas.getInsights }, async (request, reply) => {
@@ -190,23 +202,18 @@ export const playerRoutes: FastifyPluginAsync = async (app) => {
     }
 
     const { userId } = request.params as { userId: string };
-    const teams = await app.repositories.teams.listVisibleToUser(user.id);
-    const readableTeamIds = teams.filter((team) => userId === user.id || team.members.some((member) => member.userId === userId)).map((team) => team.id);
-
-    if (readableTeamIds.length === 0) {
+    const profile = await app.repositories.playerProfiles.findByUserId(userId);
+    if (!profile) {
       reply.code(404);
       return { message: "Jogador nao encontrado." };
     }
 
-    const matches = await app.repositories.matches.listByTeamIds(readableTeamIds);
     const statsService = new StatsService(app.repositories);
-    const card = await statsService.buildPlayerCard(userId, matches);
-
+    const card = await statsService.getPlayerCardProjection(userId);
     if (!card) {
       reply.code(404);
       return { message: "Jogador nao encontrado." };
     }
-
-    return { insights: statsService.buildInsights(card) };
+    return { insights: statsService.buildProjectionInsights(card) };
   });
 };

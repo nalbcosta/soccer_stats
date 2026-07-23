@@ -1,9 +1,15 @@
+"use client";
+
 import Link from "next/link";
 import type { DashboardResponse } from "../../lib/api";
 import { ScoreboardCard } from "../sports/scoreboard-card";
 import { Card } from "../ui/card";
+import { useLocale, useTranslations } from "../../i18n/provider";
+import { formatDateTime } from "../../i18n/formatters";
 
 export function NextMatchCard({ dashboard }: { dashboard: DashboardResponse }) {
+  const { locale } = useLocale();
+  const t = useTranslations("match");
   const nextMatch = dashboard.matches
     .filter((match) => match.status === "scheduled")
     .sort((left, right) => new Date(left.playedAt).getTime() - new Date(right.playedAt).getTime())[0];
@@ -12,7 +18,7 @@ export function NextMatchCard({ dashboard }: { dashboard: DashboardResponse }) {
     return (
       <Card className="p-4">
         <p className="text-xs font-bold uppercase text-muted">Agenda</p>
-        <p className="mt-2 font-extrabold">Sem jogo marcado</p>
+        <p className="mt-2 font-extrabold">{t("noScheduled")}</p>
         <Link className="mt-3 inline-flex text-sm font-bold text-primary-strong" href="/app/matches">
           Marcar jogo
         </Link>
@@ -28,10 +34,10 @@ export function NextMatchCard({ dashboard }: { dashboard: DashboardResponse }) {
       <ScoreboardCard
         awayName={away}
         awayScore={nextMatch.away.score}
-        eyebrow="Proximo jogo"
+        eyebrow={t("next")}
         homeName={home}
         homeScore={nextMatch.home.score}
-        meta={new Date(nextMatch.playedAt).toLocaleString("pt-BR")}
+        meta={formatDateTime(nextMatch.playedAt, locale, { dateStyle: "medium", timeStyle: "short" })}
         status={nextMatch.status}
       />
     </Link>

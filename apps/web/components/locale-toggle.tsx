@@ -1,6 +1,6 @@
 "use client";
 
-import { useLocale } from "./locale-provider";
+import { useLocale } from "../i18n/provider";
 import { Button } from "./ui/button";
 
 export function LocaleToggle({ compact = false }: { compact?: boolean }) {

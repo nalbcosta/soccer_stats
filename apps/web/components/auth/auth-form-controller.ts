@@ -3,7 +3,8 @@
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "../../lib/api";
-import { useLocale } from "../locale-provider";
+import { useLocale } from "../../i18n/provider";
+import { useTranslations } from "../../i18n/provider";
 
 export type AuthMode = "signin" | "signup";
 
@@ -30,6 +31,7 @@ const usernamePattern = /^[a-z0-9_]{3,20}$/;
 export function useAuthFormController() {
   const router = useRouter();
   const { locale } = useLocale();
+  const t = useTranslations("auth");
   const [mode, setMode] = useState<AuthMode>("signin");
   const [feedback, setFeedback] = useState("");
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
@@ -42,9 +44,9 @@ export function useAuthFormController() {
   }>({ message: "", status: "idle" });
 
   const passwordRules = [
-    { label: "Pelo menos 8 caracteres", valid: form.password.length >= 8 },
-    { label: "Inclua uma letra", valid: /[a-zA-Z]/.test(form.password) },
-    { label: "Inclua um numero", valid: /[0-9]/.test(form.password) }
+    { label: t("passwordRuleLength"), valid: form.password.length >= 8 },
+    { label: t("passwordRuleLetter"), valid: /[a-zA-Z]/.test(form.password) },
+    { label: t("passwordRuleNumber"), valid: /[0-9]/.test(form.password) }
   ];
   const isPasswordValid = passwordRules.every((rule) => rule.valid);
   const passwordsMatch = form.confirmPassword.length > 0 && form.password === form.confirmPassword;
@@ -64,13 +66,13 @@ export function useAuthFormController() {
 
     if (!usernamePattern.test(username)) {
       setUsernameAvailability({
-        message: "Use 3 a 20 caracteres: letras minusculas, numeros e _.",
+        message: t("usernameInvalid"),
         status: "invalid"
       });
       return;
     }
 
-    setUsernameAvailability({ message: "Verificando apelido...", status: "checking" });
+    setUsernameAvailability({ message: t("checkingUsername"), status: "checking" });
 
     let active = true;
     const timeout = window.setTimeout(() => {
@@ -82,7 +84,7 @@ export function useAuthFormController() {
           }
 
           setUsernameAvailability({
-            message: result.message,
+            message: result.available ? t("usernameAvailable") : t("usernameTaken"),
             status: result.available ? "available" : "taken"
           });
         })
@@ -92,7 +94,7 @@ export function useAuthFormController() {
           }
 
           setUsernameAvailability({
-            message: "Nao deu para verificar agora.",
+            message: t("usernameUnavailable"),
             status: "error"
           });
         });
@@ -113,17 +115,17 @@ export function useAuthFormController() {
 
     if (mode === "signup") {
       if (!isPasswordValid) {
-        setFeedback("A senha precisa ter pelo menos 8 caracteres, uma letra e um numero.");
+        setFeedback(t("invalidPassword"));
         return;
       }
 
       if (!passwordsMatch) {
-        setFeedback("Confirme a senha para continuar.");
+        setFeedback(t("confirmPasswordError"));
         return;
       }
 
       if (usernameAvailability.status !== "available") {
-        setFeedback("Escolha um apelido disponivel antes de criar a conta.");
+        setFeedback(t("usernameRequired"));
         return;
       }
     }
@@ -138,7 +140,7 @@ export function useAuthFormController() {
 
       void task
         .then(() => router.push("/app"))
-        .catch((error: unknown) => setFeedback(error instanceof Error ? error.message : "Nao deu para entrar agora."));
+        .catch(() => setFeedback(t("signInError")));
     });
   };
 

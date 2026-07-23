@@ -9,6 +9,8 @@ interface CreateVenueInput {
   city: string;
   state: string;
   surface: Venue["surface"];
+  latitude?: number | undefined;
+  longitude?: number | undefined;
 }
 
 export class VenueService {
@@ -26,6 +28,8 @@ export class VenueService {
       city: input.city,
       state: input.state.toUpperCase(),
       surface: input.surface,
+      ...(input.latitude !== undefined ? { latitude: input.latitude } : {}),
+      ...(input.longitude !== undefined ? { longitude: input.longitude } : {}),
       createdAt: now,
       updatedAt: now
     });
@@ -50,6 +54,8 @@ export class VenueService {
       ...(input.city ? { city: input.city } : {}),
       ...(input.surface ? { surface: input.surface } : {}),
       ...(input.state ? { state: input.state.toUpperCase() } : {}),
+      ...(input.latitude !== undefined ? { latitude: input.latitude } : {}),
+      ...(input.longitude !== undefined ? { longitude: input.longitude } : {}),
       updatedAt: new Date().toISOString()
     });
   }

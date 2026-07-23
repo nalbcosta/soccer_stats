@@ -3,22 +3,24 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { appNavItems, secondaryNavItems } from "../../lib/routes";
+import { useTranslations } from "../../i18n/provider";
 
 export function DesktopSidebar() {
   const pathname = usePathname();
+  const t = useTranslations("navigation");
 
   return (
     <aside className="hidden lg:block">
       <div className="sticky top-20 grid gap-5">
-        <nav className="grid gap-1" aria-label="Navegacao principal desktop">
-          <p className="px-2 text-[11px] font-black uppercase text-muted">Jogo</p>
+        <nav className="grid gap-1" aria-label={t("game")}>
+          <p className="px-2 text-[11px] font-black uppercase text-muted">{t("game")}</p>
           {appNavItems.map((item) => (
             <SidebarLink active={pathname === item.href || (item.href !== "/app" && pathname.startsWith(item.href))} item={item} key={item.href} />
           ))}
         </nav>
 
-        <nav className="grid gap-1" aria-label="Navegacao secundaria desktop">
-          <p className="px-2 text-[11px] font-black uppercase text-muted">Clube</p>
+        <nav className="grid gap-1" aria-label={t("club")}>
+          <p className="px-2 text-[11px] font-black uppercase text-muted">{t("club")}</p>
           {secondaryNavItems.map((item) => (
             <SidebarLink active={pathname === item.href || pathname.startsWith(item.href)} item={item} key={item.href} />
           ))}
@@ -35,6 +37,7 @@ function SidebarLink({
   active: boolean;
   item: (typeof appNavItems)[number];
 }) {
+  const t = useTranslations("navigation");
   const Icon = item.icon;
 
   return (
@@ -45,7 +48,7 @@ function SidebarLink({
       href={item.href}
     >
       <Icon size={18} strokeWidth={active ? 2.6 : 2} />
-      {item.label}
+      {t(item.labelKey)}
     </Link>
   );
 }

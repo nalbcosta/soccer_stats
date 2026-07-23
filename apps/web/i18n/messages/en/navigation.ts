@@ -1,0 +1,21 @@
+export const navigation = {
+  language: "Language",
+  theme: "Theme",
+  account: "Account",
+  accountMenu: "Open account menu",
+  accountNavigation: "Account navigation",
+  accountDescription: "Your profile, settings and preferences in one place.",
+  profile: "Profile",
+  settings: "Settings",
+  preferences: "Preferences",
+  preferencesDescription: "Language and appearance",
+  playerFallback: "player",
+  profilePhotoAlt: "Profile photo",
+  dark: "Dark",
+  light: "Light",
+  auto: "Auto",
+  signOut: "Sign out",
+  signoutDescription: "You will return to the login and can log in again whenever you want.",
+  confirmSignout: "Sign out",
+  profileNavigation: "Profile navigation", home: "Overview", matches: "Matches", teams: "Teams", ranking: "Ranking", tournaments: "Cups", stats: "Stats", invites: "Invites", notifications: "Notifications", game: "Game", club: "Club", more: "More", moreTabs: "More tabs", moreDescription: "Cups, stats, invites and notifications.", goHome: "Go to overview"
+} as const;

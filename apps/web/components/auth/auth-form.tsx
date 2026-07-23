@@ -5,8 +5,10 @@ import { GoogleLogin } from "../google-login";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { useAuthFormController } from "./auth-form-controller";
+import { useTranslations } from "../../i18n/provider";
 
 export function AuthForm() {
+  const t = useTranslations("auth");
   const {
     feedback,
     form,
@@ -37,9 +39,9 @@ export function AuthForm() {
       }}
     >
       <div className="grid gap-1">
-        <p className="text-xs font-black uppercase tracking-[0.16em] text-muted">{isSignUp ? "Criar acesso" : "Acesso ao vestiário"}</p>
+        <p className="text-xs font-black uppercase tracking-[0.16em] text-muted">{isSignUp ? t("createAccess") : t("access")}</p>
         <p className="text-sm font-semibold leading-6 text-muted">
-          {isSignUp ? "Monte seu acesso e comece a organizar a turma." : "Use seu email para voltar ao placar, elenco e histórico."}
+          {isSignUp ? t("createDescription") : t("accessDescription")}
         </p>
       </div>
 
@@ -49,24 +51,24 @@ export function AuthForm() {
           type="button"
           onClick={() => setMode("signin")}
         >
-          Entrar
+          {t("signIn")}
         </button>
         <button
           className={`min-h-11 rounded-md px-3 py-2 text-sm font-black transition ${mode === "signup" ? "bg-surface text-text shadow-line" : "text-muted"}`}
           type="button"
           onClick={() => setMode("signup")}
         >
-          Criar conta
+          {t("signUp")}
         </button>
       </div>
 
       <div className="mt-5 space-y-3.5">
         <label className="grid gap-1.5">
-          <span className="text-xs font-black uppercase tracking-[0.14em] text-muted">Email</span>
+          <span className="text-xs font-black uppercase tracking-[0.14em] text-muted">{t("email")}</span>
           <Input
             autoComplete="email"
             disabled={isPending}
-            placeholder="email@exemplo.com"
+            placeholder={t("emailPlaceholder")}
             required
             type="email"
             value={form.email}
@@ -75,14 +77,14 @@ export function AuthForm() {
         </label>
         {mode === "signup" ? (
           <label className="grid gap-1.5">
-            <span className="text-xs font-black uppercase tracking-[0.14em] text-muted">Apelido</span>
+            <span className="text-xs font-black uppercase tracking-[0.14em] text-muted">{t("username")}</span>
             <Input
               autoComplete="username"
               disabled={isPending}
               maxLength={20}
               minLength={3}
               pattern="[a-z0-9_]+"
-              placeholder="seu_apelido"
+              placeholder={t("usernamePlaceholder")}
               required
               value={form.username}
               onChange={(event) => updateField("username", event.target.value.toLowerCase())}
@@ -91,7 +93,7 @@ export function AuthForm() {
           </label>
         ) : null}
         <label className="grid gap-1.5">
-          <span className="text-xs font-black uppercase tracking-[0.14em] text-muted">Senha</span>
+          <span className="text-xs font-black uppercase tracking-[0.14em] text-muted">{t("password")}</span>
           <div className="relative">
             <Input
               autoComplete={isSignUp ? "new-password" : "current-password"}
@@ -99,14 +101,14 @@ export function AuthForm() {
               disabled={isPending}
               maxLength={72}
               minLength={8}
-              placeholder={isSignUp ? "Mínimo 8 caracteres" : "•••••••••"}
+              placeholder={isSignUp ? t("passwordMinimum") : "•••••••••"}
               required
               type={isPasswordVisible ? "text" : "password"}
               value={form.password}
               onChange={(event) => updateField("password", event.target.value)}
             />
             <button
-              aria-label={isPasswordVisible ? "Ocultar senha" : "Mostrar senha"}
+              aria-label={isPasswordVisible ? t("hidePassword") : t("showPassword")}
               className="absolute right-1 top-1 grid h-9 w-9 place-items-center rounded-md text-muted transition hover:bg-canvas hover:text-text"
               disabled={isPending}
               type="button"
@@ -129,7 +131,7 @@ export function AuthForm() {
 
         {isSignUp ? (
           <label className="grid gap-1.5">
-            <span className="text-xs font-black uppercase tracking-[0.14em] text-muted">Confirmar senha</span>
+            <span className="text-xs font-black uppercase tracking-[0.14em] text-muted">{t("confirmPassword")}</span>
             <div className="relative">
               <Input
                 autoComplete="new-password"
@@ -137,14 +139,14 @@ export function AuthForm() {
                 disabled={isPending}
                 maxLength={72}
                 minLength={8}
-                placeholder="Repita sua senha"
+                placeholder={t("repeatPassword")}
                 required
                 type={isConfirmPasswordVisible ? "text" : "password"}
                 value={form.confirmPassword}
                 onChange={(event) => updateField("confirmPassword", event.target.value)}
               />
               <button
-                aria-label={isConfirmPasswordVisible ? "Ocultar confirmação de senha" : "Mostrar confirmação de senha"}
+              aria-label={isConfirmPasswordVisible ? t("hideConfirmPassword") : t("showConfirmPassword")}
                 className="absolute right-1 top-1 grid h-9 w-9 place-items-center rounded-md text-muted transition hover:bg-canvas hover:text-text"
                 disabled={isPending}
                 type="button"
@@ -155,7 +157,7 @@ export function AuthForm() {
             </div>
             {form.confirmPassword ? (
               <span className={`text-xs font-bold ${passwordsMatch ? "text-primary-strong" : "text-error"}`}>
-                {passwordsMatch ? "As senhas conferem." : "As senhas ainda nao batem."}
+                {passwordsMatch ? t("passwordsMatch") : t("passwordsMismatch")}
               </span>
             ) : null}
           </label>
@@ -171,9 +173,9 @@ export function AuthForm() {
               onChange={(event) => updateField("rememberMe", event.target.checked)}
             />
             <span className="grid gap-0.5">
-              <span className="text-sm font-black text-text">Lembrar de mim neste dispositivo</span>
+              <span className="text-sm font-black text-text">{t("rememberMe")}</span>
               <span className="text-xs font-semibold leading-5 text-muted">
-                Mantém sua sessão por até 14 dias.
+                {t("rememberMeDescription")}
               </span>
             </span>
           </label>
@@ -181,12 +183,12 @@ export function AuthForm() {
 
         <Button className="mt-1 w-full rounded-xl" disabled={!canSubmit} type="submit">
           {isSignUp ? <UserPlus size={18} /> : <LogIn size={18} />}
-          {isPending ? "Só um instante..." : isSignUp ? "Criar meu vestiário" : "Entrar no vestiário"}
+          {isPending ? t("pending") : isSignUp ? t("createLockerRoom") : t("enterLockerRoom")}
         </Button>
 
         <div className="flex items-center gap-3 py-1">
           <div className="h-px flex-1 bg-border" />
-          <span className="text-[11px] font-black uppercase tracking-[0.14em] text-muted">ou siga com</span>
+          <span className="text-[11px] font-black uppercase tracking-[0.14em] text-muted">{t("orContinue")}</span>
           <div className="h-px flex-1 bg-border" />
         </div>
 

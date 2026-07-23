@@ -4,7 +4,7 @@ import { DashboardOverview } from "../../../components/dashboard/dashboard-overv
 export default function AppHomePage() {
   return (
     <>
-      <PageHeading eyebrow="Vestiario" title="Resumo da rodada" />
+      <PageHeading eyebrow="Vestiário" title="Resumo da rodada" />
       <DashboardOverview />
     </>
   );

@@ -123,7 +123,8 @@ export const playerRouteSchemas = {
     response: {
       200: { $ref: "playerProfileEnvelope#" },
       401: { $ref: "messageResponse#" },
-      404: { $ref: "messageResponse#" }
+      404: { $ref: "messageResponse#" },
+      422: { $ref: "messageResponse#" }
     }
   } satisfies FastifySchema,
   uploadPhoto: {
@@ -131,13 +132,7 @@ export const playerRouteSchemas = {
     summary: "Faz upload da foto do jogador autenticado",
     security: authSecurity,
     consumes: ["multipart/form-data"],
-    body: {
-      type: "object",
-      properties: {
-        photo: { type: "string", format: "binary" }
-      },
-      required: ["photo"]
-    },
+    description: "Envie o campo multipart `photo` com uma imagem JPG, PNG ou WebP de até 5 MB.",
     response: {
       200: { $ref: "playerProfileEnvelope#" },
       400: { $ref: "messageResponse#" },
@@ -147,10 +142,10 @@ export const playerRouteSchemas = {
   } satisfies FastifySchema,
   getCard: {
     tags: ["players"],
-    summary: "Retorna NaBola Card v2 de um jogador visivel",
+    summary: "Retorna a projeção atual do NaBola Card de um jogador visível",
     security: authSecurity,
     response: {
-      200: { $ref: "playerCardEnvelope#" },
+      200: { $ref: "playerCardProjectionEnvelope#" },
       401: { $ref: "messageResponse#" },
       404: { $ref: "messageResponse#" }
     }
@@ -304,6 +299,30 @@ export const venueRouteSchemas = {
   } satisfies FastifySchema
 };
 
+export const locationRouteSchemas = {
+  reverse: {
+    tags: ["locations"],
+    summary: "Resolve cidade e UF a partir de coordenadas do navegador",
+    security: authSecurity,
+    querystring: { $ref: "locationReverseQuery#" },
+    response: {
+      200: { $ref: "locationEnvelope#" },
+      401: { $ref: "messageResponse#" },
+      404: { $ref: "messageResponse#" }
+    }
+  } satisfies FastifySchema,
+  search: {
+    tags: ["locations"],
+    summary: "Busca locais/cidades usando OpenStreetMap Nominatim",
+    security: authSecurity,
+    querystring: { $ref: "locationSearchQuery#" },
+    response: {
+      200: { $ref: "locationsEnvelope#" },
+      401: { $ref: "messageResponse#" }
+    }
+  } satisfies FastifySchema
+};
+
 export const tournamentRouteSchemas = {
   list: {
     tags: ["tournaments"],
@@ -422,8 +441,9 @@ export const rankingRouteSchemas = {
 export const matchRouteSchemas = {
   list: {
     tags: ["matches"],
-    summary: "Lista as partidas dos times do usuário",
+    summary: "Lista partidas com busca, filtros, escopo e paginacao",
     security: authSecurity,
+    querystring: { $ref: "listMatchesQuery#" },
     response: {
       200: { $ref: "matchesEnvelope#" },
       401: { $ref: "messageResponse#" }
@@ -720,7 +740,7 @@ const schemas = [
       userId: id,
       displayName: { type: "string" },
       shirtNumber: { type: "integer", minimum: 1, maximum: 99 },
-      photoUrl: { type: "string", format: "uri" },
+      photoUrl: { type: "string", description: "URL absoluta ou caminho interno /uploads/..." },
       photoMetadata: {
         type: "object",
         properties: {
@@ -731,9 +751,10 @@ const schemas = [
         },
         required: ["fileName", "mimeType", "size", "uploadedAt"]
       },
+      primaryTeamId: id,
       teamName: { type: "string", minLength: 2, maxLength: 40 },
       preferredFoot: { type: "string", enum: ["right", "left", "both"] },
-      preferredPosition: { type: "string", enum: ["goalkeeper", "defender", "midfielder", "forward"] },
+      preferredPosition: { type: "string", enum: ["goalkeeper", "right-back", "center-back", "left-back", "defensive-midfielder", "central-midfielder", "attacking-midfielder", "right-winger", "left-winger", "striker"] },
       bio: { type: "string" },
       stats: { $ref: "stats#" }
     },
@@ -744,7 +765,7 @@ const schemas = [
     type: "object",
     properties: {
       userId: id,
-      role: { type: "string", enum: ["owner", "admin", "member"] },
+      role: { type: "string", enum: ["owner", "admin", "captain", "member", "guest"] },
       joinedAt: isoDate
     },
     required: ["userId", "role", "joinedAt"]
@@ -758,8 +779,16 @@ const schemas = [
       slug: { type: "string" },
       ownerId: id,
       visibility: { type: "string", enum: ["private", "public"] },
+      joinPolicy: { type: "string", enum: ["closed", "request"] },
+      description: { type: "string", maxLength: 240 },
+      logoUrl: { type: "string" },
+      logoMetadata: {
+        type: "object", properties: { fileName: { type: "string" }, mimeType: { type: "string", enum: ["image/jpeg", "image/png", "image/webp"] }, size: { type: "integer" }, uploadedAt: isoDate }, required: ["fileName", "mimeType", "size", "uploadedAt"]
+      },
       city: { type: "string" },
       state: { type: "string", minLength: 2, maxLength: 2 },
+      latitude: { type: "number" },
+      longitude: { type: "number" },
       members: {
         type: "array",
         items: { $ref: "membership#" }
@@ -868,7 +897,9 @@ const schemas = [
       address: { type: "string", minLength: 2, maxLength: 120 },
       city: { type: "string", minLength: 2, maxLength: 80 },
       state: { type: "string", minLength: 2, maxLength: 2 },
-      surface: { type: "string", enum: ["grass", "synthetic", "court", "sand", "other"] }
+      surface: { type: "string", enum: ["grass", "synthetic", "court", "sand", "other"] },
+      latitude: { type: "number", minimum: -90, maximum: 90 },
+      longitude: { type: "number", minimum: -180, maximum: 180 }
     }
   },
   {
@@ -884,6 +915,8 @@ const schemas = [
       city: { type: "string" },
       state: { type: "string" },
       surface: { type: "string", enum: ["grass", "synthetic", "court", "sand", "other"] },
+      latitude: { type: "number", minimum: -90, maximum: 90 },
+      longitude: { type: "number", minimum: -180, maximum: 180 },
       createdAt: isoDate,
       updatedAt: isoDate
     },
@@ -1088,12 +1121,12 @@ const schemas = [
     type: "object",
     properties: {
       displayName: { type: "string", minLength: 2, maxLength: 40 },
-      shirtNumber: { type: "integer", minimum: 1, maximum: 99 },
-      photoUrl: { type: "string", format: "uri", maxLength: 500 },
-      teamName: { type: "string", minLength: 2, maxLength: 40 },
+      shirtNumber: { type: "integer", minimum: 1, maximum: 99, nullable: true },
+      photoUrl: { type: "string", maxLength: 500, nullable: true, description: "URL absoluta ou caminho interno /uploads/..." },
+      primaryTeamId: { ...id, nullable: true },
       preferredFoot: { type: "string", enum: ["right", "left", "both"] },
-      preferredPosition: { type: "string", enum: ["goalkeeper", "defender", "midfielder", "forward"] },
-      bio: { type: "string", maxLength: 160 }
+      preferredPosition: { type: "string", enum: ["goalkeeper", "right-back", "center-back", "left-back", "defensive-midfielder", "central-midfielder", "attacking-midfielder", "right-winger", "left-winger", "striker"] },
+      bio: { type: "string", maxLength: 160, nullable: true }
     },
     required: ["displayName", "preferredFoot", "preferredPosition"]
   },
@@ -1143,6 +1176,24 @@ const schemas = [
       playedAt: isoDate
     },
     required: ["type", "home", "away", "playedAt"]
+  },
+  {
+    $id: "listMatchesQuery",
+    type: "object",
+    properties: {
+      scope: { type: "string", enum: ["mine", "nearby"], default: "mine" },
+      q: { type: "string", minLength: 1, maxLength: 80 },
+      status: { type: "string", enum: ["scheduled", "confirming", "completed", "cancelled"] },
+      teamId: id,
+      tournamentId: id,
+      city: { type: "string", minLength: 2, maxLength: 80 },
+      state: { type: "string", minLength: 2, maxLength: 2 },
+      latitude: { type: "number", minimum: -90, maximum: 90 },
+      longitude: { type: "number", minimum: -180, maximum: 180 },
+      radiusKm: { type: "number", minimum: 1, maximum: 100, default: 25 },
+      page: { type: "integer", minimum: 1, default: 1 },
+      pageSize: { type: "integer", minimum: 1, maximum: 50, default: 10 }
+    }
   },
   {
     $id: "completeMatchInput",
@@ -1284,6 +1335,21 @@ const schemas = [
     required: ["playerId", "ratingVersion", "score", "factors", "explanation", "snapshot"]
   },
   {
+    $id: "playerCardProjection",
+    type: "object",
+    properties: {
+      playerId: id,
+      ratingVersion: { type: "string", enum: ["v3"] },
+      score: { type: "integer", minimum: 35, maximum: 99 },
+      confidence: { type: "string", enum: ["forming", "established"] },
+      stats: { $ref: "stats#" },
+      factors: { type: "array", items: { type: "object", properties: { key: { type: "string" }, value: { type: "number" }, weight: { type: "number" } }, required: ["key", "value", "weight"] } },
+      sourceSignature: { type: "string" },
+      updatedAt: isoDate
+    },
+    required: ["playerId", "ratingVersion", "score", "confidence", "stats", "factors", "sourceSignature", "updatedAt"]
+  },
+  {
     $id: "playerInsight",
     type: "object",
     properties: {
@@ -1367,7 +1433,9 @@ const schemas = [
       address: { type: "string", minLength: 2, maxLength: 120 },
       city: { type: "string", minLength: 2, maxLength: 80 },
       state: { type: "string", minLength: 2, maxLength: 2 },
-      surface: { type: "string", enum: ["grass", "synthetic", "court", "sand", "other"], default: "other" }
+      surface: { type: "string", enum: ["grass", "synthetic", "court", "sand", "other"], default: "other" },
+      latitude: { type: "number", minimum: -90, maximum: 90 },
+      longitude: { type: "number", minimum: -180, maximum: 180 }
     },
     required: ["name", "city", "state"]
   },
@@ -1393,6 +1461,37 @@ const schemas = [
       page: { type: "integer", minimum: 1, default: 1 },
       pageSize: { type: "integer", minimum: 1, maximum: 50, default: 20 }
     }
+  },
+  {
+    $id: "locationReverseQuery",
+    type: "object",
+    properties: {
+      latitude: { type: "number", minimum: -90, maximum: 90 },
+      longitude: { type: "number", minimum: -180, maximum: 180 }
+    },
+    required: ["latitude", "longitude"]
+  },
+  {
+    $id: "locationSearchQuery",
+    type: "object",
+    properties: {
+      q: { type: "string", minLength: 2, maxLength: 120 },
+      limit: { type: "integer", minimum: 1, maximum: 10, default: 5 }
+    },
+    required: ["q"]
+  },
+  {
+    $id: "locationResult",
+    type: "object",
+    properties: {
+      latitude: { type: "number" },
+      longitude: { type: "number" },
+      displayName: { type: "string" },
+      city: { type: "string" },
+      state: { type: "string" },
+      country: { type: "string" }
+    },
+    required: ["latitude", "longitude", "displayName"]
   },
   {
     $id: "publicUserEnvelope",
@@ -1426,6 +1525,12 @@ const schemas = [
     properties: {
       card: { $ref: "playerCardV2#" }
     },
+    required: ["card"]
+  },
+  {
+    $id: "playerCardProjectionEnvelope",
+    type: "object",
+    properties: { card: { $ref: "playerCardProjection#" } },
     required: ["card"]
   },
   {
@@ -1558,9 +1663,38 @@ const schemas = [
       matches: {
         type: "array",
         items: { $ref: "match#" }
+      },
+      pagination: {
+        type: "object",
+        properties: {
+          page: { type: "integer" },
+          pageSize: { type: "integer" },
+          total: { type: "integer" },
+          totalPages: { type: "integer" }
+        },
+        required: ["page", "pageSize", "total", "totalPages"]
       }
     },
     required: ["matches"]
+  },
+  {
+    $id: "locationEnvelope",
+    type: "object",
+    properties: {
+      location: { $ref: "locationResult#" }
+    },
+    required: ["location"]
+  },
+  {
+    $id: "locationsEnvelope",
+    type: "object",
+    properties: {
+      locations: {
+        type: "array",
+        items: { $ref: "locationResult#" }
+      }
+    },
+    required: ["locations"]
   },
   {
     $id: "tournamentEnvelope",
@@ -1680,6 +1814,7 @@ export const registerOpenApi = async (app: FastifyInstance): Promise<void> => {
         { name: "teams", description: "Times e convites" },
         { name: "invites", description: "Fluxo de convites" },
         { name: "venues", description: "Locais e estadios" },
+        { name: "locations", description: "Geocoding e localizacao" },
         { name: "matches", description: "Partidas e encerramento" },
         { name: "tournaments", description: "Campeonatos" },
         { name: "rankings", description: "Rankings, artilharia e heuristica NaBola Card" },

@@ -1,14 +1,17 @@
 import clsx from "clsx";
+import { forwardRef } from "react";
 
-export function Button({
-  className,
-  variant = "primary",
-  ...props
-}: React.ButtonHTMLAttributes<HTMLButtonElement> & {
+type ButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> & {
   variant?: "primary" | "secondary" | "ghost";
-}) {
+};
+
+export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(
+  { className, variant = "primary", ...props },
+  ref
+) {
   return (
     <button
+      ref={ref}
       className={clsx(
         "inline-flex min-h-11 items-center justify-center gap-2 rounded-lg px-4 text-sm font-semibold transition duration-200 hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50",
         {
@@ -21,4 +24,4 @@ export function Button({
       {...props}
     />
   );
-}
+});

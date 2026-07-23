@@ -1,11 +1,30 @@
 import type {
   Invite,
   Match,
+  MatchComment,
+  MatchJoinRequest,
+  Notification,
+  PlayerCardProjection,
+  PlayerInsight,
   PlayerProfile,
+  PlayerRankingEntry,
   PublicUser,
   Team,
-  Tournament
+  TeamJoinRequest,
+  TeamMessage,
+  Tournament,
+  Venue
 } from "@soccer-stats/shared";
+
+export interface UpdateProfileInput {
+  displayName: string;
+  shirtNumber?: number | null;
+  photoUrl?: string | null;
+  primaryTeamId?: string | null;
+  preferredFoot: PlayerProfile["preferredFoot"];
+  preferredPosition: PlayerProfile["preferredPosition"];
+  bio?: string | null;
+}
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/v1";
 const API_BASE_URL = API_URL.replace(/\/v1$/, "");
@@ -63,6 +82,71 @@ export interface DashboardResponse {
   matches: Match[];
   tournaments: Tournament[];
   invites: Invite[];
+  venues: Venue[];
+  notifications: Notification[];
+}
+
+export interface PlayerRankingFilters {
+  teamId?: string;
+  tournamentId?: string;
+  period?: "all" | "last-5" | "last-10";
+  metric?: "overall" | "goals" | "assists" | "presence" | "winning" | "form";
+}
+
+export interface PaginationMeta {
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+}
+
+export interface MatchListFilters {
+  scope?: "mine" | "nearby";
+  q?: string;
+  status?: Match["status"];
+  teamId?: string;
+  tournamentId?: string;
+  city?: string;
+  state?: string;
+  latitude?: number;
+  longitude?: number;
+  radiusKm?: number;
+  page?: number;
+  pageSize?: number;
+}
+
+export interface TeamListFilters {
+  scope?: "mine" | "discover";
+  q?: string;
+  city?: string;
+  state?: string;
+  latitude?: number;
+  longitude?: number;
+  radiusKm?: number;
+  page?: number;
+  pageSize?: number;
+}
+
+export interface LocationResult {
+  latitude: number;
+  longitude: number;
+  displayName: string;
+  city?: string;
+  state?: string;
+  country?: string;
+}
+
+function toQueryString(filters: Record<string, string | number | undefined>) {
+  const params = new URLSearchParams();
+
+  Object.entries(filters).forEach(([key, value]) => {
+    if (value !== undefined && value !== "") {
+      params.set(key, String(value));
+    }
+  });
+
+  const query = params.toString();
+  return query ? `?${query}` : "";
 }
 
 export const api = {
@@ -77,7 +161,67 @@ export const api = {
   signOut: () => request<{ ok: true }>("/auth/signout", { method: "POST" }),
   me: () => request<{ user: PublicUser }>("/auth/me"),
   dashboard: () => request<DashboardResponse>("/dashboard"),
-  updateProfile: (input: Partial<Pick<PlayerProfile, "displayName" | "shirtNumber" | "photoUrl" | "teamName" | "preferredFoot" | "preferredPosition" | "bio">>) =>
+  getPlayerCard: (userId: string) => request<{ card: PlayerCardProjection }>(`/players/${encodeURIComponent(userId)}/card`),
+  getPlayerInsights: (userId: string) =>
+    request<{ insights: PlayerInsight[] }>(`/players/${encodeURIComponent(userId)}/insights`),
+  getPlayerRankings: (filters: PlayerRankingFilters = {}) =>
+    request<{ players: PlayerRankingEntry[] }>(
+      `/rankings/players${toQueryString({
+        teamId: filters.teamId,
+        tournamentId: filters.tournamentId,
+        period: filters.period ?? "all",
+        metric: filters.metric ?? "overall"
+      })}`
+    ),
+  listMatches: (filters: MatchListFilters = {}) =>
+    request<{ matches: Match[]; pagination?: PaginationMeta }>(
+      `/matches${toQueryString({
+        scope: filters.scope,
+        q: filters.q,
+        status: filters.status,
+        teamId: filters.teamId,
+        tournamentId: filters.tournamentId,
+        city: filters.city,
+        state: filters.state,
+        latitude: filters.latitude,
+        longitude: filters.longitude,
+        radiusKm: filters.radiusKm,
+        page: filters.page,
+        pageSize: filters.pageSize
+      })}`
+    ),
+  listTeams: (filters: TeamListFilters = {}) => request<{ teams: Team[]; pagination?: PaginationMeta }>(`/teams${toQueryString({ scope: filters.scope, q: filters.q, city: filters.city, state: filters.state, latitude: filters.latitude, longitude: filters.longitude, radiusKm: filters.radiusKm, page: filters.page, pageSize: filters.pageSize })}`),
+  requestTeamJoin: (teamId: string) => request<{ request: TeamJoinRequest }>(`/teams/${encodeURIComponent(teamId)}/join-requests`, { method: "POST" }),
+  listTeamJoinRequests: (teamId: string) => request<{ requests: TeamJoinRequest[] }>(`/teams/${encodeURIComponent(teamId)}/join-requests`),
+  reviewTeamJoinRequest: (teamId: string, requestId: string, decision: "approve" | "reject") => request<{ request: TeamJoinRequest }>(`/teams/${encodeURIComponent(teamId)}/join-requests/${encodeURIComponent(requestId)}/${decision}`, { method: "POST" }),
+  updateTeamMemberRole: (teamId: string, userId: string, role: "admin" | "captain" | "member") => request<{ team: Team }>(`/teams/${encodeURIComponent(teamId)}/members/${encodeURIComponent(userId)}/role`, { method: "PATCH", body: JSON.stringify({ role }) }),
+  uploadTeamLogo: async (teamId: string, logo: File) => {
+    const body = new FormData(); body.set("logo", logo);
+    const response = await fetch(`${API_URL}/teams/${encodeURIComponent(teamId)}/logo`, { method: "POST", body, credentials: "include", headers: { "x-csrf-token": await getCsrfToken() } });
+    if (!response.ok) { const error = await response.json().catch(() => ({ message: "Erro inesperado." })) as { message?: string }; throw new Error(error.message ?? "Erro inesperado."); }
+    return response.json() as Promise<{ team: Team }>;
+  },
+  removeTeamLogo: (teamId: string) => request<{ team: Team }>(`/teams/${encodeURIComponent(teamId)}/logo`, { method: "DELETE" }),
+  requestMatchJoin: (matchId: string) => request<{ request: MatchJoinRequest }>(`/matches/${encodeURIComponent(matchId)}/join-requests`, { method: "POST" }),
+  listMatchJoinRequests: (matchId: string) => request<{ requests: MatchJoinRequest[] }>(`/matches/${encodeURIComponent(matchId)}/join-requests`),
+  reviewMatchJoinRequest: (matchId: string, requestId: string, decision: "approve" | "reject", side?: "home" | "away") => request<{ request: MatchJoinRequest }>(`/matches/${encodeURIComponent(matchId)}/join-requests/${encodeURIComponent(requestId)}/${decision}`, { method: "POST", ...(side ? { body: JSON.stringify({ side }) } : {}) }),
+  listTeamMessages: (teamId: string, page = 1) => request<{ messages: TeamMessage[] }>(`/teams/${encodeURIComponent(teamId)}/messages${toQueryString({ page })}`),
+  sendTeamMessage: (teamId: string, text: string) => request<{ message: TeamMessage }>(`/teams/${encodeURIComponent(teamId)}/messages`, { method: "POST", body: JSON.stringify({ text }) }),
+  deleteTeamMessage: (teamId: string, messageId: string) => request<{ ok: true }>(`/teams/${encodeURIComponent(teamId)}/messages/${encodeURIComponent(messageId)}`, { method: "DELETE" }),
+  listMatchComments: (matchId: string, page = 1) => request<{ comments: MatchComment[] }>(`/matches/${encodeURIComponent(matchId)}/comments${toQueryString({ page })}`),
+  sendMatchComment: (matchId: string, text: string) => request<{ comment: MatchComment }>(`/matches/${encodeURIComponent(matchId)}/comments`, { method: "POST", body: JSON.stringify({ text }) }),
+  deleteMatchComment: (matchId: string, commentId: string) => request<{ ok: true }>(`/matches/${encodeURIComponent(matchId)}/comments/${encodeURIComponent(commentId)}`, { method: "DELETE" }),
+  reverseLocation: (input: { latitude: number; longitude: number }) =>
+    request<{ location: LocationResult }>(
+      `/locations/reverse${toQueryString({ latitude: input.latitude, longitude: input.longitude })}`
+    ),
+  searchLocations: (input: { q: string; limit?: number }) =>
+    request<{ locations: LocationResult[] }>(`/locations/search${toQueryString({ q: input.q, limit: input.limit })}`),
+  listNotifications: () => request<{ notifications: Notification[] }>("/notifications"),
+  markNotificationRead: (notificationId: string) =>
+    request<{ notification: Notification }>(`/notifications/${encodeURIComponent(notificationId)}/read`, { method: "PATCH" }),
+  markAllNotificationsRead: () => request<{ ok: true }>("/notifications/read-all", { method: "POST" }),
+  updateProfile: (input: UpdateProfileInput) =>
     request<{ profile: PlayerProfile }>("/players/me", { method: "PUT", body: JSON.stringify(input) }),
   uploadProfilePhoto: async (photo: File) => {
     const formData = new FormData();
@@ -99,7 +243,7 @@ export const api = {
 
     return response.json() as Promise<{ profile: PlayerProfile }>;
   },
-  createTeam: (input: { name: string }) => request<{ team: Team }>("/teams", { method: "POST", body: JSON.stringify(input) }),
+  createTeam: (input: { name: string; visibility?: Team["visibility"]; joinPolicy?: "closed" | "request"; description?: string; city?: string; state?: string; latitude?: number; longitude?: number }) => request<{ team: Team }>("/teams", { method: "POST", body: JSON.stringify(input) }),
   createInvite: (input: { resourceType: "team" | "tournament"; resourceId: string; email: string; role: "admin" | "member" }) =>
     request<{ invite: Invite }>("/teams/invites", { method: "POST", body: JSON.stringify(input) }),
   createTournament: (input: { name: string; teamIds: string[] }) =>
@@ -111,8 +255,14 @@ export const api = {
     tournamentId?: string;
     durationMinutes?: number;
     venue?: Match["venue"];
+    participationPolicy?: "closed" | "request";
+    slotsPerSide?: number;
     playedAt: string;
   }) => request<{ match: Match }>("/matches", { method: "POST", body: JSON.stringify(input) }),
+  getMatch: (matchId: string) => request<{ match: Match }>(`/matches/${encodeURIComponent(matchId)}`),
+  updateMyMatchPresence: (matchId: string, input: { status: "pending" | "confirmed" | "declined" | "maybe" }) =>
+    request<{ match: Match }>(`/matches/${encodeURIComponent(matchId)}/presences/me`, { method: "PUT", body: JSON.stringify(input) }),
+  checkInMatch: (matchId: string) => request<{ match: Match }>(`/matches/${encodeURIComponent(matchId)}/check-in/me`, { method: "POST" }),
   completeMatch: (input: { id: string; homeScore: number; awayScore: number; durationMinutes?: number; venue?: Match["venue"]; eventLog: Match["eventLog"] }) =>
     request<{ match: Match }>("/matches/complete", { method: "POST", body: JSON.stringify(input) })
 };

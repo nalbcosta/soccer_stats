@@ -1,0 +1,21 @@
+export const navigation = {
+  language: "Idioma",
+  theme: "Tema",
+  account: "Conta",
+  accountMenu: "Abrir menu da conta",
+  accountNavigation: "Navegação da conta",
+  accountDescription: "Seu perfil, ajustes e preferências em um só lugar.",
+  profile: "Perfil",
+  settings: "Ajustes",
+  preferences: "Preferências",
+  preferencesDescription: "Idioma e aparência",
+  playerFallback: "jogador",
+  profilePhotoAlt: "Foto do perfil",
+  signOut: "Sair da conta",
+  dark: "Escuro",
+  light: "Claro",
+  auto: "Auto",
+  signoutDescription: "Você volta para o login e pode entrar de novo quando quiser.",
+  confirmSignout: "Sair",
+  profileNavigation: "Navegação do perfil", home: "Resumo", matches: "Jogos", teams: "Times", ranking: "Ranking", tournaments: "Copas", stats: "Stats", invites: "Convites", notifications: "Avisos", game: "Jogo", club: "Clube", more: "Mais", moreTabs: "Mais abas", moreDescription: "Copas, stats, convites e avisos.", goHome: "Ir para o resumo"
+} as const;

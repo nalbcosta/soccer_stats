@@ -1,66 +1,67 @@
 "use client";
 
 import Link from "next/link";
-import { Bell, CalendarDays, MailPlus } from "lucide-react";
+import { Bell, CheckCheck } from "lucide-react";
+import { useNotificationFeed } from "../../composables/use-notification-feed";
 import { PageHeading } from "../app/page-heading";
-import { useSession } from "../app/session-provider";
 import { EmptyState } from "../feedback/empty-state";
 import { LoadingState } from "../feedback/loading-state";
-import { MatchStatusChip } from "../sports/match-status-chip";
+import { Badge } from "../ui/badge";
+import { Button } from "../ui/button";
 import { Card } from "../ui/card";
+import { useSession } from "../app/session-provider";
 
 export function NotificationsPageContent() {
   const { dashboard } = useSession();
+  const { markAllRead, markRead, markingAllRead, notifications, text, unreadCount } = useNotificationFeed();
 
   if (!dashboard) {
-    return <LoadingState label="Abrindo avisos..." />;
+    return <LoadingState label={text("notificationsLoading")} />;
   }
 
-  const scheduled = dashboard.matches.filter((match) => match.status === "scheduled").slice(0, 5);
-  const pendingInvites = dashboard.invites.filter((invite) => invite.status === "pending");
-  const hasNotifications = scheduled.length > 0 || pendingInvites.length > 0;
-
   return (
-    <>
-      <PageHeading eyebrow="Avisos" title="Notificacoes" />
-      {!hasNotifications ? (
-        <EmptyState title="Tudo quieto por aqui" description="Jogos marcados e convites pendentes aparecem nesta area." />
+    <section className="grid gap-5">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <PageHeading eyebrow={text("alerts")} title={text("notificationsTitle")} />
+        {unreadCount > 0 ? (
+          <Button disabled={markingAllRead} type="button" variant="secondary" onClick={() => void markAllRead()}>
+            <CheckCheck size={17} />
+            {text("readAll")}
+          </Button>
+        ) : null}
+      </div>
+
+      {notifications.length === 0 ? (
+        <EmptyState title={text("notificationsEmpty")} description={text("notificationsDescription")} />
       ) : (
         <div className="grid gap-3">
-          {scheduled.map((match) => (
-            <Link href={`/app/matches/${match.id}`} key={match.id}>
-              <Card className="p-4">
-                <div className="flex items-start gap-3">
-                  <div className="grid h-10 w-10 place-items-center rounded-lg bg-primary-soft text-primary-strong">
-                    <CalendarDays size={19} />
+          {notifications.map((notification) => {
+            const Icon = notification.icon;
+            const unread = !notification.readAt;
+
+            return (
+              <Link href={notification.href} key={notification.id} onClick={() => void markRead(notification.id)}>
+                <Card className={`p-4 transition hover:-translate-y-0.5 ${unread ? "border-primary/30 bg-primary-soft/30" : ""}`}>
+                  <div className="flex items-start gap-3">
+                    <div className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-primary-soft text-primary-strong">
+                      <Icon size={19} />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="font-black">{notification.title}</p>
+                        {unread ? <Badge className="min-h-5 rounded-full px-2 text-[10px]" tone="primary">{text("new")}</Badge> : null}
+                      </div>
+                      <p className="mt-1 text-sm font-semibold text-muted">{notification.message}</p>
+                      <p className="mt-2 text-xs font-semibold text-muted">{notification.timeLabel}</p>
+                    </div>
+                    <Bell className={unread ? "text-primary-strong" : "text-muted"} size={18} />
                   </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="font-black">Jogo marcado</p>
-                    <p className="mt-1 text-sm font-semibold text-muted">{new Date(match.playedAt).toLocaleString("pt-BR")}</p>
-                  </div>
-                  <MatchStatusChip status={match.status} />
-                </div>
-              </Card>
-            </Link>
-          ))}
-          {pendingInvites.map((invite) => (
-            <Link href="/app/invites" key={invite.id}>
-              <Card className="p-4">
-                <div className="flex items-start gap-3">
-                  <div className="grid h-10 w-10 place-items-center rounded-lg bg-marker-soft text-warning">
-                    <MailPlus size={19} />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="font-black">Convite pendente</p>
-                    <p className="mt-1 text-sm font-semibold text-muted">{invite.email}</p>
-                  </div>
-                  <Bell className="text-muted" size={18} />
-                </div>
-              </Card>
-            </Link>
-          ))}
+                </Card>
+              </Link>
+            );
+          })}
         </div>
       )}
-    </>
+    </section>
   );
 }

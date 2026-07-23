@@ -6,20 +6,20 @@ export type SecondaryAppRoute = "/app/tournaments" | "/app/stats" | "/app/invite
 
 export interface NavItem {
   href: AppRoute | SecondaryAppRoute;
-  label: string;
+  labelKey: string;
   icon: LucideIcon;
 }
 
 export const appNavItems: NavItem[] = [
-  { href: "/app", label: "Resumo", icon: Home },
-  { href: "/app/matches", label: "Jogos", icon: CalendarDays },
-  { href: "/app/teams", label: "Times", icon: Users },
-  { href: "/app/ranking", label: "Ranking", icon: Medal }
+  { href: "/app", labelKey: "home", icon: Home },
+  { href: "/app/matches", labelKey: "matches", icon: CalendarDays },
+  { href: "/app/teams", labelKey: "teams", icon: Users },
+  { href: "/app/ranking", labelKey: "ranking", icon: Medal }
 ];
 
 export const secondaryNavItems: NavItem[] = [
-  { href: "/app/tournaments", label: "Copas", icon: Trophy },
-  { href: "/app/stats", label: "Stats", icon: BarChart3 },
-  { href: "/app/invites", label: "Convites", icon: MailPlus },
-  { href: "/app/notifications", label: "Avisos", icon: Bell }
+  { href: "/app/tournaments", labelKey: "tournaments", icon: Trophy },
+  { href: "/app/stats", labelKey: "stats", icon: BarChart3 },
+  { href: "/app/invites", labelKey: "invites", icon: MailPlus },
+  { href: "/app/notifications", labelKey: "notifications", icon: Bell }
 ];

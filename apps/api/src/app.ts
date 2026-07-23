@@ -24,10 +24,13 @@ import { notificationRoutes } from "./modules/notifications/notification.routes.
 import { venueRoutes } from "./modules/venues/venue.routes.js";
 import { validateCsrfToken } from "./modules/auth/csrf.js";
 import { auditRoutes } from "./modules/audit/audit.routes.js";
+import { locationRoutes } from "./modules/locations/location.routes.js";
+import { socialRoutes } from "./routes/social.js";
 
 declare module "fastify" {
   interface FastifyInstance {
     repositories: Repositories;
+    config: AppConfig;
   }
 }
 
@@ -40,6 +43,7 @@ export const createApp = async (config: AppConfig, repositories: Repositories) =
   });
 
   app.decorate("repositories", repositories);
+  app.decorate("config", config);
   app.addHook("onRequest", async (request, reply) => {
     reply.header("x-request-id", request.id);
   });
@@ -62,9 +66,13 @@ export const createApp = async (config: AppConfig, repositories: Repositories) =
   await app.register(cookie, { secret: config.sessionSecret });
   await app.register(cors, {
     origin: config.webOrigin,
-    credentials: true
+    credentials: true,
+    methods: ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "X-CSRF-Token"]
   });
-  await app.register(helmet);
+  await app.register(helmet, {
+    crossOriginResourcePolicy: { policy: "cross-origin" }
+  });
   await app.register(multipart, {
     limits: {
       fileSize: 5 * 1024 * 1024,
@@ -103,7 +111,9 @@ export const createApp = async (config: AppConfig, repositories: Repositories) =
       await v1.register(teamRoutes);
       await v1.register(inviteRoutes);
       await v1.register(venueRoutes);
+      await v1.register(locationRoutes);
       await v1.register(matchRoutes);
+      await v1.register(socialRoutes);
       await v1.register(tournamentRoutes);
       await v1.register(rankingRoutes);
       await v1.register(notificationRoutes);

@@ -1,16 +1,35 @@
 import type { FastifyPluginAsync } from "fastify";
-import { cancelMatchInputSchema, completeMatchInputSchema, createMatchInputSchema, matchPresenceSchema, matchSchema, reviewMatchInputSchema, updateMatchLineupInputSchema, updatePresenceInputSchema } from "@soccer-stats/shared";
+import { approveMatchJoinRequestInputSchema, cancelMatchInputSchema, completeMatchInputSchema, createMatchInputSchema, listMatchesQuerySchema, matchJoinRequestSchema, matchPresenceSchema, matchSchema, reviewMatchInputSchema, updateMatchLineupInputSchema, updatePresenceInputSchema } from "@soccer-stats/shared";
 import type { Match, MatchPresence, Team } from "@soccer-stats/shared";
 import { matchRouteSchemas } from "../docs/openapi.js";
 import { validateMatchEventLog, validateScoreAgainstGoalEvents } from "../lib/stats-service.js";
 import { createId } from "../lib/ids.js";
 import { NotificationService } from "../modules/notifications/notification.service.js";
-import { canManageTeam, cleanEventLog, cleanVenue, teamMemberIds, venueToMatchSnapshot } from "../modules/matches/match.service.js";
+import { canManageTeam, canOrganizeTeam, cleanEventLog, cleanVenue, teamMemberIds, venueToMatchSnapshot } from "../modules/matches/match.service.js";
 import { AuditService } from "../modules/audit/audit.service.js";
 import { StatsService } from "../modules/stats/stats.service.js";
 
 const canReadMatch = (userId: string, teams: Team[]): boolean =>
   teams.some((team) => team.visibility === "public" || team.members.some((member) => member.userId === userId));
+
+const normalizeSearch = (value: string): string =>
+  value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+
+const degreesToRadians = (value: number): number => (value * Math.PI) / 180;
+
+const distanceInKm = (from: { latitude: number; longitude: number }, to: { latitude: number; longitude: number }): number => {
+  const earthRadiusKm = 6371;
+  const latDelta = degreesToRadians(to.latitude - from.latitude);
+  const lonDelta = degreesToRadians(to.longitude - from.longitude);
+  const fromLat = degreesToRadians(from.latitude);
+  const toLat = degreesToRadians(to.latitude);
+  const a = Math.sin(latDelta / 2) ** 2 + Math.cos(fromLat) * Math.cos(toLat) * Math.sin(lonDelta / 2) ** 2;
+
+  return earthRadiusKm * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+};
 
 const upsertPresence = (presences: MatchPresence[], userId: string, status: MatchPresence["status"], updatedBy: string): MatchPresence[] => {
   const now = new Date().toISOString();
@@ -27,9 +46,79 @@ export const matchRoutes: FastifyPluginAsync = async (app) => {
       return;
     }
 
-    const teams = await app.repositories.teams.listByMember(user.id);
-    const matches = await app.repositories.matches.listByTeamIds(teams.map((team) => team.id));
-    return { matches: matches.map((match) => matchSchema.parse(match)) };
+    const query = listMatchesQuerySchema.parse(request.query);
+    const userTeams = await app.repositories.teams.listByMember(user.id);
+    const readableTeams = query.scope === "nearby" ? await app.repositories.teams.listVisibleToUser(user.id) : userTeams;
+    const readableTeamIds = new Set(readableTeams.map((team) => team.id));
+    const teamById = new Map(readableTeams.map((team) => [team.id, team]));
+    const candidates = query.scope === "nearby"
+      ? await app.repositories.matches.listByTeamIds([...readableTeamIds])
+      : await app.repositories.matches.listByTeamIds(userTeams.map((team) => team.id));
+    const search = query.q ? normalizeSearch(query.q) : null;
+    const hasBrowserLocation = query.latitude !== undefined && query.longitude !== undefined;
+
+    const filtered = candidates
+      .filter((match) => readableTeamIds.has(match.home.teamId) || readableTeamIds.has(match.away.teamId))
+      .filter((match) => !query.status || match.status === query.status)
+      .filter((match) => !query.teamId || match.home.teamId === query.teamId || match.away.teamId === query.teamId)
+      .filter((match) => !query.tournamentId || match.tournamentId === query.tournamentId)
+      .filter((match) => {
+        if (!search) {
+          return true;
+        }
+
+        const homeTeam = teamById.get(match.home.teamId);
+        const awayTeam = teamById.get(match.away.teamId);
+        const haystack = [
+          homeTeam?.name,
+          awayTeam?.name,
+          match.venue?.name,
+          match.venue?.address,
+          match.venue?.city,
+          match.venue?.state
+        ]
+          .filter((value): value is string => Boolean(value))
+          .map(normalizeSearch)
+          .join(" ");
+
+        return haystack.includes(search);
+      })
+      .filter((match) => {
+        if (query.scope !== "nearby") {
+          return true;
+        }
+
+        if (hasBrowserLocation && match.venue?.latitude !== undefined && match.venue.longitude !== undefined) {
+          return distanceInKm(
+            { latitude: query.latitude as number, longitude: query.longitude as number },
+            { latitude: match.venue.latitude, longitude: match.venue.longitude }
+          ) <= query.radiusKm;
+        }
+
+        if (query.city && match.venue?.city) {
+          return normalizeSearch(match.venue.city) === normalizeSearch(query.city);
+        }
+
+        if (query.state && match.venue?.state) {
+          return normalizeSearch(match.venue.state) === normalizeSearch(query.state);
+        }
+
+        return Boolean(match.venue?.city || match.venue?.state || match.venue?.latitude);
+      })
+      .sort((left, right) => new Date(left.playedAt).getTime() - new Date(right.playedAt).getTime());
+    const total = filtered.length;
+    const start = (query.page - 1) * query.pageSize;
+    const paged = filtered.slice(start, start + query.pageSize);
+
+    return {
+      matches: paged.map((match) => matchSchema.parse(match)),
+      pagination: {
+        page: query.page,
+        pageSize: query.pageSize,
+        total,
+        totalPages: Math.max(1, Math.ceil(total / query.pageSize))
+      }
+    };
   });
 
   app.get("/matches/:matchId", { schema: matchRouteSchemas.get }, async (request, reply) => {
@@ -105,6 +194,8 @@ export const matchRoutes: FastifyPluginAsync = async (app) => {
       type: payload.type,
       status: "scheduled",
       createdBy: user.id,
+      participationPolicy: payload.participationPolicy,
+      ...(payload.slotsPerSide ? { slotsPerSide: payload.slotsPerSide } : {}),
       home: payload.home,
       away: payload.away,
       eventLog: [],
@@ -130,9 +221,7 @@ export const matchRoutes: FastifyPluginAsync = async (app) => {
 
     await new NotificationService(app.repositories).notifyUsers(teamMemberIds([homeTeam, awayTeam]), {
       type: "match-scheduled",
-      title: "Partida marcada",
-      message: `${homeTeam.name} x ${awayTeam.name} foi marcada no NaBola.`,
-      metadata: { matchId: match.id, homeTeamId: homeTeam.id, awayTeamId: awayTeam.id }
+      metadata: { matchId: match.id, homeTeamId: homeTeam.id, awayTeamId: awayTeam.id, homeTeam: homeTeam.name, awayTeam: awayTeam.name }
     });
     await new AuditService(app.repositories).record({
       actorUserId: user.id,
@@ -144,6 +233,51 @@ export const matchRoutes: FastifyPluginAsync = async (app) => {
 
     return { match: matchSchema.parse(match) };
   });
+
+  app.post("/matches/:matchId/join-requests", async (request, reply) => {
+    const user = await app.auth.requireUser(request, reply);
+    if (!user) return;
+    const { matchId } = request.params as { matchId: string };
+    const match = await app.repositories.matches.findById(matchId);
+    if (!match || match.participationPolicy !== "request" || match.status === "completed" || match.status === "cancelled") { reply.code(404); return { message: "Esta partida nao aceita solicitacoes." }; }
+    if ([...match.home.playerIds, ...match.away.playerIds].includes(user.id)) { reply.code(409); return { message: "Voce ja esta relacionado a esta partida." }; }
+    if (await app.repositories.matchJoinRequests.findByMatchAndUser(matchId, user.id)) { reply.code(409); return { message: "Voce ja possui uma solicitacao pendente." }; }
+    const requestItem = await app.repositories.matchJoinRequests.create({ id: createId(), matchId, userId: user.id, status: "pending", requestedAt: new Date().toISOString() });
+    return { request: matchJoinRequestSchema.parse(requestItem) };
+  });
+
+  app.get("/matches/:matchId/join-requests", async (request, reply) => {
+    const user = await app.auth.requireUser(request, reply);
+    if (!user) return;
+    const { matchId } = request.params as { matchId: string };
+    const match = await app.repositories.matches.findById(matchId);
+    if (!match) { reply.code(404); return { message: "Partida nao encontrada." }; }
+    const [home, away] = await Promise.all([app.repositories.teams.findById(match.home.teamId), app.repositories.teams.findById(match.away.teamId)]);
+    if (!canOrganizeTeam(user.id, home) && !canOrganizeTeam(user.id, away)) { reply.code(403); return { message: "Sem permissao para ver solicitacoes." }; }
+    return { requests: (await app.repositories.matchJoinRequests.listByMatch(matchId)).map((item) => matchJoinRequestSchema.parse(item)) };
+  });
+
+  for (const decision of ["approve", "reject"] as const) {
+    app.post(`/matches/:matchId/join-requests/:requestId/${decision}`, async (request, reply) => {
+      const user = await app.auth.requireUser(request, reply);
+      if (!user) return;
+      const { matchId, requestId } = request.params as { matchId: string; requestId: string };
+      const match = await app.repositories.matches.findById(matchId);
+      const joinRequest = await app.repositories.matchJoinRequests.findById(requestId);
+      if (!match || !joinRequest || joinRequest.matchId !== matchId) { reply.code(404); return { message: "Solicitacao nao encontrada." }; }
+      if (match.status === "completed" || match.status === "cancelled" || joinRequest.status !== "pending") { reply.code(409); return { message: "Esta solicitacao nao pode ser processada." }; }
+      const [home, away] = await Promise.all([app.repositories.teams.findById(match.home.teamId), app.repositories.teams.findById(match.away.teamId)]);
+      if (!canOrganizeTeam(user.id, home) && !canOrganizeTeam(user.id, away)) { reply.code(403); return { message: "Sem permissao para organizar esta partida." }; }
+      const payload = decision === "approve" ? approveMatchJoinRequestInputSchema.parse(request.body) : undefined;
+      const side = payload?.side;
+      if (side && match.slotsPerSide && match[side].playerIds.length >= match.slotsPerSide) { reply.code(409); return { message: "Nao ha mais vagas neste lado." }; }
+      const now = new Date().toISOString();
+      if (side) await app.repositories.matches.update({ ...match, [side]: { ...match[side], playerIds: [...match[side].playerIds, joinRequest.userId] }, presences: upsertPresence(match.presences ?? [], joinRequest.userId, "pending", user.id), updatedAt: now });
+      const updatedRequest = await app.repositories.matchJoinRequests.update({ ...joinRequest, status: decision === "approve" ? "approved" : "rejected", ...(side ? { side } : {}), reviewedAt: now, reviewedBy: user.id });
+      await new AuditService(app.repositories).record({ actorUserId: user.id, action: `match.join-request.${decision}`, resourceType: "match", resourceId: matchId, metadata: { requestId, ...(side ? { side } : {}) } });
+      return { request: matchJoinRequestSchema.parse(updatedRequest) };
+    });
+  }
 
   app.get("/matches/:matchId/presences", { schema: matchRouteSchemas.listPresences }, async (request, reply) => {
     const user = await app.auth.requireUser(request, reply);
@@ -197,11 +331,10 @@ export const matchRoutes: FastifyPluginAsync = async (app) => {
       presences: upsertPresence(match.presences ?? [], user.id, payload.status, user.id),
       updatedAt: new Date().toISOString()
     });
+    await new StatsService(app.repositories).refreshPlayerCardProjection(user.id);
 
     await new NotificationService(app.repositories).notifyUsers([match.createdBy], {
       type: "presence-updated",
-      title: "Presenca atualizada",
-      message: "Um jogador atualizou a presenca na partida.",
       metadata: { matchId: match.id, userId: user.id, status: payload.status }
     });
 
@@ -245,12 +378,11 @@ export const matchRoutes: FastifyPluginAsync = async (app) => {
       presences: upsertPresence(match.presences ?? [], userId, payload.status, user.id),
       updatedAt: new Date().toISOString()
     });
+    await new StatsService(app.repositories).refreshPlayerCardProjection(userId);
 
     await new NotificationService(app.repositories).create({
       userId,
       type: "presence-updated",
-      title: "Sua presenca foi atualizada",
-      message: "Um admin atualizou sua presenca na partida.",
       metadata: { matchId: match.id, status: payload.status }
     });
 
@@ -300,8 +432,6 @@ export const matchRoutes: FastifyPluginAsync = async (app) => {
     const involvedTeams: Team[] = [homeTeam, awayTeam].filter((team): team is Team => Boolean(team));
     await new NotificationService(app.repositories).notifyUsers(teamMemberIds(involvedTeams), {
       type: "match-cancelled",
-      title: "Partida cancelada",
-      message: "Uma partida foi cancelada no NaBola.",
       metadata: { matchId: match.id }
     });
 
@@ -402,6 +532,7 @@ export const matchRoutes: FastifyPluginAsync = async (app) => {
       checkIns,
       updatedAt: new Date().toISOString()
     });
+    await new StatsService(app.repositories).refreshPlayerCardProjection(user.id);
 
     return { match: matchSchema.parse(updated) };
   });
@@ -636,18 +767,14 @@ export const matchRoutes: FastifyPluginAsync = async (app) => {
         const teams = await app.repositories.teams.listByIds(tournament.teamIds);
         await new NotificationService(app.repositories).notifyUsers(teamMemberIds(teams), {
           type: "tournament-updated",
-          title: "Tabela atualizada",
-          message: `A tabela do campeonato ${tournament.name} foi atualizada.`,
-          metadata: { tournamentId: tournament.id, matchId: completed.id }
+          metadata: { tournamentId: tournament.id, matchId: completed.id, tournamentName: tournament.name }
         });
       }
     }
 
     await new NotificationService(app.repositories).notifyUsers(teamMemberIds(involvedTeams), {
       type: "match-completed",
-      title: "Partida encerrada",
-      message: `${homeTeam.name} ${payload.homeScore} x ${payload.awayScore} ${awayTeam.name}.`,
-      metadata: { matchId: completed.id, homeTeamId: homeTeam.id, awayTeamId: awayTeam.id }
+      metadata: { matchId: completed.id, homeTeamId: homeTeam.id, awayTeamId: awayTeam.id, homeTeam: homeTeam.name, awayTeam: awayTeam.name, homeScore: String(payload.homeScore), awayScore: String(payload.awayScore) }
     });
     await new AuditService(app.repositories).record({
       actorUserId: user.id,

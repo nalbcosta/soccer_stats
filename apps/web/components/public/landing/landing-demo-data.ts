@@ -42,7 +42,7 @@ export const demoProfile: PlayerProfile = {
   photoUrl: "https://images.unsplash.com/photo-1517466787929-bc90951d0974?auto=format&fit=crop&w=1200&q=80",
   teamName: "Resenha FC",
   preferredFoot: "right",
-  preferredPosition: "midfielder",
+  preferredPosition: "central-midfielder",
   bio: "Meia que gosta da bola no pé e da resenha organizada.",
   stats: demoStats
 };

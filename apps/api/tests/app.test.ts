@@ -3,6 +3,7 @@ import { createApp } from "../src/app.js";
 import { createMemoryRepositories } from "../src/repositories/memory.js";
 import { loadConfig } from "../src/config.js";
 import type { FastifyInstance } from "fastify";
+import type { PlayerProfile } from "@soccer-stats/shared";
 
 describe("api flows", () => {
   let app: FastifyInstance;
@@ -47,6 +48,117 @@ describe("api flows", () => {
     expect(response.statusCode).toBe(200);
     expect(response.json().user.username).toBe("owner_one");
     expect(response.cookies.some((cookie) => cookie.name.includes("soccer_stats_session"))).toBe(true);
+  });
+
+  it("permite PATCH de notificacoes no preflight CORS", async () => {
+    const response = await app.inject({
+      method: "OPTIONS",
+      url: "/v1/notifications/notification-1/read",
+      headers: {
+        origin: "http://localhost:3000",
+        "access-control-request-method": "PATCH"
+      }
+    });
+
+    expect(response.statusCode).toBe(204);
+    expect(response.headers["access-control-allow-methods"]).toContain("PATCH");
+  });
+
+  it("atualiza e permite limpar campos opcionais do perfil", async () => {
+    const signUp = await app.inject({
+      method: "POST",
+      url: "/v1/auth/signup",
+      payload: {
+        email: "profile@example.com",
+        username: "profile_one",
+        password: "senha123",
+        locale: "pt-BR"
+      }
+    });
+    const cookie = signUp.cookies[0];
+    const csrf = await withCsrf(`${cookie?.name}=${cookie?.value}`);
+
+    const response = await app.inject({
+      method: "PUT",
+      url: "/v1/players/me",
+      headers: { cookie: csrf.cookie, "x-csrf-token": csrf.token },
+      payload: {
+        displayName: "Camisa 10",
+        shirtNumber: null,
+        teamName: null,
+        photoUrl: null,
+        bio: null,
+        preferredFoot: "left",
+        preferredPosition: "striker"
+      }
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json().profile).toMatchObject({
+      displayName: "Camisa 10",
+      preferredFoot: "left",
+      preferredPosition: "striker"
+    });
+    expect(response.json().profile.shirtNumber).toBeUndefined();
+    expect(response.json().profile.teamName).toBeUndefined();
+    expect(response.json().profile.photoUrl).toBeUndefined();
+    expect(response.json().profile.bio).toBeUndefined();
+  });
+
+  it("aceita apenas um time do qual o jogador faz parte como principal", async () => {
+    const signUp = await app.inject({
+      method: "POST",
+      url: "/v1/auth/signup",
+      payload: { email: "team-profile@example.com", username: "team_profile", password: "senha123", locale: "pt-BR" }
+    });
+    const cookie = signUp.cookies[0];
+    const csrf = await withCsrf(`${cookie?.name}=${cookie?.value}`);
+    const team = await app.inject({
+      method: "POST",
+      url: "/v1/teams",
+      headers: { cookie: csrf.cookie, "x-csrf-token": csrf.token },
+      payload: { name: "Ratinho Corp" }
+    });
+
+    const valid = await app.inject({
+      method: "PUT",
+      url: "/v1/players/me",
+      headers: { cookie: csrf.cookie, "x-csrf-token": csrf.token },
+      payload: { displayName: "Jogador", primaryTeamId: team.json().team.id, preferredFoot: "right", preferredPosition: "central-midfielder" }
+    });
+    const invalid = await app.inject({
+      method: "PUT",
+      url: "/v1/players/me",
+      headers: { cookie: csrf.cookie, "x-csrf-token": csrf.token },
+      payload: { displayName: "Jogador", primaryTeamId: "time-inexistente", preferredFoot: "right", preferredPosition: "central-midfielder" }
+    });
+
+    expect(valid.statusCode).toBe(200);
+    expect(valid.json().profile).toMatchObject({ primaryTeamId: team.json().team.id, teamName: "Ratinho Corp" });
+    expect(invalid.statusCode).toBe(422);
+  });
+
+  it("normaliza posições legadas ao carregar o dashboard", async () => {
+    const signUp = await app.inject({
+      method: "POST",
+      url: "/v1/auth/signup",
+      payload: { email: "legacy@example.com", username: "legacy_one", password: "senha123", locale: "pt-BR" }
+    });
+    const userId = signUp.json().user.id as string;
+    const profile = await app.repositories.playerProfiles.findByUserId(userId);
+
+    await app.repositories.playerProfiles.upsert({
+      ...(profile as PlayerProfile),
+      preferredPosition: "midfielder" as unknown as PlayerProfile["preferredPosition"],
+      photoUrl: "/uploads/legacy-photo.jpg"
+    });
+
+    const cookie = signUp.cookies[0];
+    const dashboard = await app.inject({ method: "GET", url: "/v1/dashboard", headers: { cookie: `${cookie?.name}=${cookie?.value}` } });
+
+    expect(dashboard.statusCode).toBe(200);
+    expect(dashboard.json().profile.preferredPosition).toBe("central-midfielder");
+    expect(dashboard.json().profile.photoUrl).toBe("/uploads/legacy-photo.jpg");
   });
 
   it("exige csrf em mutacoes autenticadas e permite revogar sessoes", async () => {
@@ -320,7 +432,7 @@ describe("api flows", () => {
       headers: { cookie: sessionCookie }
     });
     expect(card.statusCode).toBe(200);
-    expect(card.json().card.ratingVersion).toBe("v2");
+    expect(card.json().card.ratingVersion).toBe("v3");
 
     const insights = await app.inject({
       method: "GET",
@@ -363,6 +475,9 @@ describe("api flows", () => {
     });
     expect(notifications.statusCode).toBe(200);
     expect(notifications.json().notifications.length).toBeGreaterThanOrEqual(2);
+    expect(notifications.json().notifications.some((notification: { type: string; metadata?: Record<string, string> }) =>
+      notification.type === "match-completed" && notification.metadata?.homeTeam === "Time Norte" && notification.metadata.awayScore === "0"
+    )).toBe(true);
 
     const firstNotificationId = notifications.json().notifications[0].id as string;
     const read = await app.inject({

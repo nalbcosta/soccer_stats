@@ -8,10 +8,11 @@ import { LoadingState } from "../feedback/loading-state";
 import { NotFoundPanel } from "../feedback/not-found-panel";
 import { Card } from "../ui/card";
 import { InviteMemberForm } from "./invite-member-form";
+import { TeamSocialPanel } from "./team-social-panel";
 
 export function TeamDetail() {
   const params = useParams<{ teamId: string }>();
-  const { dashboard } = useSession();
+  const { dashboard, refresh, user } = useSession();
   const result = findTeam(dashboard, params.teamId);
 
   if (result.status === "loading") {
@@ -23,6 +24,8 @@ export function TeamDetail() {
   }
 
   const team = result.entity;
+  const membership = team.members.find((member) => member.userId === user?.id);
+  const canManage = membership?.role === "owner" || membership?.role === "admin";
 
   return (
     <>
@@ -59,6 +62,7 @@ export function TeamDetail() {
             ))}
           </div>
         </section>
+        {user && <section className="lg:col-span-2"><TeamSocialPanel canManage={canManage} onTeamChange={refresh} team={team} userId={user.id} /></section>}
       </div>
     </>
   );

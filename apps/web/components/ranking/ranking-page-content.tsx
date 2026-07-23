@@ -8,9 +8,11 @@ import { LoadingState } from "../feedback/loading-state";
 import { FormDots } from "../sports/form-dots";
 import { Card } from "../ui/card";
 import { TeamCrest } from "../ui/team-crest";
+import { useTranslations } from "../../i18n/provider";
 
 export function RankingPageContent() {
   const { dashboard } = useSession();
+  const t = useTranslations("teams");
 
   if (!dashboard) {
     return <LoadingState label="Atualizando o ranking..." />;
@@ -21,15 +23,15 @@ export function RankingPageContent() {
 
   return (
     <>
-      <PageHeading eyebrow="Quem ta sobrando" title="Ranking da turma" />
+      <PageHeading eyebrow={t("rankingEyebrow")} title={t("rankingTitle")} />
       <div className="grid gap-4 lg:grid-cols-[1fr_0.72fr]">
         <section className="grid gap-3">
           {teams.length === 0 ? (
             <EmptyState
-              title="Ranking ainda zerado"
-              description="Crie times e feche os primeiros placares para abrir a disputa."
+              title={t("rankingEmptyTitle")}
+              description={t("rankingEmptyDescription")}
               actionHref="/app/teams"
-              actionLabel="Criar time"
+              actionLabel={t("createTeam")}
             />
           ) : (
             teams.map((team, index) => (
@@ -51,7 +53,7 @@ export function RankingPageContent() {
                   </div>
                 </div>
                 <div className="mt-4 flex items-center justify-between rounded-md bg-canvas p-3">
-                  <p className="text-xs font-black uppercase text-muted">Forma</p>
+                  <p className="text-xs font-black uppercase text-muted">{t("form")}</p>
                   <FormDots form={team.stats.form} />
                 </div>
               </Card>
@@ -62,20 +64,19 @@ export function RankingPageContent() {
         <aside className="grid content-start gap-4">
           <Card className="field-grid bg-field p-5 text-white">
             <Trophy size={22} />
-            <p className="mt-3 text-xs font-black uppercase opacity-80">Lider da resenha</p>
-            <p className="mt-1 text-2xl font-black">{leader?.name ?? "Sem lider ainda"}</p>
+            <p className="mt-3 text-xs font-black uppercase opacity-80">{t("leader")}</p>
+            <p className="mt-1 text-2xl font-black">{leader?.name ?? t("noLeader")}</p>
             <p className="mt-2 text-sm font-semibold opacity-80">
-              {leader ? `${leader.stats.points} pontos e ${leader.stats.goals} gols marcados.` : "O topo aparece quando a bola rolar."}
+              {leader ? t("leaderSummary", { points: leader.stats.points, goals: leader.stats.goals }) : t("leaderEmpty")}
             </p>
           </Card>
           <Card className="p-4">
             <div className="flex items-center gap-2">
               <Medal className="text-primary-strong" size={18} />
-              <p className="text-xs font-black uppercase text-muted">Criterio atual</p>
+              <p className="text-xs font-black uppercase text-muted">{t("currentCriteria")}</p>
             </div>
             <p className="mt-3 text-sm font-semibold text-muted">
-              O ranking usa pontos, gols e forma recente como leitura rapida. No proximo ciclo ele pode ganhar filtros por jogadores,
-              artilharia e presenca.
+              {t("criteriaDescription")}
             </p>
           </Card>
         </aside>
