@@ -1,9 +1,13 @@
+"use client";
+
 import type { Match, MatchStatus, Tournament } from "@soccer-stats/shared";
 import { CalendarClock, Clock3, MapPin, Target, Trophy } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Card } from "../ui/card";
 import { TeamCrest } from "../ui/team-crest";
 import { MatchStatusChip } from "./match-status-chip";
+import { useLocale, useTranslations } from "../../i18n/provider";
+import { formatMatchDate } from "../../i18n/formatters";
 
 export function ScoreboardCard({
   match,
@@ -28,13 +32,15 @@ export function ScoreboardCard({
   tournament?: Tournament;
   playerNames?: Record<string, string>;
 }) {
+  const { locale } = useLocale();
+  const t = useTranslations("match");
   const isCompleted = status === "completed";
   const goals = match?.eventLog.filter((event) => event.type === "goal").sort((a, b) => a.minute - b.minute) ?? [];
   const homeGoals = goals.filter((goal) => goal.teamId === match?.home.teamId);
   const awayGoals = goals.filter((goal) => goal.teamId === match?.away.teamId);
   const venueText = formatVenue(match?.venue);
   const durationText = match?.durationMinutes ? `${match.durationMinutes} min` : null;
-  const matchDate = match ? formatMatchDate(match.playedAt) : meta;
+  const matchDate = match ? formatMatchDate(match.playedAt, locale) : meta;
 
   return (
     <Card className="group overflow-hidden transition duration-200 hover:-translate-y-0.5 hover:shadow-md">
@@ -58,7 +64,7 @@ export function ScoreboardCard({
           <p className="text-3xl font-black leading-none tabular-nums text-text sm:text-4xl md:text-5xl">
             {isCompleted ? `${homeScore} - ${awayScore}` : "vs"}
           </p>
-          <p className="mt-1 text-sm font-black text-muted sm:text-xs sm:uppercase">{isCompleted ? "Finalizado" : "Vai rolar"}</p>
+          <p className="mt-1 text-sm font-black text-muted sm:text-xs sm:uppercase">{isCompleted ? t("final") : t("upcoming")}</p>
         </div>
         <TeamSide name={awayName} />
       </div>
@@ -78,7 +84,7 @@ export function ScoreboardCard({
           {durationText ? <InfoChip icon={Clock3} label={durationText} /> : null}
           {venueText ? <InfoChip icon={MapPin} label={venueText} /> : null}
           {tournament ? <InfoChip icon={Trophy} label={tournament.name} tone="primary" /> : null}
-          {!durationText && !venueText && !tournament ? <InfoChip icon={CalendarClock} label="Detalhes pendentes" /> : null}
+          {!durationText && !venueText && !tournament ? <InfoChip icon={CalendarClock} label={t("pendingDetails")} /> : null}
         </div>
       </div>
     </Card>
@@ -127,25 +133,12 @@ function formatVenue(venue: Match["venue"]) {
 type VenueSurface = NonNullable<NonNullable<Match["venue"]>["surface"]>;
 
 const surfaceLabels: Record<VenueSurface, string> = {
-  grass: "grama",
-  synthetic: "sintético",
-  court: "quadra",
-  sand: "areia",
-  other: "outro"
+  grass: "Grama",
+  synthetic: "Sintético",
+  court: "Quadra",
+  sand: "Areia",
+  other: "Outro"
 };
-
-function formatMatchDate(playedAt: string) {
-  return new Intl.DateTimeFormat("pt-BR", {
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    month: "2-digit",
-    timeZone: "America/Sao_Paulo",
-    year: "numeric"
-  })
-    .format(new Date(playedAt))
-    .replace(",", " •");
-}
 
 function InfoChip({
   icon: Icon,

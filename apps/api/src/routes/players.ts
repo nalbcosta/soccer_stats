@@ -1,16 +1,27 @@
 import type { FastifyPluginAsync } from "fastify";
-import { writeFile } from "node:fs/promises";
 import { extname } from "node:path";
-import { fileURLToPath } from "node:url";
-import { playerProfileSchema, updateProfileInputSchema } from "@soccer-stats/shared";
+import { playerCardProjectionSchema, playerProfileSchema, updateProfileInputSchema } from "@soccer-stats/shared";
 import { playerRouteSchemas } from "../docs/openapi.js";
 import { createId } from "../lib/ids.js";
+import { removeStoredImage, storePublicImage } from "../lib/image-storage.js";
+import { ProfileService } from "../modules/players/profile.service.js";
+import { StatsService } from "../modules/stats/stats.service.js";
 
-function resolvePhotoExtension(filename: string, mimeType: string) {
+const allowedPhotoMimeTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
+
+function resolvePhotoExtension(filename: string, mimeType: string): ".jpg" | ".png" | ".webp" | null {
   const normalizedExtension = extname(filename).toLowerCase();
 
-  if ([".jpg", ".jpeg", ".png", ".webp"].includes(normalizedExtension)) {
-    return normalizedExtension === ".jpeg" ? ".jpg" : normalizedExtension;
+  switch (normalizedExtension) {
+    case ".jpg":
+    case ".jpeg":
+      return ".jpg";
+    case ".png":
+      return ".png";
+    case ".webp":
+      return ".webp";
+    default:
+      break;
   }
 
   if (mimeType === "image/png") {
@@ -21,10 +32,42 @@ function resolvePhotoExtension(filename: string, mimeType: string) {
     return ".webp";
   }
 
-  return ".jpg";
+  return null;
+}
+
+function detectImageMimeType(buffer: Buffer): "image/jpeg" | "image/png" | "image/webp" | null {
+  if (buffer.length >= 3 && buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) {
+    return "image/jpeg";
+  }
+
+  if (
+    buffer.length >= 8 &&
+    buffer[0] === 0x89 &&
+    buffer[1] === 0x50 &&
+    buffer[2] === 0x4e &&
+    buffer[3] === 0x47 &&
+    buffer[4] === 0x0d &&
+    buffer[5] === 0x0a &&
+    buffer[6] === 0x1a &&
+    buffer[7] === 0x0a
+  ) {
+    return "image/png";
+  }
+
+  if (
+    buffer.length >= 12 &&
+    buffer.subarray(0, 4).toString("ascii") === "RIFF" &&
+    buffer.subarray(8, 12).toString("ascii") === "WEBP"
+  ) {
+    return "image/webp";
+  }
+
+  return null;
 }
 
 export const playerRoutes: FastifyPluginAsync = async (app) => {
+  const profileService = new ProfileService(app.repositories);
+
   app.get("/players/me", { schema: playerRouteSchemas.getMe }, async (request, reply) => {
     const user = await app.auth.requireUser(request, reply);
 
@@ -44,26 +87,21 @@ export const playerRoutes: FastifyPluginAsync = async (app) => {
     }
 
     const payload = updateProfileInputSchema.parse(request.body);
-    const existing = await app.repositories.playerProfiles.findByUserId(user.id);
+    const result = await profileService.update(user.id, payload);
 
-    if (!existing) {
-      reply.code(404);
-      return { message: "Perfil nao encontrado." };
+    if ("reason" in result) {
+      if (result.reason === "not-found") {
+        reply.code(404);
+        return { message: "Perfil nao encontrado." };
+      }
+
+      reply.code(422);
+      return { message: "O time principal precisa pertencer ao jogador." };
     }
 
-    const nextProfile = {
-      ...existing,
-      displayName: payload.displayName,
-      ...(payload.shirtNumber ? { shirtNumber: payload.shirtNumber } : {}),
-      ...(payload.teamName ? { teamName: payload.teamName } : {}),
-      preferredFoot: payload.preferredFoot,
-      preferredPosition: payload.preferredPosition,
-      ...(payload.bio ? { bio: payload.bio } : {}),
-      ...(payload.photoUrl ? { photoUrl: payload.photoUrl } : {})
-    };
-    const profile = await app.repositories.playerProfiles.upsert(nextProfile);
-
-    return { profile: playerProfileSchema.parse(profile) };
+    await removeStoredImage(result.previousPhotoUrl, result.profile.photoUrl);
+    await new StatsService(app.repositories).refreshPlayerCardProjection(user.id);
+    return { profile: playerProfileSchema.parse(result.profile) };
   });
 
   app.post("/players/me/photo", { schema: playerRouteSchemas.uploadPhoto }, async (request, reply) => {
@@ -73,13 +111,6 @@ export const playerRoutes: FastifyPluginAsync = async (app) => {
       return;
     }
 
-    const existing = await app.repositories.playerProfiles.findByUserId(user.id);
-
-    if (!existing) {
-      reply.code(404);
-      return { message: "Perfil nao encontrado." };
-    }
-
     const part = await request.file();
 
     if (!part) {
@@ -87,23 +118,92 @@ export const playerRoutes: FastifyPluginAsync = async (app) => {
       return { message: "Arquivo de foto nao enviado." };
     }
 
-    if (!part.mimetype.startsWith("image/")) {
+    const extension = resolvePhotoExtension(part.filename, part.mimetype);
+    const buffer = await part.toBuffer();
+    const detectedMimeType = detectImageMimeType(buffer);
+
+    if (!extension || !allowedPhotoMimeTypes.has(part.mimetype) || !detectedMimeType || detectedMimeType !== part.mimetype) {
       reply.code(400);
-      return { message: "Envie uma imagem valida." };
+      return { message: "Envie uma imagem JPG, PNG ou WebP valida." };
     }
 
-    const extension = resolvePhotoExtension(part.filename, part.mimetype);
     const fileName = `${user.id}-${createId()}${extension}`;
-    const filePath = fileURLToPath(new URL(`../../uploads/${fileName}`, import.meta.url));
-    const buffer = await part.toBuffer();
-
-    await writeFile(filePath, buffer);
-
-    const profile = await app.repositories.playerProfiles.upsert({
-      ...existing,
-      photoUrl: `/uploads/${fileName}`
+    const storedImage = await storePublicImage({
+      fileName,
+      folder: "players",
+      buffer,
+      contentType: detectedMimeType
     });
 
-    return { profile: playerProfileSchema.parse(profile) };
+    const profile = await profileService.setPhoto(user.id, storedImage.url, {
+      fileName,
+      mimeType: detectedMimeType,
+      size: buffer.length,
+      uploadedAt: new Date().toISOString()
+    });
+
+    if (!profile) {
+      reply.code(404);
+      return { message: "Perfil nao encontrado." };
+    }
+
+    await removeStoredImage(profile.previousPhotoUrl, profile.profile.photoUrl);
+    return { profile: playerProfileSchema.parse(profile.profile) };
+  });
+
+  app.get("/players/:userId/card", { schema: playerRouteSchemas.getCard }, async (request, reply) => {
+    const user = await app.auth.requireUser(request, reply);
+
+    if (!user) {
+      return;
+    }
+
+    const { userId } = request.params as { userId: string };
+    const profile = await app.repositories.playerProfiles.findByUserId(userId);
+    if (!profile) {
+      reply.code(404);
+      return { message: "Jogador nao encontrado." };
+    }
+
+    if (userId !== user.id) {
+      const visibleTeams = await app.repositories.teams.listVisibleToUser(user.id);
+      const canReadCard = visibleTeams.some((team) => team.members.some((member) => member.userId === userId));
+      if (!canReadCard) {
+        reply.code(404);
+        return { message: "Jogador nao encontrado." };
+      }
+    }
+
+    const card = await new StatsService(app.repositories).getPlayerCardProjection(userId);
+
+    if (!card) {
+      reply.code(404);
+      return { message: "Jogador nao encontrado." };
+    }
+
+    return { card: playerCardProjectionSchema.parse(card) };
+  });
+
+  app.get("/players/:userId/insights", { schema: playerRouteSchemas.getInsights }, async (request, reply) => {
+    const user = await app.auth.requireUser(request, reply);
+
+    if (!user) {
+      return;
+    }
+
+    const { userId } = request.params as { userId: string };
+    const profile = await app.repositories.playerProfiles.findByUserId(userId);
+    if (!profile) {
+      reply.code(404);
+      return { message: "Jogador nao encontrado." };
+    }
+
+    const statsService = new StatsService(app.repositories);
+    const card = await statsService.getPlayerCardProjection(userId);
+    if (!card) {
+      reply.code(404);
+      return { message: "Jogador nao encontrado." };
+    }
+    return { insights: statsService.buildProjectionInsights(card) };
   });
 };

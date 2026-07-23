@@ -9,7 +9,7 @@ export interface TabItem {
   active?: boolean;
 }
 
-export function Tabs({ items, label = "Navegacao da secao" }: { items: TabItem[]; label?: string }) {
+export function Tabs({ items, label = "Navegação da seção" }: { items: TabItem[]; label?: string }) {
   return (
     <nav className="mb-4 overflow-x-auto" aria-label={label}>
       <div className="inline-flex min-w-full gap-1 rounded-lg border border-border bg-surface p-1 shadow-line">

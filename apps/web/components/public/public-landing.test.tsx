@@ -20,7 +20,7 @@ describe("PublicLanding", () => {
   it("renderiza marca e chamada principal", () => {
     render(<PublicLanding />);
 
-    expect(screen.getAllByText("NaBola")).toHaveLength(2);
+    expect(screen.getAllByText("NaBola")).toHaveLength(1);
     expect(screen.getByText("Entrar em campo")).toBeInTheDocument();
     expect(screen.getByText("Acessar plataforma")).toBeInTheDocument();
     expect(screen.queryByText("Voltar ao topo")).not.toBeInTheDocument();

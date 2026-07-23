@@ -42,7 +42,7 @@ export const demoProfile: PlayerProfile = {
   photoUrl: "https://images.unsplash.com/photo-1517466787929-bc90951d0974?auto=format&fit=crop&w=1200&q=80",
   teamName: "Resenha FC",
   preferredFoot: "right",
-  preferredPosition: "midfielder",
+  preferredPosition: "central-midfielder",
   bio: "Meia que gosta da bola no pé e da resenha organizada.",
   stats: demoStats
 };
@@ -52,6 +52,7 @@ export const demoHomeTeam: Team = {
   name: "Azuis",
   slug: "azuis",
   ownerId: demoUser.id,
+  visibility: "public",
   members: [
     { userId: demoUser.id, role: "owner", joinedAt: "2026-07-04T15:00:00.000Z" },
     { userId: demoAssistUser.id, role: "member", joinedAt: "2026-07-04T15:15:00.000Z" }
@@ -66,6 +67,7 @@ export const demoAwayTeam: Team = {
   name: "Coletes",
   slug: "coletes",
   ownerId: "demo-away-9",
+  visibility: "public",
   members: [
     { userId: "demo-away-9", role: "owner", joinedAt: "2026-07-04T15:00:00.000Z" },
     { userId: "demo-away-11", role: "member", joinedAt: "2026-07-04T15:15:00.000Z" }
@@ -91,8 +93,16 @@ export const demoTournament: Tournament = {
   slug: "copa-da-quinta",
   ownerId: demoUser.id,
   format: "league",
+  visibility: "public",
   teamIds: [demoHomeTeam.id, demoAwayTeam.id],
   matchIds: ["demo-match"],
+  rounds: [
+    {
+      round: 1,
+      pairings: [{ homeTeamId: demoHomeTeam.id, awayTeamId: demoAwayTeam.id, matchId: "demo-match" }],
+      createdAt: "2026-07-04T15:00:00.000Z"
+    }
+  ],
   standings: [
     { teamId: demoHomeTeam.id, stats: demoHomeTeam.stats },
     { teamId: demoAwayTeam.id, stats: demoAwayTeam.stats }
@@ -130,6 +140,18 @@ export const demoMatch: Match = {
     { minute: 48, type: "goal", teamId: demoAwayTeam.id, playerId: "demo-away-11" },
     { minute: 59, type: "goal", teamId: demoHomeTeam.id, playerId: demoUser.id }
   ],
+  presences: [
+    { userId: demoUser.id, status: "confirmed", updatedAt: "2026-07-04T18:00:00.000Z", updatedBy: demoUser.id },
+    { userId: demoAssistUser.id, status: "confirmed", updatedAt: "2026-07-04T18:10:00.000Z", updatedBy: demoAssistUser.id },
+    { userId: "demo-away-9", status: "confirmed", updatedAt: "2026-07-04T18:15:00.000Z", updatedBy: "demo-away-9" },
+    { userId: "demo-away-11", status: "maybe", updatedAt: "2026-07-04T18:20:00.000Z", updatedBy: "demo-away-11" }
+  ],
+  checkIns: [
+    { userId: demoUser.id, checkedInAt: "2026-07-04T20:20:00.000Z" },
+    { userId: demoAssistUser.id, checkedInAt: "2026-07-04T20:25:00.000Z" }
+  ],
+  reviewStatus: "approved",
+  eventLogVersion: 1,
   playedAt: "2026-07-04T21:00:00.000Z",
   createdAt: "2026-07-04T15:00:00.000Z",
   updatedAt: "2026-07-04T22:10:00.000Z"

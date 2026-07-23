@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { AlertTriangle, X } from "lucide-react";
+import { useTranslations } from "../../i18n/provider";
 import { Button } from "../ui/button";
 
 export function ConfirmDialog({
@@ -10,7 +11,7 @@ export function ConfirmDialog({
   title,
   description,
   confirmLabel,
-  cancelLabel = "Voltar",
+  cancelLabel,
   tone = "warning",
   onConfirm,
   onClose
@@ -25,6 +26,8 @@ export function ConfirmDialog({
   onClose: () => void;
 }) {
   const [mounted, setMounted] = useState(false);
+  const t = useTranslations("common");
+  const resolvedCancelLabel = cancelLabel ?? t("back");
 
   useEffect(() => {
     if (!open) {
@@ -72,7 +75,7 @@ export function ConfirmDialog({
         </div>
         <div className="mt-5 grid grid-cols-2 gap-2">
           <Button type="button" variant="secondary" onClick={onClose}>
-            {cancelLabel}
+            {resolvedCancelLabel}
           </Button>
           <Button type="button" className={tone === "danger" ? "bg-error hover:bg-error" : undefined} onClick={onConfirm}>
             {confirmLabel}

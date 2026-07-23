@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { LandingDictionary } from "./public-landing-content";
+import type { LandingDictionary } from "../../i18n/messages/landing";
 import {
   BackToTopModal,
   CallToActionSection,
@@ -10,7 +10,6 @@ import {
   FlowSection,
   HeroSection,
   LandingFooter,
-  LandingHeader,
   LandingProgressBar,
   PreviewSection,
   ProofSection
@@ -35,7 +34,6 @@ export function LandingPage({ content }: { content: LandingDictionary }) {
   return (
     <>
       <LandingProgressBar />
-      <LandingHeader content={content} />
       <main className="min-h-screen bg-canvas text-text">
         <HeroSection content={content} />
         <PreviewSection content={content} />

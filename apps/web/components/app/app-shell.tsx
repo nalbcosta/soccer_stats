@@ -39,7 +39,7 @@ function AppFrame({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen bg-canvas pb-20 text-text md:pb-0">
       <AppHeader />
-      <div className="mx-auto grid max-w-7xl gap-5 px-4 py-5 md:px-6 md:py-8 lg:grid-cols-[210px_minmax(0,1fr)] xl:grid-cols-[210px_minmax(0,1fr)_280px]">
+      <div className="mx-auto grid max-w-7xl gap-5 px-3 py-4 sm:px-4 md:px-6 md:py-8 lg:grid-cols-[210px_minmax(0,1fr)] xl:grid-cols-[210px_minmax(0,1fr)_280px]">
         <DesktopSidebar />
         <main className="min-w-0">{children}</main>
         <ContextRail />

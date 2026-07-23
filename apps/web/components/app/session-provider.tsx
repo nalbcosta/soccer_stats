@@ -14,6 +14,8 @@ interface SessionContextValue {
   feedback: ToastMessage | null;
   setFeedback: (message: string, tone?: ToastTone) => void;
   clearFeedback: () => void;
+  markNotificationRead: (notificationId: string) => Promise<void>;
+  markAllNotificationsRead: () => Promise<void>;
   refresh: () => Promise<void>;
   logout: () => Promise<void>;
 }
@@ -54,13 +56,41 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     setStatus("anonymous");
   }, []);
 
+  const markAllNotificationsRead = useCallback(async () => {
+    await api.markAllNotificationsRead();
+    setDashboard((current) =>
+      current
+        ? {
+            ...current,
+            notifications: current.notifications.map((notification) => ({
+              ...notification,
+              readAt: notification.readAt ?? new Date().toISOString()
+            }))
+          }
+        : current
+    );
+  }, []);
+
+  const markNotificationRead = useCallback(async (notificationId: string) => {
+    const { notification } = await api.markNotificationRead(notificationId);
+
+    setDashboard((current) =>
+      current
+        ? {
+            ...current,
+            notifications: current.notifications.map((item) => item.id === notification.id ? notification : item)
+          }
+        : current
+    );
+  }, []);
+
   useEffect(() => {
     void refresh();
   }, [refresh]);
 
   const value = useMemo(
-    () => ({ status, user, dashboard, feedback, setFeedback, clearFeedback, refresh, logout }),
-    [clearFeedback, dashboard, feedback, logout, refresh, setFeedback, status, user]
+    () => ({ status, user, dashboard, feedback, setFeedback, clearFeedback, markNotificationRead, markAllNotificationsRead, refresh, logout }),
+    [clearFeedback, dashboard, feedback, logout, markAllNotificationsRead, markNotificationRead, refresh, setFeedback, status, user]
   );
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;

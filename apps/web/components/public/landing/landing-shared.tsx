@@ -4,10 +4,10 @@ import { useEffect, useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { ArrowUp, Languages, Moon, Sun } from "lucide-react";
 import { useTheme } from "next-themes";
-import { useLocale } from "../../locale-provider";
+import { useLocale } from "../../../i18n/provider";
 import { Button } from "../../ui/button";
 import { Card } from "../../ui/card";
-import type { LandingDictionary } from "../public-landing-content";
+import type { LandingDictionary } from "../../../i18n/messages/landing";
 
 export const sectionTransition = {
   duration: 0.55,
@@ -158,12 +158,12 @@ export function BackToTopTrigger({
       <Button
         type="button"
         variant="secondary"
-        className="h-11 w-11 rounded-full bg-surface/92 px-0 shadow-panel backdrop-blur"
+        className="py-4 rounded-full bg-surface/92 px-0 shadow-panel backdrop-blur"
         onClick={onClick}
         title={label}
         aria-label={label}
       >
-        <ArrowUp size={18} />
+        <ArrowUp size={18}/>
       </Button>
     </motion.div>
   );

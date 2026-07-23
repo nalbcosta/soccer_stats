@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Button } from "./ui/button";
-import { useLocale } from "./locale-provider";
+import { useTranslations } from "../i18n/provider";
 
 declare global {
   interface Window {
@@ -27,7 +27,7 @@ export function GoogleLogin({
   onCredential: (credential: string) => Promise<void>;
 }) {
   const ref = useRef<HTMLDivElement | null>(null);
-  const { dictionary } = useLocale();
+  const t = useTranslations("auth");
   const [available, setAvailable] = useState(false);
   const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
 
@@ -69,7 +69,7 @@ export function GoogleLogin({
     return (
       <Button type="button" variant="secondary" disabled className="w-full rounded-xl">
         <GoogleMark />
-        {dictionary.google}
+        {t("google")}
       </Button>
     );
   }

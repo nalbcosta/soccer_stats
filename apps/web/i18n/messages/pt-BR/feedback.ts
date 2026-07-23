@@ -1,0 +1,1 @@
+export const feedback = { loading: "Carregando...", loadingLockerRoom: "Carregando vestiário...", notFoundDescription: "Esse registro não apareceu no seu vestiário.", apiError: "Não foi possível concluir essa ação agora.", loadError: "Não foi possível carregar os dados agora.", previous: "Anterior", next: "Próxima", page: "Página {page} de {total}", back: "Voltar" } as const;

@@ -7,23 +7,25 @@ import { EmptyState } from "../feedback/empty-state";
 import { LoadingState } from "../feedback/loading-state";
 import { Badge } from "../ui/badge";
 import { Card } from "../ui/card";
+import { useTranslations } from "../../i18n/provider";
 
 export function InvitesPageContent() {
   const { dashboard } = useSession();
+  const t = useTranslations("invites");
 
   if (!dashboard) {
-    return <LoadingState label="Conferindo convites..." />;
+    return <LoadingState label={t("loading")} />;
   }
 
   return (
     <>
-      <PageHeading eyebrow="Chamados" title="Convites" />
+      <PageHeading eyebrow={t("eyebrow")} title={t("title")} />
       {dashboard.invites.length === 0 ? (
         <EmptyState
-          title="Nenhum convite pendente"
-          description="Quando alguem chamar jogador, time ou copa, os convites aparecem aqui."
+          title={t("emptyTitle")}
+          description={t("emptyDescription")}
           actionHref="/app/teams"
-          actionLabel="Ver times"
+          actionLabel={t("viewTeams")}
         />
       ) : (
         <div className="grid gap-3">
@@ -36,11 +38,11 @@ export function InvitesPageContent() {
                 <div className="min-w-0 flex-1">
                   <p className="font-black">{invite.email}</p>
                   <p className="mt-1 text-sm font-semibold text-muted">
-                    {invite.resourceType === "team" ? "Convite para time" : "Convite para copa"} - papel {invite.role}
+                    {invite.resourceType === "team" ? t("teamInvitation") : t("tournamentInvitation")} - {t("role", { role: invite.role })}
                   </p>
                 </div>
                 <Badge tone={invite.status === "pending" ? "warning" : invite.status === "accepted" ? "success" : "neutral"}>
-                  {invite.status === "pending" ? "Pendente" : invite.status === "accepted" ? "Aceito" : "Revogado"}
+                  {invite.status === "pending" ? t("pending") : invite.status === "accepted" ? t("accepted") : t("revoked")}
                 </Badge>
               </div>
             </Card>
