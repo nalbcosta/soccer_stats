@@ -132,7 +132,7 @@ export const playerRouteSchemas = {
     summary: "Faz upload da foto do jogador autenticado",
     security: authSecurity,
     consumes: ["multipart/form-data"],
-    description: "Envie o campo multipart `photo` com uma imagem JPG, PNG ou WebP de até 5 MB.",
+    description: "Envie o campo multipart `photo` com uma imagem JPG, PNG ou WebP de até 4 MB.",
     response: {
       200: { $ref: "playerProfileEnvelope#" },
       400: { $ref: "messageResponse#" },

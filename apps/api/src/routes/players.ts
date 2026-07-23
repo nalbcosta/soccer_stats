@@ -1,27 +1,13 @@
 import type { FastifyPluginAsync } from "fastify";
-import { unlink, writeFile } from "node:fs/promises";
 import { extname } from "node:path";
-import { fileURLToPath } from "node:url";
 import { playerCardProjectionSchema, playerProfileSchema, updateProfileInputSchema } from "@soccer-stats/shared";
 import { playerRouteSchemas } from "../docs/openapi.js";
 import { createId } from "../lib/ids.js";
+import { removeStoredImage, storePublicImage } from "../lib/image-storage.js";
 import { ProfileService } from "../modules/players/profile.service.js";
 import { StatsService } from "../modules/stats/stats.service.js";
 
 const allowedPhotoMimeTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
-
-async function removeStoredPhoto(photoUrl: string | undefined, nextPhotoUrl?: string) {
-  if (!photoUrl || photoUrl === nextPhotoUrl || !photoUrl.startsWith("/uploads/")) return;
-
-  const fileName = photoUrl.slice("/uploads/".length);
-  if (!/^[a-zA-Z0-9-]+\.(jpg|png|webp)$/.test(fileName)) return;
-
-  try {
-    await unlink(fileURLToPath(new URL(`../../uploads/${fileName}`, import.meta.url)));
-  } catch (error: unknown) {
-    if (!(error instanceof Error && "code" in error && error.code === "ENOENT")) throw error;
-  }
-}
 
 function resolvePhotoExtension(filename: string, mimeType: string): ".jpg" | ".png" | ".webp" | null {
   const normalizedExtension = extname(filename).toLowerCase();
@@ -113,7 +99,7 @@ export const playerRoutes: FastifyPluginAsync = async (app) => {
       return { message: "O time principal precisa pertencer ao jogador." };
     }
 
-    await removeStoredPhoto(result.previousPhotoUrl, result.profile.photoUrl);
+    await removeStoredImage(result.previousPhotoUrl, result.profile.photoUrl);
     await new StatsService(app.repositories).refreshPlayerCardProjection(user.id);
     return { profile: playerProfileSchema.parse(result.profile) };
   });
@@ -142,10 +128,14 @@ export const playerRoutes: FastifyPluginAsync = async (app) => {
     }
 
     const fileName = `${user.id}-${createId()}${extension}`;
-    const filePath = fileURLToPath(new URL(`../../uploads/${fileName}`, import.meta.url));
-    await writeFile(filePath, buffer);
+    const storedImage = await storePublicImage({
+      fileName,
+      folder: "players",
+      buffer,
+      contentType: detectedMimeType
+    });
 
-    const profile = await profileService.setPhoto(user.id, `/uploads/${fileName}`, {
+    const profile = await profileService.setPhoto(user.id, storedImage.url, {
       fileName,
       mimeType: detectedMimeType,
       size: buffer.length,
@@ -157,7 +147,7 @@ export const playerRoutes: FastifyPluginAsync = async (app) => {
       return { message: "Perfil nao encontrado." };
     }
 
-    await removeStoredPhoto(profile.previousPhotoUrl, profile.profile.photoUrl);
+    await removeStoredImage(profile.previousPhotoUrl, profile.profile.photoUrl);
     return { profile: playerProfileSchema.parse(profile.profile) };
   });
 

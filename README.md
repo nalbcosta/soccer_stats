@@ -233,6 +233,7 @@ pnpm --filter web build
 
 - [ARCHITECTURE.md](./ARCHITECTURE.md)
 - [docs/backend](./docs/backend/README.md)
+- [Deploy no Vercel](./docs/deploy-vercel.md)
 - [docs/backend/mongo-collections.md](./docs/backend/mongo-collections.md)
 - [MODEL_SYSTEM_GUIDE.md](./MODEL_SYSTEM_GUIDE.md)
 - [apps/web/docs/nabola-brand-system.md](./apps/web/docs/nabola-brand-system.md)

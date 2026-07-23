@@ -1,10 +1,9 @@
 import type { FastifyPluginAsync } from "fastify";
-import { unlink, writeFile } from "node:fs/promises";
 import { extname } from "node:path";
-import { fileURLToPath } from "node:url";
 import { createEmptyStats, createInviteInputSchema, createTeamInputSchema, inviteSchema, listTeamsQuerySchema, teamJoinRequestSchema, teamSchema, updateMembershipRoleInputSchema } from "@soccer-stats/shared";
 import { teamRouteSchemas } from "../docs/openapi.js";
 import { createId, slugify } from "../lib/ids.js";
+import { removeStoredImage, storePublicImage } from "../lib/image-storage.js";
 import { NotificationService } from "../modules/notifications/notification.service.js";
 import { AuditService } from "../modules/audit/audit.service.js";
 
@@ -41,13 +40,6 @@ const detectImageMimeType = (buffer: Buffer): "image/jpeg" | "image/png" | "imag
   if (buffer.length >= 12 && buffer.subarray(0, 4).toString("ascii") === "RIFF" && buffer.subarray(8, 12).toString("ascii") === "WEBP") return "image/webp";
   return null;
 };
-const removeStoredLogo = async (logoUrl: string | undefined) => {
-  if (!logoUrl?.startsWith("/uploads/")) return;
-  const fileName = logoUrl.slice("/uploads/".length);
-  if (!/^team-[a-zA-Z0-9-]+\.(jpg|png|webp)$/.test(fileName)) return;
-  try { await unlink(fileURLToPath(new URL(`../../uploads/${fileName}`, import.meta.url))); } catch (error: unknown) { if (!(error instanceof Error && "code" in error && error.code === "ENOENT")) throw error; }
-};
-
 export const teamRoutes: FastifyPluginAsync = async (app) => {
   app.get("/teams", { schema: teamRouteSchemas.list }, async (request, reply) => {
     const user = await app.auth.requireUser(request, reply);
@@ -229,9 +221,9 @@ export const teamRoutes: FastifyPluginAsync = async (app) => {
     const detectedMimeType = detectImageMimeType(buffer);
     if (!extension || !allowedLogoMimeTypes.has(part.mimetype) || detectedMimeType !== part.mimetype) { reply.code(400); return { message: "Envie uma imagem JPG, PNG ou WebP valida." }; }
     const fileName = `team-${team.id}-${createId()}${extension}`;
-    await writeFile(fileURLToPath(new URL(`../../uploads/${fileName}`, import.meta.url)), buffer);
-    const updated = await app.repositories.teams.update({ ...team, logoUrl: `/uploads/${fileName}`, logoMetadata: { fileName, mimeType: detectedMimeType, size: buffer.length, uploadedAt: new Date().toISOString() }, updatedAt: new Date().toISOString() });
-    await removeStoredLogo(team.logoUrl);
+    const storedImage = await storePublicImage({ fileName, folder: "teams", buffer, contentType: detectedMimeType });
+    const updated = await app.repositories.teams.update({ ...team, logoUrl: storedImage.url, logoMetadata: { fileName, mimeType: detectedMimeType, size: buffer.length, uploadedAt: new Date().toISOString() }, updatedAt: new Date().toISOString() });
+    await removeStoredImage(team.logoUrl);
     return { team: teamSchema.parse(updated) };
   });
 
@@ -243,7 +235,7 @@ export const teamRoutes: FastifyPluginAsync = async (app) => {
     if (!team) { reply.code(403); return { message: "Sem permissao para alterar o logo." }; }
     const { logoUrl: _logoUrl, logoMetadata: _logoMetadata, ...teamWithoutLogo } = team;
     const updated = await app.repositories.teams.update({ ...teamWithoutLogo, updatedAt: new Date().toISOString() });
-    await removeStoredLogo(team.logoUrl);
+    await removeStoredImage(team.logoUrl);
     return { team: teamSchema.parse(updated) };
   });
 
