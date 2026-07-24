@@ -1,4 +1,4 @@
-import type { AggregatedStats, PlayerCardFactor, PlayerCardProjection, PlayerCardV2, PlayerFeatureSnapshot, PlayerInsight, PlayerProfile, RatingVersion } from "./domain";
+import type { AggregatedStats, PlayerCardFactor, PlayerCardProjection, PlayerCardV2, PlayerFeatureSnapshot, PlayerInsight, PlayerProfile, RatingVersion } from "./domain.js";
 
 export const CURRENT_RATING_VERSION: RatingVersion = "v1";
 export const CURRENT_RATING_VERSION_V2: RatingVersion = "v2";
