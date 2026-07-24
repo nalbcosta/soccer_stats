@@ -449,7 +449,9 @@ class MongooseUserRepository implements UserRepository {
   }
 
   async findByEmail(email: string): Promise<StoredUser | null> {
-    return toDomain<StoredUser>(await this.model.findOne({ email }).lean());
+    return toDomain<StoredUser>(
+      await this.model.findOne({ email: email.trim() }).collation({ locale: "en", strength: 2 }).lean()
+    );
   }
 
   async findByUsername(username: string): Promise<StoredUser | null> {

@@ -1,16 +1,18 @@
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import type { FastifyReply, FastifyRequest } from "fastify";
+import type { AppConfig } from "../../types.js";
 
 export const CSRF_COOKIE = "soccer_stats_csrf";
 export const CSRF_HEADER = "x-csrf-token";
 
 const hashToken = (token: string): string => createHash("sha256").update(token).digest("hex");
 
-export const issueCsrfToken = (reply: FastifyReply): string => {
+export const issueCsrfToken = (reply: FastifyReply, config?: Pick<AppConfig, "nodeEnv">): string => {
   const token = randomBytes(32).toString("hex");
   reply.setCookie(CSRF_COOKIE, hashToken(token), {
     path: "/",
-    sameSite: "lax",
+    sameSite: config?.nodeEnv === "production" ? "none" : "lax",
+    secure: config?.nodeEnv === "production",
     httpOnly: true,
     signed: true
   });
