@@ -1,4 +1,4 @@
 {
   "installCommand": "pnpm install --frozen-lockfile",
-  "buildCommand": "pnpm --filter api build"
+  "buildCommand": "pnpm --filter @soccer-stats/shared build && pnpm --filter api build"
 }
