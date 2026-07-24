@@ -33,7 +33,7 @@ const REMEMBERED_SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 14;
 const createCookieOptions = (config: AppConfig) => ({
   path: "/",
   httpOnly: true as const,
-  sameSite: "lax" as const,
+  sameSite: config.nodeEnv === "production" ? ("none" as const) : ("lax" as const),
   secure: config.nodeEnv === "production",
   signed: true,
   ...(config.cookieDomain ? { domain: config.cookieDomain } : {})
@@ -126,11 +126,13 @@ export const authPlugin = fp<{ repositories: Repositories; config: AppConfig }>(
 
       const payload = ticket.getPayload();
 
-      if (!payload?.email) {
+      const email = payload?.email?.trim().toLowerCase();
+
+      if (!email) {
         throw new Error("Token Google invalido.");
       }
 
-      const existingByEmail = await options.repositories.users.findByEmail(payload.email);
+      const existingByEmail = await options.repositories.users.findByEmail(email);
 
       if (existingByEmail) {
         const updated = existingByEmail.providers.includes("google")
@@ -145,7 +147,7 @@ export const authPlugin = fp<{ repositories: Repositories; config: AppConfig }>(
         return updated;
       }
 
-      const baseUsername = (payload.email.split("@")[0] ?? "player").replace(/[^a-z0-9_]/gi, "").toLowerCase() || "player";
+      const baseUsername = (email.split("@")[0] ?? "player").replace(/[^a-z0-9_]/gi, "").toLowerCase() || "player";
       let candidate = baseUsername;
       let suffix = 1;
 
@@ -157,7 +159,7 @@ export const authPlugin = fp<{ repositories: Repositories; config: AppConfig }>(
       const now = new Date().toISOString();
       const user: StoredUser = {
         id: createId(),
-        email: payload.email,
+        email,
         username: candidate,
         locale,
         theme: options.config.defaultTheme,
@@ -238,6 +240,6 @@ export const authPlugin = fp<{ repositories: Repositories; config: AppConfig }>(
       reply.clearCookie(SESSION_COOKIE, createCookieOptions(options.config));
     },
     getSessionId,
-    createCsrfToken: (reply: FastifyReply) => issueCsrfToken(reply)
+    createCsrfToken: (reply: FastifyReply) => issueCsrfToken(reply, options.config)
   });
 });

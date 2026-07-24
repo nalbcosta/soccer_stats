@@ -36,7 +36,7 @@ Configure as variáveis abaixo no Vercel, separando os valores por ambiente:
 | `NOMINATIM_EMAIL` | e-mail opcional | e-mail opcional |
 | `BLOB_READ_WRITE_TOKEN` | token do Blob Store de homologação | token do Blob Store de produção |
 
-Se web e API estiverem em subdomínios do mesmo domínio, use `COOKIE_DOMAIN=.exemplo.com`. Se estiverem em domínios diferentes, a autenticação por cookie pode ser bloqueada pelo navegador por causa de `SameSite=Lax`; nesse caso, use um domínio compartilhado.
+Em produção, a API usa cookies `SameSite=None; Secure` para permitir o frontend e a API em origens diferentes. Deixe `COOKIE_DOMAIN` vazio quando usar domínios Vercel diferentes; só defina esse valor quando os dois projetos compartilharem um domínio próprio.
 
 ## Variáveis do projeto `soccer-stats-web`
 
