@@ -39,7 +39,8 @@ class MemoryUserRepository implements UserRepository {
   }
 
   async findByEmail(email: string): Promise<StoredUser | null> {
-    return [...this.items.values()].find((item) => item.email === email) ?? null;
+    const normalizedEmail = email.trim().toLowerCase();
+    return [...this.items.values()].find((item) => item.email.trim().toLowerCase() === normalizedEmail) ?? null;
   }
 
   async findByUsername(username: string): Promise<StoredUser | null> {
