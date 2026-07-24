@@ -27,7 +27,7 @@ import { validateCsrfToken } from "./modules/auth/csrf.js";
 import { auditRoutes } from "./modules/audit/audit.routes.js";
 import { locationRoutes } from "./modules/locations/location.routes.js";
 import { socialRoutes } from "./routes/social.js";
-import { loadConfig } from "./config.js";
+import { loadConfig, normalizeOrigin } from "./config.js";
 import { createMongoRepositories } from "./repositories/mongo.js";
 
 declare module "fastify" {
@@ -70,7 +70,7 @@ export const createApp = async (config: AppConfig, repositories: Repositories) =
 
   await app.register(cookie, { secret: config.sessionSecret });
   await app.register(cors, {
-    origin: config.webOrigin,
+    origin: normalizeOrigin(config.webOrigin),
     credentials: true,
     methods: ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "X-CSRF-Token"]
