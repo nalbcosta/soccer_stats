@@ -64,6 +64,23 @@ describe("api flows", () => {
     expect(response.headers["access-control-allow-methods"]).toContain("PATCH");
   });
 
+  it("normaliza barra final da origem permitida no CORS", async () => {
+    await app.close();
+    app = await createApp(
+      { ...loadConfig(), nodeEnv: "test", googleClientId: "", webOrigin: "https://soccer-stats-web.vercel.app/" },
+      createMemoryRepositories()
+    );
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/health",
+      headers: { origin: "https://soccer-stats-web.vercel.app" }
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.headers["access-control-allow-origin"]).toBe("https://soccer-stats-web.vercel.app");
+  });
+
   it("atualiza e permite limpar campos opcionais do perfil", async () => {
     const signUp = await app.inject({
       method: "POST",
