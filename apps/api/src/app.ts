@@ -1,4 +1,5 @@
 import Fastify from "fastify";
+import type { IncomingMessage, ServerResponse } from "node:http";
 import cookie from "@fastify/cookie";
 import cors from "@fastify/cors";
 import helmet from "@fastify/helmet";
@@ -26,6 +27,8 @@ import { validateCsrfToken } from "./modules/auth/csrf.js";
 import { auditRoutes } from "./modules/audit/audit.routes.js";
 import { locationRoutes } from "./modules/locations/location.routes.js";
 import { socialRoutes } from "./routes/social.js";
+import { loadConfig } from "./config.js";
+import { createMongoRepositories } from "./repositories/mongo.js";
 
 declare module "fastify" {
   interface FastifyInstance {
@@ -35,7 +38,9 @@ declare module "fastify" {
 }
 
 export const createApp = async (config: AppConfig, repositories: Repositories) => {
-  const uploadsRoot = fileURLToPath(new URL("../uploads/", import.meta.url));
+  const uploadsRoot = process.env.VERCEL
+    ? "/tmp/soccer-stats/uploads"
+    : fileURLToPath(new URL("../uploads/", import.meta.url));
   const app = Fastify({
     logger: {
       level: config.nodeEnv === "production" ? "info" : "debug"
@@ -125,3 +130,22 @@ export const createApp = async (config: AppConfig, repositories: Repositories) =
 
   return app;
 };
+
+let vercelAppPromise: ReturnType<typeof createApp> | undefined;
+
+const getVercelApp = (): ReturnType<typeof createApp> => {
+  vercelAppPromise ??= (async () => {
+    const config = loadConfig();
+    const persistence = await createMongoRepositories(config.mongodbUri, config.mongodbDb);
+    const app = await createApp(config, persistence.repositories);
+    await app.ready();
+    return app;
+  })();
+
+  return vercelAppPromise;
+};
+
+export default async function handler(request: IncomingMessage, response: ServerResponse): Promise<void> {
+  const app = await getVercelApp();
+  app.server.emit("request", request, response);
+}
