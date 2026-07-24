@@ -21,49 +21,85 @@ declare global {
   }
 }
 
+let googleScriptPromise: Promise<void> | undefined;
+let googleInitialized = false;
+
+function loadGoogleScript(): Promise<void> {
+  if (window.google) {
+    return Promise.resolve();
+  }
+
+  googleScriptPromise ??= new Promise<void>((resolve, reject) => {
+    const script = document.createElement("script");
+    script.src = "https://accounts.google.com/gsi/client";
+    script.async = true;
+    script.defer = true;
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error("Nao foi possivel carregar o Google Identity Services."));
+    document.body.appendChild(script);
+  });
+
+  return googleScriptPromise;
+}
+
 export function GoogleLogin({
   onCredential
 }: {
   onCredential: (credential: string) => Promise<void>;
 }) {
   const ref = useRef<HTMLDivElement | null>(null);
+  const onCredentialRef = useRef(onCredential);
   const t = useTranslations("auth");
   const [available, setAvailable] = useState(false);
   const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
+
+  useEffect(() => {
+    onCredentialRef.current = onCredential;
+  }, [onCredential]);
 
   useEffect(() => {
     if (!clientId) {
       return;
     }
 
-    const script = document.createElement("script");
-    script.src = "https://accounts.google.com/gsi/client";
-    script.async = true;
-    script.defer = true;
-    script.onload = () => {
-      if (!window.google || !ref.current) {
-        return;
-      }
+    let cancelled = false;
+    void loadGoogleScript()
+      .then(() => {
+        if (cancelled || !window.google || !ref.current) {
+          return;
+        }
 
-      window.google.accounts.id.initialize({
-        client_id: clientId,
-        callback: (response) => void onCredential(response.credential)
-      });
-      window.google.accounts.id.renderButton(ref.current, {
-        theme: "outline",
-        size: "large",
-        shape: "pill",
-        text: "continue_with",
-        width: "320"
-      });
-      setAvailable(true);
-    };
+        if (!googleInitialized) {
+          window.google.accounts.id.initialize({
+            client_id: clientId,
+            callback: (response) => void onCredentialRef.current(response.credential)
+          });
+          googleInitialized = true;
+        }
 
-    document.body.appendChild(script);
+        ref.current.innerHTML = "";
+        window.google.accounts.id.renderButton(ref.current, {
+          theme: "outline",
+          size: "large",
+          shape: "pill",
+          text: "continue_with",
+          width: "320"
+        });
+        setAvailable(true);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setAvailable(false);
+        }
+      });
+
     return () => {
-      document.body.removeChild(script);
+      cancelled = true;
+      if (ref.current) {
+        ref.current.innerHTML = "";
+      }
     };
-  }, [clientId, onCredential]);
+  }, [clientId]);
 
   if (!clientId) {
     return (
