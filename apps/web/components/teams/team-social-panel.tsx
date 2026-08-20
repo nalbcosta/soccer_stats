@@ -15,7 +15,7 @@ export function TeamSocialPanel({ team, userId, canManage, onTeamChange }: { tea
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const share = async () => {
-    const url = `${window.location.origin}/app/teams/${team.id}`;
+    const url = `${window.location.origin}/app/teams/${team.slug}`;
     if (navigator.share) { await navigator.share({ title: team.name, text: team.description ?? team.name, url }); return; }
     await navigator.clipboard.writeText(url);
   };

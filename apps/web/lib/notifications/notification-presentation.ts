@@ -41,7 +41,7 @@ const notificationRules: Record<NotificationType, NotificationRule> = {
     message: (notification, translate) => translatedMessage(notification, translate, "notificationInviteCreatedMessage", "notificationInviteCreatedFallbackMessage", ["teamName"])
   },
   "invite-accepted": {
-    href: (metadata) => metadata.teamId ? `/app/teams/${metadata.teamId}` : "/app/teams",
+    href: (metadata) => metadata.teamSlug || metadata.teamId ? `/app/teams/${metadata.teamSlug ?? metadata.teamId}` : "/app/teams",
     icon: UserRound,
     titleKey: "notificationInviteAcceptedTitle",
     message: (notification, translate) => translatedMessage(notification, translate, "notificationInviteAcceptedMessage", "notificationInviteAcceptedFallbackMessage", ["username", "teamName"])
@@ -71,7 +71,7 @@ const notificationRules: Record<NotificationType, NotificationRule> = {
     message: (notification, translate) => translate("notificationPresenceUpdatedMessage")
   },
   "team-member-added": {
-    href: (metadata) => metadata.teamId ? `/app/teams/${metadata.teamId}` : "/app/teams",
+    href: (metadata) => metadata.teamSlug || metadata.teamId ? `/app/teams/${metadata.teamSlug ?? metadata.teamId}` : "/app/teams",
     icon: UserRound,
     titleKey: "notificationTeamMemberAddedTitle",
     message: (notification, translate) => translatedMessage(notification, translate, "notificationTeamMemberAddedMessage", "notificationTeamMemberAddedFallbackMessage", ["teamName"])

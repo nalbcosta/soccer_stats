@@ -83,6 +83,7 @@ export interface PlayerProfile {
 
 export interface Membership {
   userId: string;
+  username?: string;
   role: Role;
   joinedAt: string;
 }

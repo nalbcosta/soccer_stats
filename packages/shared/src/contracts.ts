@@ -101,6 +101,7 @@ export const playerProfileSchema = z.object({
 
 export const membershipSchema = z.object({
   userId: z.string(),
+  username: usernameSchema.optional(),
   role: roleSchema,
   joinedAt: z.string()
 });

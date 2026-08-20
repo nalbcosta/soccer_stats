@@ -24,7 +24,7 @@ export function TeamList() {
   return (
     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
       {dashboard.teams.map((team) => (
-        <Link href={`/app/teams/${team.id}`} key={team.id}>
+        <Link href={`/app/teams/${team.slug}`} key={team.id}>
           <Card className="p-4 transition hover:-translate-y-0.5">
             <div className="flex items-start justify-between gap-3">
               <div>

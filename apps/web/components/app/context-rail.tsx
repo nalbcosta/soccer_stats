@@ -54,7 +54,7 @@ export function ContextRail() {
               <p className="text-sm font-semibold text-muted">O ranking aparece quando os times pontuam.</p>
             ) : (
               topTeams.map((team, index) => (
-                <Link className="flex items-center gap-3 rounded-lg bg-canvas p-2" href={`/app/teams/${team.id}`} key={team.id}>
+                <Link className="flex items-center gap-3 rounded-lg bg-canvas p-2" href={`/app/teams/${team.slug}`} key={team.id}>
                   <span className="w-5 text-center text-sm font-black text-muted">{index + 1}</span>
                   <TeamCrest className="h-8 w-8 text-xs" name={team.name} />
                   <div className="min-w-0 flex-1">

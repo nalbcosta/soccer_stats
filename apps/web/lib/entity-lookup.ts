@@ -5,12 +5,12 @@ export type EntityLookupResult<T> =
   | { status: "found"; entity: T }
   | { status: "not-found"; entity: null };
 
-export const findTeam = (dashboard: DashboardResponse | null, id: string): EntityLookupResult<DashboardResponse["teams"][number]> => {
+export const findTeam = (dashboard: DashboardResponse | null, identifier: string): EntityLookupResult<DashboardResponse["teams"][number]> => {
   if (!dashboard) {
     return { status: "loading", entity: null };
   }
 
-  const entity = dashboard.teams.find((team) => team.id === id);
+  const entity = dashboard.teams.find((team) => team.slug === identifier || team.id === identifier);
   return entity ? { status: "found", entity } : { status: "not-found", entity: null };
 };
 

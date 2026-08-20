@@ -19,6 +19,16 @@ const ensureTeamPermission = (teamId: string, userId: string, app: Parameters<Fa
   });
 
 const normalizeSearch = (value: string) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+const issueTeamSlug = async (name: string, app: Parameters<FastifyPluginAsync>[0]) => {
+  const baseSlug = slugify(name) || "time";
+  let slug = baseSlug;
+  let suffix = 2;
+  while (await app.repositories.teams.findBySlug(slug)) {
+    slug = `${baseSlug}-${suffix}`;
+    suffix += 1;
+  }
+  return slug;
+};
 const degreesToRadians = (value: number) => (value * Math.PI) / 180;
 const distanceInKm = (from: { latitude: number; longitude: number }, to: { latitude: number; longitude: number }) => {
   const latitude = degreesToRadians(to.latitude - from.latitude);
@@ -73,7 +83,7 @@ export const teamRoutes: FastifyPluginAsync = async (app) => {
     }
 
     const { teamId } = request.params as { teamId: string };
-    const team = await app.repositories.teams.findById(teamId);
+    const team = await app.repositories.teams.findById(teamId) ?? await app.repositories.teams.findBySlug(teamId);
 
     if (!team || (team.visibility !== "public" && !team.members.some((member) => member.userId === user.id))) {
       reply.code(404);
@@ -95,7 +105,7 @@ export const teamRoutes: FastifyPluginAsync = async (app) => {
     const team = await app.repositories.teams.create({
       id: createId(),
       name: payload.name,
-      slug: `${slugify(payload.name)}-${createId().slice(0, 6)}`,
+      slug: await issueTeamSlug(payload.name, app),
       ownerId: user.id,
       visibility: payload.visibility,
       joinPolicy: payload.joinPolicy,
@@ -104,7 +114,7 @@ export const teamRoutes: FastifyPluginAsync = async (app) => {
       ...(payload.state ? { state: payload.state.toUpperCase() } : {}),
       ...(payload.latitude !== undefined ? { latitude: payload.latitude } : {}),
       ...(payload.longitude !== undefined ? { longitude: payload.longitude } : {}),
-      members: [{ userId: user.id, role: "owner", joinedAt: now }],
+      members: [{ userId: user.id, username: user.username, role: "owner", joinedAt: now }],
       stats: createEmptyStats(),
       createdAt: now,
       updatedAt: now
@@ -287,9 +297,12 @@ export const teamRoutes: FastifyPluginAsync = async (app) => {
       if (!team || !joinRequest || joinRequest.teamId !== teamId) { reply.code(404); return { message: "Solicitacao nao encontrada." }; }
       if (joinRequest.status !== "pending") { reply.code(409); return { message: "Esta solicitacao ja foi processada." }; }
       const now = new Date().toISOString();
+      const shouldAddMember = decision === "approve" && !team.members.some((member) => member.userId === joinRequest.userId);
+      const joiningUser = shouldAddMember ? await app.repositories.users.findById(joinRequest.userId) : null;
+      if (shouldAddMember && !joiningUser) { reply.code(404); return { message: "Usuario solicitante nao encontrado." }; }
       const updatedRequest = await app.repositories.teamJoinRequests.update({ ...joinRequest, status: decision === "approve" ? "approved" : "rejected", reviewedAt: now, reviewedBy: user.id });
-      if (decision === "approve" && !team.members.some((member) => member.userId === joinRequest.userId)) {
-        await app.repositories.teams.update({ ...team, members: [...team.members, { userId: joinRequest.userId, role: "member", joinedAt: now }], updatedAt: now });
+      if (shouldAddMember && joiningUser) {
+        await app.repositories.teams.update({ ...team, members: [...team.members, { userId: joinRequest.userId, username: joiningUser.username, role: "member", joinedAt: now }], updatedAt: now });
       }
       await new AuditService(app.repositories).record({ actorUserId: user.id, action: `team.join-request.${decision}`, resourceType: "team", resourceId: teamId, metadata: { requestId } });
       return { request: teamJoinRequestSchema.parse(updatedRequest) };

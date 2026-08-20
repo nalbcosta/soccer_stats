@@ -88,6 +88,7 @@ export interface TeamRepository {
   create(team: Team): Promise<Team>;
   update(team: Team): Promise<Team>;
   findById(id: string): Promise<Team | null>;
+  findBySlug(slug: string): Promise<Team | null>;
   listByMember(userId: string): Promise<Team[]>;
   listVisibleToUser(userId: string): Promise<Team[]>;
   listByIds(ids: string[]): Promise<Team[]>;

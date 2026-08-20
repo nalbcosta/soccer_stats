@@ -167,6 +167,11 @@ describe("api flows", () => {
       headers: { cookie: csrf.cookie, "x-csrf-token": csrf.token },
       payload: { name: "Ratinho Corp" }
     });
+    expect(team.json().team.members[0]).toMatchObject({
+      userId: signUp.json().user.id,
+      username: "team_profile",
+      role: "owner"
+    });
 
     const valid = await app.inject({
       method: "PUT",
@@ -287,6 +292,9 @@ describe("api flows", () => {
       headers: { cookie: csrf.cookie, "x-csrf-token": csrf.token },
       payload: { name: "Time Verde" }
     });
+
+    expect(teamA.json().team.slug).toBe("time-azul");
+    expect(teamB.json().team.slug).toBe("time-verde");
 
     const tournament = await app.inject({
       method: "POST",

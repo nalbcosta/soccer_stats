@@ -58,7 +58,7 @@ export const inviteRoutes: FastifyPluginAsync = async (app) => {
       ? team
       : await app.repositories.teams.update({
           ...team,
-          members: [...team.members, { userId: user.id, role: invite.role, joinedAt: now }],
+          members: [...team.members, { userId: user.id, username: user.username, role: invite.role, joinedAt: now }],
           updatedAt: now
         });
     const updatedInvite = await app.repositories.invites.update({
@@ -70,12 +70,12 @@ export const inviteRoutes: FastifyPluginAsync = async (app) => {
 
     await new NotificationService(app.repositories).notifyUsers(adminMemberIds(updatedTeam.members), {
       type: "invite-accepted",
-      metadata: { teamId: updatedTeam.id, inviteId: invite.id, userId: user.id, teamName: updatedTeam.name, username: user.username }
+      metadata: { teamId: updatedTeam.id, teamSlug: updatedTeam.slug, inviteId: invite.id, userId: user.id, teamName: updatedTeam.name, username: user.username }
     });
     await new NotificationService(app.repositories).create({
       userId: user.id,
       type: "team-member-added",
-      metadata: { teamId: updatedTeam.id, inviteId: invite.id, teamName: updatedTeam.name }
+      metadata: { teamId: updatedTeam.id, teamSlug: updatedTeam.slug, inviteId: invite.id, teamName: updatedTeam.name }
     });
     await new AuditService(app.repositories).record({
       actorUserId: user.id,

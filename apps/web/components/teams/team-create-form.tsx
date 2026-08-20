@@ -27,7 +27,7 @@ export function TeamCreateForm() {
       }}
     >
       <Input placeholder="Nome do time" value={name} onChange={(event) => setName(event.target.value)} />
-      <Button disabled={isPending || name.length < 2} type="submit">
+      <Button className="shrink-0 whitespace-nowrap" disabled={isPending || name.length < 2} type="submit">
         <Plus size={18} />
         Criar time
       </Button>

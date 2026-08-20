@@ -1,6 +1,7 @@
 "use client";
 
-import { useParams } from "next/navigation";
+import { useEffect } from "react";
+import { useParams, useRouter } from "next/navigation";
 import { findTeam } from "../../lib/entity-lookup";
 import { PageHeading } from "../app/page-heading";
 import { useSession } from "../app/session-provider";
@@ -12,8 +13,16 @@ import { TeamSocialPanel } from "./team-social-panel";
 
 export function TeamDetail() {
   const params = useParams<{ teamId: string }>();
+  const router = useRouter();
   const { dashboard, refresh, user } = useSession();
   const result = findTeam(dashboard, params.teamId);
+  const canonicalSlug = result.status === "found" ? result.entity.slug : null;
+
+  useEffect(() => {
+    if (canonicalSlug && params.teamId !== canonicalSlug) {
+      router.replace(`/app/teams/${canonicalSlug}`);
+    }
+  }, [canonicalSlug, params.teamId, router]);
 
   if (result.status === "loading") {
     return <LoadingState />;
@@ -56,7 +65,7 @@ export function TeamDetail() {
           <div className="grid gap-2 sm:grid-cols-2">
             {team.members.map((member) => (
               <Card className="p-3" key={member.userId}>
-                <p className="font-bold">{member.userId}</p>
+                <p className="font-bold">{member.username ?? (member.userId === user?.id ? user.username : "Jogador")}</p>
                 <p className="text-sm text-muted">{member.role}</p>
               </Card>
             ))}

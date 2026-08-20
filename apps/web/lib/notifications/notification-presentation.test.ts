@@ -50,4 +50,18 @@ describe("getNotificationPresentation", () => {
 
     expect(getNotificationPresentation(notification, translate).message).toBe("A match was completed.");
   });
+
+  it("usa o slug do time no link quando disponivel", () => {
+    const notification: Notification = {
+      id: "notification-3",
+      userId: "user-1",
+      type: "team-member-added",
+      title: "Entrada no time",
+      message: "Voce entrou no time.",
+      metadata: { teamId: "team-uuid", teamSlug: "resenha-fc-a1b2c3" },
+      createdAt: "2026-07-14T12:00:00.000Z"
+    };
+
+    expect(getNotificationPresentation(notification, translate).href).toBe("/app/teams/resenha-fc-a1b2c3");
+  });
 });

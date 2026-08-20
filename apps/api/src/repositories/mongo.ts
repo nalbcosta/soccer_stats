@@ -21,7 +21,7 @@ import type {
   UserRepository,
   VenueRepository
 } from "../types.js";
-import { createPublicIdentifier } from "../lib/ids.js";
+import { createPublicIdentifier, slugify } from "../lib/ids.js";
 
 type Persisted<T> = Omit<T, "id"> & { _id: string };
 
@@ -59,6 +59,7 @@ const statsSchema = new Schema(
 const membershipSchema = new Schema(
   {
     userId: { type: String, required: true },
+    username: String,
     role: { type: String, enum: ["owner", "admin", "captain", "member", "guest"], required: true },
     joinedAt: { type: String, required: true }
   },
@@ -596,6 +597,10 @@ class MongooseTeamRepository extends BaseMongooseRepository<Team> implements Tea
     return toDomain<Team>(await this.model.findById(id).lean());
   }
 
+  async findBySlug(slug: string): Promise<Team | null> {
+    return toDomain<Team>(await this.model.findOne({ slug }).lean());
+  }
+
   async listByMember(userId: string): Promise<Team[]> {
     return (await this.model.find({ "members.userId": userId }).lean()).map((doc) => toDomain<Team>(doc)).filter(Boolean) as Team[];
   }
@@ -844,6 +849,40 @@ const migratePublicIdentifiers = async (models: ReturnType<typeof modelsFor>): P
         { $set: { recipientUserId: recipient._id, recipientPublicIdentifier: recipient.publicIdentifier } }
       );
     }
+  }
+
+  const teamsWithLegacyMembers = await models.teams.find({ members: { $elemMatch: { username: { $exists: false } } } }).lean();
+  for (const team of teamsWithLegacyMembers) {
+    const memberUserIds = team.members.filter((member) => !member.username).map((member) => member.userId);
+    const memberUsers = await models.users.find({ _id: { $in: memberUserIds } }).select({ username: 1 }).lean();
+    const usernamesById = new Map(memberUsers.map((memberUser) => [memberUser._id, memberUser.username]));
+    const members = team.members.map((member) => member.username
+      ? member
+      : { ...member, ...(usernamesById.get(member.userId) ? { username: usernamesById.get(member.userId) } : {}) });
+    await models.teams.updateOne({ _id: team._id }, { $set: { members } });
+  }
+
+  const teamsForSlugMigration = await models.teams.find({}).select({ name: 1, slug: 1, createdAt: 1 }).sort({ createdAt: 1, _id: 1 }).lean();
+  const usedSlugs = new Set<string>();
+  const slugUpdates: Array<{ id: string; slug: string }> = [];
+  for (const team of teamsForSlugMigration) {
+    const baseSlug = slugify(team.name) || "time";
+    let slug = baseSlug;
+    let suffix = 2;
+    while (usedSlugs.has(slug)) {
+      slug = `${baseSlug}-${suffix}`;
+      suffix += 1;
+    }
+    usedSlugs.add(slug);
+    if (team.slug !== slug) {
+      slugUpdates.push({ id: team._id, slug });
+    }
+  }
+  for (const update of slugUpdates) {
+    await models.teams.updateOne({ _id: update.id }, { $set: { slug: `__slug_migration__${update.id}` } });
+  }
+  for (const update of slugUpdates) {
+    await models.teams.updateOne({ _id: update.id }, { $set: { slug: update.slug } });
   }
 };
 

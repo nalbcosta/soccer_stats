@@ -759,6 +759,7 @@ const schemas = [
     type: "object",
     properties: {
       userId: id,
+      username: { type: "string", minLength: 3, maxLength: 20 },
       role: { type: "string", enum: ["owner", "admin", "captain", "member", "guest"] },
       joinedAt: isoDate
     },
