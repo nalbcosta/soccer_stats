@@ -12,14 +12,12 @@ export interface DashboardHomeViewModel {
   playerRanking: PlayerRankingEntry[];
   teamRanking: DashboardTeamRankingItem[];
   unreadNotifications: DashboardResponse["notifications"];
-  venues: DashboardResponse["venues"];
   card: PlayerCardProjection | null;
   insights: PlayerInsight[];
   hasTeams: boolean;
   hasMatches: boolean;
   showActionQueue: boolean;
   showNotifications: boolean;
-  showVenues: boolean;
 }
 
 export function buildDashboardViewModel({
@@ -51,13 +49,11 @@ export function buildDashboardViewModel({
     playerRanking: selectPlayerRankingPreview(alignOwnRankingWithCard(playerRanking, card)),
     teamRanking: selectTeamRankingPreview(dashboard.teams),
     unreadNotifications,
-    venues: dashboard.venues.slice(0, 4),
     card,
     insights,
     hasTeams: dashboard.teams.length > 0,
     hasMatches: dashboard.matches.length > 0,
     showActionQueue: actions.some((action) => action.key !== "create-match"),
-    showNotifications: unreadNotifications.length > 0,
-    showVenues: dashboard.venues.length > 0
+    showNotifications: unreadNotifications.length > 0
   };
 }

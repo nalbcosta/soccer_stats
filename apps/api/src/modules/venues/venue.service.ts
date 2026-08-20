@@ -6,17 +6,21 @@ interface CreateVenueInput {
   name: string;
   visibility: Venue["visibility"];
   address?: string | undefined;
+  postalCode?: string | undefined;
+  addressNumber?: string | undefined;
   city: string;
   state: string;
   surface: Venue["surface"];
   latitude?: number | undefined;
   longitude?: number | undefined;
+  contactPhone?: string | undefined;
+  prices?: Venue["prices"] | undefined;
 }
 
 export class VenueService {
   constructor(private readonly repositories: Repositories) {}
 
-  async create(user: StoredUser, input: CreateVenueInput): Promise<Venue> {
+  async create(user: StoredUser, input: CreateVenueInput, approval?: { approvedBy: string; approvedAt: string }): Promise<Venue> {
     const now = new Date().toISOString();
     return this.repositories.venues.create({
       id: createId(),
@@ -25,11 +29,19 @@ export class VenueService {
       ownerId: user.id,
       visibility: input.visibility,
       ...(input.address ? { address: input.address } : {}),
+      ...(input.postalCode ? { postalCode: input.postalCode } : {}),
+      ...(input.addressNumber ? { addressNumber: input.addressNumber } : {}),
       city: input.city,
       state: input.state.toUpperCase(),
       surface: input.surface,
       ...(input.latitude !== undefined ? { latitude: input.latitude } : {}),
       ...(input.longitude !== undefined ? { longitude: input.longitude } : {}),
+      ...(input.contactPhone ? { contactPhone: input.contactPhone } : {}),
+      ...(input.prices ? { prices: input.prices } : {}),
+      status: "active",
+      ratingAverage: 0,
+      ratingCount: 0,
+      ...(approval ? { approvedBy: approval.approvedBy, approvedAt: approval.approvedAt } : {}),
       createdAt: now,
       updatedAt: now
     });
@@ -51,16 +63,20 @@ export class VenueService {
       ...(input.name ? { name: input.name } : {}),
       ...(input.visibility ? { visibility: input.visibility } : {}),
       ...(input.address ? { address: input.address } : {}),
+      ...(input.postalCode ? { postalCode: input.postalCode } : {}),
+      ...(input.addressNumber ? { addressNumber: input.addressNumber } : {}),
       ...(input.city ? { city: input.city } : {}),
       ...(input.surface ? { surface: input.surface } : {}),
       ...(input.state ? { state: input.state.toUpperCase() } : {}),
       ...(input.latitude !== undefined ? { latitude: input.latitude } : {}),
       ...(input.longitude !== undefined ? { longitude: input.longitude } : {}),
+      ...(input.contactPhone ? { contactPhone: input.contactPhone } : {}),
+      ...(input.prices ? { prices: input.prices } : {}),
       updatedAt: new Date().toISOString()
     });
   }
 
   canView(user: StoredUser, venue: Venue): boolean {
-    return venue.visibility === "public" || venue.ownerId === user.id;
+    return venue.visibility === "public" || venue.ownerId === user.id || user.platformRole === "admin";
   }
 }

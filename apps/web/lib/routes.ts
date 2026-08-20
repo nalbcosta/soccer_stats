@@ -1,7 +1,7 @@
 import type { LucideIcon } from "lucide-react";
-import { BarChart3, Bell, CalendarDays, Home, MailPlus, Medal, Trophy, Users } from "lucide-react";
+import { BarChart3, Bell, CalendarDays, Home, MailPlus, MapPin, Medal, Trophy, Users } from "lucide-react";
 
-export type AppRoute = "/app" | "/app/matches" | "/app/teams" | "/app/ranking";
+export type AppRoute = "/app" | "/app/matches" | "/app/teams" | "/app/ranking" | "/app/venues";
 export type SecondaryAppRoute = "/app/tournaments" | "/app/stats" | "/app/invites" | "/app/notifications";
 
 export interface NavItem {
@@ -16,6 +16,8 @@ export const appNavItems: NavItem[] = [
   { href: "/app/teams", labelKey: "teams", icon: Users },
   { href: "/app/ranking", labelKey: "ranking", icon: Medal }
 ];
+
+export const venueNavItem: NavItem = { href: "/app/venues", labelKey: "venues", icon: MapPin };
 
 export const secondaryNavItems: NavItem[] = [
   { href: "/app/tournaments", labelKey: "tournaments", icon: Trophy },

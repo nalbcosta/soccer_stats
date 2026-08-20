@@ -13,7 +13,12 @@ import type {
   TeamJoinRequest,
   TeamMessage,
   Tournament,
-  Venue
+  Venue,
+  AthleteSkillProfile,
+  TeamAthlete,
+  VenueChangeRequest,
+  VenueReview,
+  VenueChangeSet
 } from "@soccer-stats/shared";
 
 export interface UpdateProfileInput {
@@ -82,7 +87,6 @@ export interface DashboardResponse {
   matches: Match[];
   tournaments: Tournament[];
   invites: Invite[];
-  venues: Venue[];
   notifications: Notification[];
 }
 
@@ -127,6 +131,16 @@ export interface TeamListFilters {
   pageSize?: number;
 }
 
+export interface VenueListFilters {
+  q?: string;
+  city?: string;
+  state?: string;
+  surface?: Venue["surface"];
+  status?: Venue["status"];
+  page?: number;
+  pageSize?: number;
+}
+
 export interface LocationResult {
   latitude: number;
   longitude: number;
@@ -159,6 +173,9 @@ export const api = {
   signOut: () => request<{ ok: true }>("/auth/signout", { method: "POST" }),
   me: () => request<{ user: PublicUser }>("/auth/me"),
   dashboard: () => request<DashboardResponse>("/dashboard"),
+  getMySkills: () => request<{ skills: AthleteSkillProfile | null }>("/players/me/skills"),
+  updateMySkills: (input: Pick<AthleteSkillProfile, "outfield" | "isGoalkeeper" | "goalkeeper">) =>
+    request<{ skills: AthleteSkillProfile }>("/players/me/skills", { method: "PATCH", body: JSON.stringify(input) }),
   getPlayerCard: (userId: string) => request<{ card: PlayerCardProjection }>(`/players/${encodeURIComponent(userId)}/card`),
   getPlayerInsights: (userId: string) =>
     request<{ insights: PlayerInsight[] }>(`/players/${encodeURIComponent(userId)}/insights`),
@@ -189,6 +206,9 @@ export const api = {
       })}`
     ),
   listTeams: (filters: TeamListFilters = {}) => request<{ teams: Team[]; pagination?: PaginationMeta }>(`/teams${toQueryString({ scope: filters.scope, q: filters.q, city: filters.city, state: filters.state, latitude: filters.latitude, longitude: filters.longitude, radiusKm: filters.radiusKm, page: filters.page, pageSize: filters.pageSize })}`),
+  listTeamAthletes: (teamId: string) => request<{ athletes: TeamAthlete[]; canOrganize: boolean }>(`/teams/${encodeURIComponent(teamId)}/athletes`),
+  updateTeamAthleteSkills: (teamId: string, userId: string, input: Pick<AthleteSkillProfile, "outfield" | "isGoalkeeper" | "goalkeeper">) => request(`/teams/${encodeURIComponent(teamId)}/athletes/${encodeURIComponent(userId)}/skill-override`, { method: "PUT", body: JSON.stringify(input) }),
+  resetTeamAthleteSkills: (teamId: string, userId: string) => request<{ ok: true }>(`/teams/${encodeURIComponent(teamId)}/athletes/${encodeURIComponent(userId)}/skill-override`, { method: "DELETE" }),
   requestTeamJoin: (teamId: string) => request<{ request: TeamJoinRequest }>(`/teams/${encodeURIComponent(teamId)}/join-requests`, { method: "POST" }),
   listTeamJoinRequests: (teamId: string) => request<{ requests: TeamJoinRequest[] }>(`/teams/${encodeURIComponent(teamId)}/join-requests`),
   reviewTeamJoinRequest: (teamId: string, requestId: string, decision: "approve" | "reject") => request<{ request: TeamJoinRequest }>(`/teams/${encodeURIComponent(teamId)}/join-requests/${encodeURIComponent(requestId)}/${decision}`, { method: "POST" }),
@@ -215,6 +235,14 @@ export const api = {
     ),
   searchLocations: (input: { q: string; limit?: number }) =>
     request<{ locations: LocationResult[] }>(`/locations/search${toQueryString({ q: input.q, limit: input.limit })}`),
+  listVenues: (filters: VenueListFilters = {}) => request<{ venues: Venue[]; pagination: PaginationMeta }>(`/venues${toQueryString({ q: filters.q, city: filters.city, state: filters.state, surface: filters.surface, status: filters.status, page: filters.page, pageSize: filters.pageSize })}`),
+  getVenue: (idOrSlug: string) => request<{ venue: Venue; reviews: VenueReview[]; myReview?: VenueReview }>(`/venues/${encodeURIComponent(idOrSlug)}`),
+  submitVenue: (input: { name: string; visibility?: Venue["visibility"]; address: string; postalCode: string; addressNumber: string; city: string; state: string; surface: Venue["surface"]; latitude?: number; longitude?: number; contactPhone: string; prices: NonNullable<Venue["prices"]> }) => request<{ request: VenueChangeRequest }>("/venues", { method: "POST", body: JSON.stringify(input) }),
+  submitVenueChange: (input: { venueId?: string; kind: VenueChangeRequest["kind"]; changes: VenueChangeSet }) => request<{ request: VenueChangeRequest }>("/venue-change-requests", { method: "POST", body: JSON.stringify(input) }),
+  submitVenueReview: (venueId: string, input: { rating: number; comment?: string }) => request<{ review: VenueReview }>(`/venues/${encodeURIComponent(venueId)}/reviews`, { method: "POST", body: JSON.stringify(input) }),
+  listVenueModeration: () => request<{ requests: VenueChangeRequest[]; reviews: VenueReview[]; venues: Venue[] }>("/admin/venues/moderation"),
+  moderateVenueChange: (requestId: string, decision: "approve" | "reject", reason?: string) => request<{ request: VenueChangeRequest }>(`/admin/venues/change-requests/${encodeURIComponent(requestId)}`, { method: "PATCH", body: JSON.stringify({ decision, ...(reason ? { reason } : {}) }) }),
+  moderateVenueReview: (reviewId: string, decision: "approve" | "reject", reason?: string) => request<{ review: VenueReview }>(`/admin/venues/reviews/${encodeURIComponent(reviewId)}`, { method: "PATCH", body: JSON.stringify({ decision, ...(reason ? { reason } : {}) }) }),
   listNotifications: () => request<{ notifications: Notification[] }>("/notifications"),
   markNotificationRead: (notificationId: string) =>
     request<{ notification: Notification }>(`/notifications/${encodeURIComponent(notificationId)}/read`, { method: "PATCH" }),
@@ -252,6 +280,7 @@ export const api = {
     away: { teamId: string; score: number; playerIds: string[] };
     tournamentId?: string;
     durationMinutes?: number;
+    venueId?: string;
     venue?: Match["venue"];
     participationPolicy?: "closed" | "request";
     slotsPerSide?: number;

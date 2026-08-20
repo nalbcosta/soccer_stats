@@ -1,5 +1,6 @@
 export type SupportedLocale = "pt-BR" | "en";
 export type ThemeMode = "light" | "dark" | "system";
+export type PlatformRole = "user" | "admin";
 export type Role = "owner" | "admin" | "captain" | "member" | "guest";
 export type TeamJoinPolicy = "closed" | "request";
 export type RequestStatus = "pending" | "approved" | "rejected" | "cancelled";
@@ -43,6 +44,57 @@ export interface PublicUser {
   locale: SupportedLocale;
   theme: ThemeMode;
   providers: AuthProvider[];
+  platformRole: PlatformRole;
+}
+
+export interface OutfieldAttributes {
+  pac: number;
+  sho: number;
+  pas: number;
+  dri: number;
+  def: number;
+  phy: number;
+}
+
+export interface GoalkeeperAttributes {
+  div: number;
+  han: number;
+  kic: number;
+  ref: number;
+  spd: number;
+  pos: number;
+}
+
+export interface AthleteSkillProfile {
+  userId: string;
+  outfield: OutfieldAttributes;
+  isGoalkeeper: boolean;
+  goalkeeper?: GoalkeeperAttributes;
+  completedAt: string;
+  updatedAt: string;
+}
+
+export interface TeamAthleteSkillOverride {
+  id: string;
+  teamId: string;
+  userId: string;
+  outfield: OutfieldAttributes;
+  isGoalkeeper: boolean;
+  goalkeeper?: GoalkeeperAttributes;
+  updatedBy: string;
+  updatedAt: string;
+}
+
+export interface TeamAthlete {
+  userId: string;
+  username?: string;
+  displayName: string;
+  role: Role;
+  skills?: AthleteSkillProfile;
+  effectiveSkills?: AthleteSkillProfile;
+  skillOverride?: TeamAthleteSkillOverride;
+  skillOverrideByName?: string;
+  hasSkillOverride: boolean;
 }
 
 export interface AggregatedStats {
@@ -152,11 +204,70 @@ export interface Venue {
   ownerId: string;
   visibility: EntityVisibility;
   address?: string;
+  postalCode?: string;
+  addressNumber?: string;
   city: string;
   state: string;
   surface: NonNullable<MatchVenue["surface"]>;
   latitude?: number;
   longitude?: number;
+  contactPhone?: string;
+  prices?: {
+    minutes60: number;
+    minutes90: number;
+    minutes120: number;
+  };
+  status: "active" | "closed";
+  ratingAverage: number;
+  ratingCount: number;
+  approvedAt?: string;
+  approvedBy?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type ModerationStatus = "pending" | "approved" | "rejected";
+export type VenueChangeKind = "create" | "update" | "close" | "reopen";
+
+export interface VenueChangeSet {
+  name?: string;
+  visibility?: EntityVisibility;
+  address?: string;
+  postalCode?: string;
+  addressNumber?: string;
+  city?: string;
+  state?: string;
+  surface?: Venue["surface"];
+  latitude?: number;
+  longitude?: number;
+  contactPhone?: string;
+  prices?: Venue["prices"];
+}
+
+export interface VenueChangeRequest {
+  id: string;
+  venueId?: string;
+  kind: VenueChangeKind;
+  changes: VenueChangeSet;
+  status: ModerationStatus;
+  submittedBy: string;
+  reviewedBy?: string;
+  reviewedAt?: string;
+  reviewReason?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface VenueReview {
+  id: string;
+  venueId: string;
+  authorId: string;
+  rating: number;
+  comment?: string;
+  status: ModerationStatus;
+  reviewedBy?: string;
+  reviewedAt?: string;
+  reviewReason?: string;
   createdAt: string;
   updatedAt: string;
 }

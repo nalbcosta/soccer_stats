@@ -18,6 +18,10 @@ export const loadConfig = (): AppConfig => {
     defaultTheme: "system",
     nominatimBaseUrl: process.env.NOMINATIM_BASE_URL ?? "https://nominatim.openstreetmap.org",
     nominatimUserAgent: process.env.NOMINATIM_USER_AGENT ?? "NaBola/1.0 (local development)",
-    ...(process.env.NOMINATIM_EMAIL ? { nominatimEmail: process.env.NOMINATIM_EMAIL } : {})
+    ...(process.env.NOMINATIM_EMAIL ? { nominatimEmail: process.env.NOMINATIM_EMAIL } : {}),
+    siteAdminEmails: (process.env.SITE_ADMIN_EMAILS ?? "")
+      .split(",")
+      .map((email) => email.trim().toLowerCase())
+      .filter(Boolean)
   };
 };

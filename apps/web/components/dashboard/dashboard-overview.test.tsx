@@ -12,7 +12,8 @@ const user: PublicUser = {
   username: "camisa10",
   locale: "pt-BR",
   theme: "system",
-  providers: ["credentials"]
+  providers: ["credentials"],
+  platformRole: "user"
 };
 
 const stats: AggregatedStats = {
@@ -73,7 +74,6 @@ const dashboard: DashboardResponse = {
   matches: [match],
   tournaments: [],
   invites: [],
-  venues: [],
   notifications: []
 };
 
@@ -110,14 +110,12 @@ function makeViewModel(input: Partial<DashboardHomeViewModel> = {}): DashboardHo
     playerRanking: [],
     teamRanking: [],
     unreadNotifications: [],
-    venues: [],
     card: null,
     insights: [],
     hasTeams: true,
     hasMatches: true,
     showActionQueue: true,
     showNotifications: false,
-    showVenues: false,
     ...input
   };
 }

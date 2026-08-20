@@ -723,9 +723,10 @@ const schemas = [
       providers: {
         type: "array",
         items: { type: "string", enum: ["credentials", "google"] }
-      }
+      },
+      platformRole: { type: "string", enum: ["user", "admin"] }
     },
-    required: ["id", "publicIdentifier", "email", "username", "locale", "theme", "providers"]
+    required: ["id", "publicIdentifier", "email", "username", "locale", "theme", "providers", "platformRole"]
   },
   {
     $id: "playerProfile",
@@ -909,6 +910,8 @@ const schemas = [
       ownerId: id,
       visibility: { type: "string", enum: ["private", "public"] },
       address: { type: "string" },
+      postalCode: { type: "string", pattern: "^\\d{5}-?\\d{3}$" },
+      addressNumber: { type: "string" },
       city: { type: "string" },
       state: { type: "string" },
       surface: { type: "string", enum: ["grass", "synthetic", "court", "sand", "other"] },
@@ -1410,14 +1413,26 @@ const schemas = [
     properties: {
       name: { type: "string", minLength: 2, maxLength: 80 },
       visibility: { type: "string", enum: ["private", "public"], default: "private" },
-      address: { type: "string", minLength: 2, maxLength: 120 },
+      address: { type: "string", minLength: 2, maxLength: 180 },
+      postalCode: { type: "string", pattern: "^\\d{5}-?\\d{3}$" },
+      addressNumber: { type: "string", minLength: 1, maxLength: 20 },
       city: { type: "string", minLength: 2, maxLength: 80 },
       state: { type: "string", minLength: 2, maxLength: 2 },
       surface: { type: "string", enum: ["grass", "synthetic", "court", "sand", "other"], default: "other" },
       latitude: { type: "number", minimum: -90, maximum: 90 },
-      longitude: { type: "number", minimum: -180, maximum: 180 }
+      longitude: { type: "number", minimum: -180, maximum: 180 },
+      contactPhone: { type: "string", minLength: 8, maxLength: 24 },
+      prices: {
+        type: "object",
+        properties: {
+          minutes60: { type: "integer", minimum: 0 },
+          minutes90: { type: "integer", minimum: 0 },
+          minutes120: { type: "integer", minimum: 0 }
+        },
+        required: ["minutes60", "minutes90", "minutes120"]
+      }
     },
-    required: ["name", "city", "state"]
+    required: ["name", "address", "postalCode", "addressNumber", "city", "state", "contactPhone", "prices"]
   },
   {
     $id: "updateVenueInput",
@@ -1425,7 +1440,9 @@ const schemas = [
     properties: {
       name: { type: "string", minLength: 2, maxLength: 80 },
       visibility: { type: "string", enum: ["private", "public"] },
-      address: { type: "string", minLength: 2, maxLength: 120 },
+      address: { type: "string", minLength: 2, maxLength: 180 },
+      postalCode: { type: "string", pattern: "^\\d{5}-?\\d{3}$" },
+      addressNumber: { type: "string", minLength: 1, maxLength: 20 },
       city: { type: "string", minLength: 2, maxLength: 80 },
       state: { type: "string", minLength: 2, maxLength: 2 },
       surface: { type: "string", enum: ["grass", "synthetic", "court", "sand", "other"] }
@@ -1757,16 +1774,12 @@ const schemas = [
         type: "array",
         items: { $ref: "invite#" }
       },
-      venues: {
-        type: "array",
-        items: { $ref: "venue#" }
-      },
       notifications: {
         type: "array",
         items: { $ref: "notification#" }
       }
     },
-    required: ["profile", "teams", "matches", "tournaments", "invites", "venues", "notifications"]
+    required: ["profile", "teams", "matches", "tournaments", "invites", "notifications"]
   }
 ];
 
@@ -1793,7 +1806,8 @@ export const registerOpenApi = async (app: FastifyInstance): Promise<void> => {
         { name: "players", description: "Perfil do jogador" },
         { name: "teams", description: "Times e convites" },
         { name: "invites", description: "Fluxo de convites" },
-        { name: "venues", description: "Locais e estadios" },
+        { name: "venues", description: "Campos, locais e avaliacoes" },
+        { name: "admin", description: "Moderacao da plataforma" },
         { name: "locations", description: "Geocoding e localizacao" },
         { name: "matches", description: "Partidas e encerramento" },
         { name: "tournaments", description: "Campeonatos" },

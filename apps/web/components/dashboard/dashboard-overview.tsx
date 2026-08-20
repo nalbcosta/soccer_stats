@@ -12,7 +12,6 @@ import { DashboardNextMatchPanel } from "./dashboard-next-match-panel";
 import { DashboardNotificationsPreview } from "./dashboard-notifications-preview";
 import { DashboardPlayerCardPanel } from "./dashboard-player-card-panel";
 import { DashboardPlayerRankingPreview } from "./dashboard-player-ranking-preview";
-import { DashboardVenuesPreview } from "./dashboard-venues-preview";
 import { useTranslations } from "../../i18n/provider";
 import { buildPlayerCardViewModel } from "../../lib/player-card/build-player-card-view-model";
 
@@ -73,7 +72,6 @@ export function DashboardOverview() {
               refreshing={refreshing}
             />
           ) : null}
-          {viewModel.showVenues ? <DashboardVenuesPreview venues={viewModel.venues} /> : null}
         </aside>
       </div>
     </div>

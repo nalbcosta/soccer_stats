@@ -24,7 +24,8 @@ export const demoUser: PublicUser = {
   username: "leo10",
   locale: "pt-BR",
   theme: "system",
-  providers: ["credentials"]
+  providers: ["credentials"],
+  platformRole: "user"
 };
 
 export const demoAssistUser: PublicUser = {
@@ -34,7 +35,8 @@ export const demoAssistUser: PublicUser = {
   username: "dudu7",
   locale: "pt-BR",
   theme: "system",
-  providers: ["credentials"]
+  providers: ["credentials"],
+  platformRole: "user"
 };
 
 export const demoProfile: PlayerProfile = {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { AggregatedStats, Match, Team, Venue } from "@soccer-stats/shared";
+import type { AggregatedStats, Match, Team } from "@soccer-stats/shared";
 import type { DashboardResponse } from "../api";
 import { buildMatchListItems, buildSheetSummary, getUserRegion, selectNearbyMatches } from "./match-view-model";
 
@@ -34,19 +34,6 @@ const team: Team = {
   updatedAt: "2026-07-01T10:00:00.000Z"
 };
 
-const venue: Venue = {
-  id: "venue-1",
-  name: "Arena Bairro",
-  slug: "arena-bairro",
-  ownerId: "user-1",
-  visibility: "public",
-  city: "Sao Paulo",
-  state: "SP",
-  surface: "synthetic",
-  createdAt: "2026-07-01T10:00:00.000Z",
-  updatedAt: "2026-07-01T10:00:00.000Z"
-};
-
 function makeMatch(input: Partial<Match>): Match {
   return {
     id: input.id ?? "match-1",
@@ -74,7 +61,6 @@ function makeDashboard(input: Partial<DashboardResponse> = {}): DashboardRespons
     matches: [],
     tournaments: [],
     invites: [],
-    venues: [venue],
     notifications: [],
     ...input
   };
@@ -86,7 +72,7 @@ describe("match view model", () => {
   });
 
   it("seleciona jogos na regiao com local cadastrado", () => {
-    const items = buildMatchListItems(makeDashboard({ matches: [makeMatch({ venueId: "venue-1" })] }));
+    const items = buildMatchListItems(makeDashboard({ matches: [makeMatch({ venueId: "venue-1", venue: { name: "Arena Bairro", city: "Sao Paulo", state: "SP" } })] }));
 
     expect(selectNearbyMatches(items)).toHaveLength(1);
   });

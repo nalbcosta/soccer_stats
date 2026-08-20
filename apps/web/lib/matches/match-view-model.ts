@@ -72,9 +72,8 @@ export function formatVenueLabel(match: Match, locale: Locale = defaultLocale): 
 
 export function getUserRegion(dashboard: DashboardResponse): { city?: string; state?: string } {
   const teamWithRegion = dashboard.teams.find((team) => team.city || team.state);
-  const venueWithRegion = dashboard.venues.find((venue) => venue.city || venue.state);
-  const city = teamWithRegion?.city ?? venueWithRegion?.city;
-  const state = teamWithRegion?.state ?? venueWithRegion?.state;
+  const city = teamWithRegion?.city;
+  const state = teamWithRegion?.state;
 
   return {
     ...(city ? { city } : {}),
@@ -118,7 +117,7 @@ export function buildMatchListItemsFromMatches(matches: Match[], dashboard: Dash
         ...(tournament ? { tournament } : {}),
       venueLabel: formatVenueLabel(match, locale),
       dateLabel: formatMatchDate(match.playedAt, locale),
-        isNearUserRegion: isMatchInRegion(match, dashboard.venues, region)
+        isNearUserRegion: isMatchInRegion(match, [], region)
       };
     });
 }

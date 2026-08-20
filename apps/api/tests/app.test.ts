@@ -24,7 +24,7 @@ describe("api flows", () => {
 
   beforeEach(async () => {
     app = await createApp(
-      { ...loadConfig(), nodeEnv: "test", googleClientId: "" },
+      { ...loadConfig(), nodeEnv: "test", googleClientId: "", siteAdminEmails: ["match-owner@example.com"] },
       createMemoryRepositories()
     );
   });
@@ -338,6 +338,90 @@ describe("api flows", () => {
     expect(rounds.json().tournament.rounds.length).toBeGreaterThan(0);
   });
 
+  it("salva habilidades e aplica uma avaliacao especifica no time", async () => {
+    const signUp = await app.inject({
+      method: "POST",
+      url: "/v1/auth/signup",
+      payload: {
+        email: "athlete@example.com",
+        username: "atleta_um",
+        password: "senha123",
+        locale: "pt-BR"
+      }
+    });
+    const userId = signUp.json().user.id as string;
+    const cookie = signUp.cookies[0];
+    const csrf = await withCsrf(`${cookie?.name}=${cookie?.value}`);
+    const team = await app.inject({
+      method: "POST",
+      url: "/v1/teams",
+      headers: { cookie: csrf.cookie, "x-csrf-token": csrf.token },
+      payload: { name: "Time das Estrelas" }
+    });
+    const teamId = team.json().team.id as string;
+    const selfAssessment = {
+      outfield: { pac: 4, sho: 3, pas: 5, dri: 4, def: 2, phy: 3 },
+      isGoalkeeper: false
+    };
+
+    const invalidGoalkeeper = await app.inject({
+      method: "PATCH",
+      url: "/v1/players/me/skills",
+      headers: { cookie: csrf.cookie, "x-csrf-token": csrf.token },
+      payload: { ...selfAssessment, isGoalkeeper: true }
+    });
+    expect(invalidGoalkeeper.statusCode).toBe(400);
+
+    const saved = await app.inject({
+      method: "PATCH",
+      url: "/v1/players/me/skills",
+      headers: { cookie: csrf.cookie, "x-csrf-token": csrf.token },
+      payload: selfAssessment
+    });
+    expect(saved.statusCode).toBe(200);
+    expect(saved.json().skills.outfield.pas).toBe(5);
+
+    const overridden = await app.inject({
+      method: "PUT",
+      url: `/v1/teams/${teamId}/athletes/${userId}/skill-override`,
+      headers: { cookie: csrf.cookie, "x-csrf-token": csrf.token },
+      payload: {
+        outfield: { pac: 5, sho: 5, pas: 4, dri: 4, def: 3, phy: 4 },
+        isGoalkeeper: false
+      }
+    });
+    expect(overridden.statusCode).toBe(200);
+
+    const roster = await app.inject({
+      method: "GET",
+      url: `/v1/teams/${teamId}/athletes`,
+      headers: { cookie: csrf.cookie }
+    });
+    expect(roster.statusCode).toBe(200);
+    expect(roster.json().athletes[0]).toMatchObject({
+      userId,
+      hasSkillOverride: true,
+      effectiveSkills: { outfield: { pac: 5, sho: 5 } }
+    });
+
+    const reset = await app.inject({
+      method: "DELETE",
+      url: `/v1/teams/${teamId}/athletes/${userId}/skill-override`,
+      headers: { cookie: csrf.cookie, "x-csrf-token": csrf.token }
+    });
+    expect(reset.statusCode).toBe(200);
+
+    const rosterAfterReset = await app.inject({
+      method: "GET",
+      url: `/v1/teams/${teamId}/athletes`,
+      headers: { cookie: csrf.cookie }
+    });
+    expect(rosterAfterReset.json().athletes[0]).toMatchObject({
+      hasSkillOverride: false,
+      effectiveSkills: { outfield: { pac: 4, pas: 5 } }
+    });
+  });
+
   it("cadastra local, cria partida com snapshot, encerra por sumula e gera notificacoes", async () => {
     const signUp = await app.inject({
       method: "POST",
@@ -362,12 +446,25 @@ describe("api flows", () => {
         name: "Arena Central",
         visibility: "public",
         address: "Rua das Redes, 10",
+        postalCode: "80000-000",
+        addressNumber: "10",
         city: "Curitiba",
         state: "PR",
-        surface: "synthetic"
+        surface: "synthetic",
+        contactPhone: "41999999999",
+        prices: { minutes60: 10000, minutes90: 14000, minutes120: 18000 }
       }
     });
-    expect(venue.statusCode).toBe(200);
+    expect(venue.statusCode).toBe(202);
+    const approval = await app.inject({
+      method: "PATCH",
+      url: `/v1/admin/venues/change-requests/${venue.json().request.id}`,
+      headers: { cookie: csrf.cookie, "x-csrf-token": csrf.token },
+      payload: { decision: "approve" }
+    });
+    expect(approval.statusCode).toBe(200);
+    const venueList = await app.inject({ method: "GET", url: "/v1/venues", headers: { cookie: csrf.cookie } });
+    const approvedVenue = venueList.json().venues.find((item: { name: string }) => item.name === "Arena Central");
 
     const teamA = await app.inject({
       method: "POST",
@@ -388,7 +485,7 @@ describe("api flows", () => {
       headers: { cookie: csrf.cookie, "x-csrf-token": csrf.token },
       payload: {
         type: "casual",
-        venueId: venue.json().venue.id,
+        venueId: approvedVenue.id,
         home: { teamId: teamA.json().team.id, score: 0, playerIds: [userId] },
         away: { teamId: teamB.json().team.id, score: 0, playerIds: [userId] },
         playedAt: new Date().toISOString()

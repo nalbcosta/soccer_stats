@@ -183,6 +183,11 @@ export const matchRoutes: FastifyPluginAsync = async (app) => {
       return { message: "Local informado nao foi encontrado." };
     }
 
+    if (venueRecord?.status === "closed") {
+      reply.code(400);
+      return { message: "Este campo esta fechado e nao aceita novos jogos." };
+    }
+
     if (venueRecord && venueRecord.visibility !== "public" && venueRecord.ownerId !== user.id) {
       reply.code(403);
       return { message: "Sem permissao para usar este local." };

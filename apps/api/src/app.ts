@@ -47,6 +47,9 @@ export const createApp = async (config: AppConfig, repositories: Repositories) =
     }
   });
 
+  const configuredAdmins = await repositories.users.listByEmails(config.siteAdminEmails);
+  await Promise.all(configuredAdmins.filter((user) => user.platformRole !== "admin").map((user) => repositories.users.update({ ...user, platformRole: "admin", updatedAt: new Date().toISOString() })));
+
   app.decorate("repositories", repositories);
   app.decorate("config", config);
   app.addHook("onRequest", async (request, reply) => {

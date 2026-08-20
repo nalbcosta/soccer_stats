@@ -2,6 +2,7 @@ import { z } from "zod";
 
 export const localeSchema = z.enum(["pt-BR", "en"]);
 export const themeSchema = z.enum(["light", "dark", "system"]);
+export const platformRoleSchema = z.enum(["user", "admin"]);
 export const roleSchema = z.enum(["owner", "admin", "captain", "member", "guest"]);
 export const preferredFootSchema = z.enum(["right", "left", "both"]);
 const canonicalPlayerPositionSchema = z.enum([
@@ -77,7 +78,67 @@ export const publicUserSchema = z.object({
   username: usernameSchema,
   locale: localeSchema,
   theme: themeSchema,
-  providers: z.array(z.enum(["credentials", "google"]))
+  providers: z.array(z.enum(["credentials", "google"])),
+  platformRole: platformRoleSchema.default("user")
+});
+
+export const starRatingSchema = z.number().int().min(1).max(5);
+export const outfieldAttributesSchema = z.object({
+  pac: starRatingSchema,
+  sho: starRatingSchema,
+  pas: starRatingSchema,
+  dri: starRatingSchema,
+  def: starRatingSchema,
+  phy: starRatingSchema
+});
+export const goalkeeperAttributesSchema = z.object({
+  div: starRatingSchema,
+  han: starRatingSchema,
+  kic: starRatingSchema,
+  ref: starRatingSchema,
+  spd: starRatingSchema,
+  pos: starRatingSchema
+});
+export const athleteSkillsInputSchema = z.object({
+  outfield: outfieldAttributesSchema,
+  isGoalkeeper: z.boolean(),
+  goalkeeper: goalkeeperAttributesSchema.optional()
+}).superRefine((value, context) => {
+  if (value.isGoalkeeper && !value.goalkeeper) {
+    context.addIssue({ code: "custom", path: ["goalkeeper"], message: "Informe os atributos de goleiro." });
+  }
+  if (!value.isGoalkeeper && value.goalkeeper) {
+    context.addIssue({ code: "custom", path: ["goalkeeper"], message: "Atributos de goleiro exigem a marcacao de goleiro." });
+  }
+});
+export const athleteSkillProfileSchema = z.object({
+  userId: z.string(),
+  outfield: outfieldAttributesSchema,
+  isGoalkeeper: z.boolean(),
+  goalkeeper: goalkeeperAttributesSchema.optional(),
+  completedAt: z.string(),
+  updatedAt: z.string()
+});
+export const teamAthleteSkillOverrideSchema = z.object({
+  id: z.string(),
+  teamId: z.string(),
+  userId: z.string(),
+  outfield: outfieldAttributesSchema,
+  isGoalkeeper: z.boolean(),
+  goalkeeper: goalkeeperAttributesSchema.optional(),
+  updatedBy: z.string(),
+  updatedAt: z.string()
+});
+export const teamAthleteSchema = z.object({
+  userId: z.string(),
+  username: usernameSchema.optional(),
+  displayName: z.string(),
+  role: roleSchema,
+  skills: athleteSkillProfileSchema.optional(),
+  effectiveSkills: athleteSkillProfileSchema.optional(),
+  skillOverride: teamAthleteSkillOverrideSchema.optional(),
+  skillOverrideByName: z.string().optional(),
+  hasSkillOverride: z.boolean()
 });
 
 export const playerProfileSchema = z.object({
@@ -169,12 +230,73 @@ export const venueSchema = z.object({
   slug: z.string(),
   ownerId: z.string(),
   visibility: entityVisibilitySchema,
-  address: z.string().min(2).max(120).optional(),
+  address: z.string().min(2).max(180).optional(),
+  postalCode: z.string().regex(/^\d{5}-?\d{3}$/).optional(),
+  addressNumber: z.string().trim().min(1).max(20).optional(),
   city: z.string().min(2).max(80),
   state: z.string().min(2).max(2),
   surface: z.enum(["grass", "synthetic", "court", "sand", "other"]),
   latitude: z.number().min(-90).max(90).optional(),
   longitude: z.number().min(-180).max(180).optional(),
+  contactPhone: z.string().min(8).max(24).optional(),
+  prices: z.object({
+    minutes60: z.number().int().nonnegative(),
+    minutes90: z.number().int().nonnegative(),
+    minutes120: z.number().int().nonnegative()
+  }).optional(),
+  status: z.enum(["active", "closed"]).default("active"),
+  ratingAverage: z.number().min(0).max(5).default(0),
+  ratingCount: z.number().int().nonnegative().default(0),
+  approvedAt: z.string().optional(),
+  approvedBy: z.string().optional(),
+  createdAt: z.string(),
+  updatedAt: z.string()
+});
+
+export const moderationStatusSchema = z.enum(["pending", "approved", "rejected"]);
+export const venueChangeKindSchema = z.enum(["create", "update", "close", "reopen"]);
+export const venuePricesSchema = z.object({
+  minutes60: z.number().int().nonnegative(),
+  minutes90: z.number().int().nonnegative(),
+  minutes120: z.number().int().nonnegative()
+});
+export const venueChangeSetSchema = z.object({
+  name: z.string().trim().min(2).max(80).optional(),
+  visibility: entityVisibilitySchema.optional(),
+  address: z.string().trim().min(2).max(180).optional(),
+  postalCode: z.string().trim().regex(/^\d{5}-?\d{3}$/).optional(),
+  addressNumber: z.string().trim().min(1).max(20).optional(),
+  city: z.string().trim().min(2).max(80).optional(),
+  state: z.string().trim().length(2).optional(),
+  surface: z.enum(["grass", "synthetic", "court", "sand", "other"]).optional(),
+  latitude: z.number().min(-90).max(90).optional(),
+  longitude: z.number().min(-180).max(180).optional(),
+  contactPhone: z.string().trim().min(8).max(24).optional(),
+  prices: venuePricesSchema.optional()
+});
+export const venueChangeRequestSchema = z.object({
+  id: z.string(),
+  venueId: z.string().optional(),
+  kind: venueChangeKindSchema,
+  changes: venueChangeSetSchema,
+  status: moderationStatusSchema,
+  submittedBy: z.string(),
+  reviewedBy: z.string().optional(),
+  reviewedAt: z.string().optional(),
+  reviewReason: z.string().max(240).optional(),
+  createdAt: z.string(),
+  updatedAt: z.string()
+});
+export const venueReviewSchema = z.object({
+  id: z.string(),
+  venueId: z.string(),
+  authorId: z.string(),
+  rating: starRatingSchema,
+  comment: z.string().trim().max(500).optional(),
+  status: moderationStatusSchema,
+  reviewedBy: z.string().optional(),
+  reviewedAt: z.string().optional(),
+  reviewReason: z.string().max(240).optional(),
   createdAt: z.string(),
   updatedAt: z.string()
 });
@@ -504,12 +626,16 @@ export const updateTournamentTeamsInputSchema = z.object({
 export const createVenueInputSchema = z.object({
   name: z.string().min(2).max(80),
   visibility: entityVisibilitySchema.default("private"),
-  address: z.string().min(2).max(120).optional(),
+  address: z.string().min(2).max(180),
+  postalCode: z.string().trim().regex(/^\d{5}-?\d{3}$/),
+  addressNumber: z.string().trim().min(1).max(20),
   city: z.string().min(2).max(80),
   state: z.string().min(2).max(2),
   surface: z.enum(["grass", "synthetic", "court", "sand", "other"]).default("other"),
   latitude: z.number().min(-90).max(90).optional(),
-  longitude: z.number().min(-180).max(180).optional()
+  longitude: z.number().min(-180).max(180).optional(),
+  contactPhone: z.string().trim().min(8).max(24),
+  prices: venuePricesSchema
 });
 
 export const updateVenueInputSchema = createVenueInputSchema.partial().refine((value) => Object.keys(value).length > 0, {
@@ -517,12 +643,33 @@ export const updateVenueInputSchema = createVenueInputSchema.partial().refine((v
 });
 
 export const listVenuesQuerySchema = z.object({
+  q: z.string().trim().min(1).max(80).optional(),
   city: z.string().min(2).max(80).optional(),
   state: z.string().min(2).max(2).optional(),
   visibility: entityVisibilitySchema.optional(),
+  surface: z.enum(["grass", "synthetic", "court", "sand", "other"]).optional(),
+  status: z.enum(["active", "closed"]).optional(),
   page: z.coerce.number().int().positive().default(1),
   pageSize: z.coerce.number().int().positive().max(50).default(20)
 });
+
+export const createVenueChangeRequestInputSchema = z.object({
+  venueId: z.string().optional(),
+  kind: venueChangeKindSchema,
+  changes: venueChangeSetSchema
+}).superRefine((value, context) => {
+  if (value.kind === "create") {
+    const required = ["name", "address", "postalCode", "addressNumber", "city", "state", "surface", "contactPhone", "prices"] as const;
+    required.forEach((field) => {
+      if (value.changes[field] === undefined) context.addIssue({ code: "custom", path: ["changes", field], message: "Campo obrigatorio." });
+    });
+    if (value.venueId) context.addIssue({ code: "custom", path: ["venueId"], message: "Cadastro novo nao recebe venueId." });
+  } else if (!value.venueId) {
+    context.addIssue({ code: "custom", path: ["venueId"], message: "Informe o campo existente." });
+  }
+});
+export const venueReviewInputSchema = z.object({ rating: starRatingSchema, comment: z.string().trim().max(500).optional() });
+export const moderationDecisionInputSchema = z.object({ decision: z.enum(["approve", "reject"]), reason: z.string().trim().max(240).optional() });
 
 export const listMatchesQuerySchema = z.object({
   scope: z.enum(["mine", "nearby"]).default("mine"),

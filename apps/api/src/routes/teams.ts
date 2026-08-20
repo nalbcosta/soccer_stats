@@ -1,6 +1,6 @@
 import type { FastifyPluginAsync } from "fastify";
 import { extname } from "node:path";
-import { createEmptyStats, createInviteInputSchema, createTeamInputSchema, inviteSchema, listTeamsQuerySchema, teamJoinRequestSchema, teamSchema, updateMembershipRoleInputSchema } from "@soccer-stats/shared";
+import { athleteSkillProfileSchema, athleteSkillsInputSchema, createEmptyStats, createInviteInputSchema, createTeamInputSchema, inviteSchema, listTeamsQuerySchema, teamAthleteSchema, teamAthleteSkillOverrideSchema, teamJoinRequestSchema, teamSchema, updateMembershipRoleInputSchema } from "@soccer-stats/shared";
 import { teamRouteSchemas } from "../docs/openapi.js";
 import { createId, slugify } from "../lib/ids.js";
 import { removeStoredImage, storePublicImage } from "../lib/image-storage.js";
@@ -17,6 +17,8 @@ const ensureTeamPermission = (teamId: string, userId: string, app: Parameters<Fa
       ? team
       : undefined;
   });
+
+const isOrganizer = (role?: string) => role === "owner" || role === "admin" || role === "captain";
 
 const normalizeSearch = (value: string) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 const issueTeamSlug = async (name: string, app: Parameters<FastifyPluginAsync>[0]) => {
@@ -320,5 +322,77 @@ export const teamRoutes: FastifyPluginAsync = async (app) => {
     if (!team.members.some((member) => member.userId === userId)) { reply.code(404); return { message: "Membro nao encontrado." }; }
     const updated = await app.repositories.teams.update({ ...team, members: team.members.map((member) => member.userId === userId ? { ...member, role: payload.role } : member), updatedAt: new Date().toISOString() });
     return { team: teamSchema.parse(updated) };
+  });
+
+  app.get("/teams/:teamId/athletes", async (request, reply) => {
+    const user = await app.auth.requireUser(request, reply);
+    if (!user) return;
+    const { teamId } = request.params as { teamId: string };
+    const team = await app.repositories.teams.findById(teamId);
+    const requestingMembership = team?.members.find((member) => member.userId === user.id);
+    if (!team || !requestingMembership) { reply.code(404); return { message: "Time nao encontrado." }; }
+    const userIds = team.members.map((member) => member.userId);
+    const [profiles, skills, overrides] = await Promise.all([
+      app.repositories.playerProfiles.listByUserIds(userIds),
+      app.repositories.athleteSkills.listByUserIds(userIds),
+      app.repositories.teamAthleteSkillOverrides.listByTeam(team.id)
+    ]);
+    const profileByUser = new Map(profiles.map((profile) => [profile.userId, profile]));
+    const skillsByUser = new Map(skills.map((item) => [item.userId, item]));
+    const overrideByUser = new Map(overrides.map((item) => [item.userId, item]));
+    const organizer = isOrganizer(requestingMembership.role);
+    const athletes = team.members.map((member) => {
+      const base = skillsByUser.get(member.userId);
+      const canSeeOverride = organizer || member.userId === user.id;
+      const override = canSeeOverride ? overrideByUser.get(member.userId) : undefined;
+      const effectiveSkills = override ? {
+        userId: member.userId, outfield: override.outfield, isGoalkeeper: override.isGoalkeeper,
+        ...(override.goalkeeper ? { goalkeeper: override.goalkeeper } : {}),
+        completedAt: base?.completedAt ?? override.updatedAt, updatedAt: override.updatedAt
+      } : base;
+      return teamAthleteSchema.parse({
+        userId: member.userId,
+        ...(member.username ? { username: member.username } : {}),
+        displayName: profileByUser.get(member.userId)?.displayName ?? member.username ?? "Jogador",
+        role: member.role,
+        ...(base ? { skills: athleteSkillProfileSchema.parse(base) } : {}),
+        ...(effectiveSkills ? { effectiveSkills } : {}),
+        ...(override ? { skillOverride: teamAthleteSkillOverrideSchema.parse(override) } : {}),
+        ...(override ? { skillOverrideByName: team.members.find((item) => item.userId === override.updatedBy)?.username ?? "Organizador" } : {}),
+        hasSkillOverride: Boolean(override)
+      });
+    });
+    return { athletes, canOrganize: organizer };
+  });
+
+  app.put("/teams/:teamId/athletes/:userId/skill-override", async (request, reply) => {
+    const user = await app.auth.requireUser(request, reply);
+    if (!user) return;
+    const { teamId, userId } = request.params as { teamId: string; userId: string };
+    const team = await app.repositories.teams.findById(teamId);
+    const membership = team?.members.find((member) => member.userId === user.id);
+    if (!team || !membership || !isOrganizer(membership.role)) { reply.code(403); return { message: "Sem permissao para avaliar atletas." }; }
+    if (!team.members.some((member) => member.userId === userId)) { reply.code(404); return { message: "Atleta nao encontrado no time." }; }
+    const payload = athleteSkillsInputSchema.parse(request.body);
+    const now = new Date().toISOString();
+    const current = await app.repositories.teamAthleteSkillOverrides.findByTeamAndUser(teamId, userId);
+    const value = await app.repositories.teamAthleteSkillOverrides.upsert({
+      id: current?.id ?? createId(), teamId, userId, outfield: payload.outfield, isGoalkeeper: payload.isGoalkeeper,
+      ...(payload.goalkeeper ? { goalkeeper: payload.goalkeeper } : {}), updatedBy: user.id, updatedAt: now
+    });
+    await new AuditService(app.repositories).record({ actorUserId: user.id, action: "team.athlete-skills.update", resourceType: "team", resourceId: teamId, metadata: { athleteUserId: userId } });
+    return { skillOverride: teamAthleteSkillOverrideSchema.parse(value) };
+  });
+
+  app.delete("/teams/:teamId/athletes/:userId/skill-override", async (request, reply) => {
+    const user = await app.auth.requireUser(request, reply);
+    if (!user) return;
+    const { teamId, userId } = request.params as { teamId: string; userId: string };
+    const team = await app.repositories.teams.findById(teamId);
+    const membership = team?.members.find((member) => member.userId === user.id);
+    if (!team || !membership || !isOrganizer(membership.role)) { reply.code(403); return { message: "Sem permissao para remover a avaliacao." }; }
+    await app.repositories.teamAthleteSkillOverrides.deleteByTeamAndUser(teamId, userId);
+    await new AuditService(app.repositories).record({ actorUserId: user.id, action: "team.athlete-skills.reset", resourceType: "team", resourceId: teamId, metadata: { athleteUserId: userId } });
+    return { ok: true };
   });
 };

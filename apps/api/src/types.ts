@@ -1,4 +1,5 @@
 import type {
+  AthleteSkillProfile,
   Invite,
   AuditLog,
   Match,
@@ -15,7 +16,10 @@ import type {
   TeamMessage,
   ThemeMode,
   Tournament,
-  Venue
+  Venue,
+  TeamAthleteSkillOverride,
+  VenueChangeRequest,
+  VenueReview
 } from "@soccer-stats/shared";
 
 export interface StoredUser extends PublicUser {
@@ -42,6 +46,8 @@ export interface AppContext {
 export interface Repositories {
   users: UserRepository;
   playerProfiles: PlayerProfileRepository;
+  athleteSkills: AthleteSkillProfileRepository;
+  teamAthleteSkillOverrides: TeamAthleteSkillOverrideRepository;
   playerFeatureSnapshots: PlayerFeatureSnapshotRepository;
   playerCardProjections: PlayerCardProjectionRepository;
   teams: TeamRepository;
@@ -53,6 +59,8 @@ export interface Repositories {
   tournaments: TournamentRepository;
   invites: InviteRepository;
   venues: VenueRepository;
+  venueChangeRequests: VenueChangeRequestRepository;
+  venueReviews: VenueReviewRepository;
   notifications: NotificationRepository;
   auditLogs: AuditLogRepository;
   sessions: SessionRepository;
@@ -64,12 +72,26 @@ export interface UserRepository {
   findById(id: string): Promise<StoredUser | null>;
   findByEmail(email: string): Promise<StoredUser | null>;
   findByPublicIdentifier(publicIdentifier: string): Promise<StoredUser | null>;
+  listByEmails(emails: string[]): Promise<StoredUser[]>;
 }
 
 export interface PlayerProfileRepository {
   upsert(profile: PlayerProfile): Promise<PlayerProfile>;
   findByUserId(userId: string): Promise<PlayerProfile | null>;
   listByUserIds(userIds: string[]): Promise<PlayerProfile[]>;
+}
+
+export interface AthleteSkillProfileRepository {
+  upsert(profile: AthleteSkillProfile): Promise<AthleteSkillProfile>;
+  findByUserId(userId: string): Promise<AthleteSkillProfile | null>;
+  listByUserIds(userIds: string[]): Promise<AthleteSkillProfile[]>;
+}
+
+export interface TeamAthleteSkillOverrideRepository {
+  upsert(override: TeamAthleteSkillOverride): Promise<TeamAthleteSkillOverride>;
+  findByTeamAndUser(teamId: string, userId: string): Promise<TeamAthleteSkillOverride | null>;
+  listByTeam(teamId: string): Promise<TeamAthleteSkillOverride[]>;
+  deleteByTeamAndUser(teamId: string, userId: string): Promise<void>;
 }
 
 export interface PlayerFeatureSnapshotRepository {
@@ -145,10 +167,27 @@ export interface VenueRepository {
   create(venue: Venue): Promise<Venue>;
   update(venue: Venue): Promise<Venue>;
   findById(id: string): Promise<Venue | null>;
+  findBySlug(slug: string): Promise<Venue | null>;
   listVisibleToUser(
     userId: string,
-    filters?: { city?: string; state?: string; visibility?: Venue["visibility"]; page?: number; pageSize?: number }
-  ): Promise<Venue[]>;
+    filters?: { q?: string; city?: string; state?: string; visibility?: Venue["visibility"]; surface?: Venue["surface"]; status?: Venue["status"]; page?: number; pageSize?: number }
+  ): Promise<{ items: Venue[]; total: number }>;
+}
+
+export interface VenueChangeRequestRepository {
+  create(request: VenueChangeRequest): Promise<VenueChangeRequest>;
+  update(request: VenueChangeRequest): Promise<VenueChangeRequest>;
+  findById(id: string): Promise<VenueChangeRequest | null>;
+  list(status?: VenueChangeRequest["status"]): Promise<VenueChangeRequest[]>;
+}
+
+export interface VenueReviewRepository {
+  upsert(review: VenueReview): Promise<VenueReview>;
+  update(review: VenueReview): Promise<VenueReview>;
+  findById(id: string): Promise<VenueReview | null>;
+  findByVenueAndAuthor(venueId: string, authorId: string): Promise<VenueReview | null>;
+  listByVenue(venueId: string, status?: VenueReview["status"]): Promise<VenueReview[]>;
+  list(status?: VenueReview["status"]): Promise<VenueReview[]>;
 }
 
 export interface InviteRepository {
@@ -197,4 +236,5 @@ export interface AppConfig {
   nominatimBaseUrl: string;
   nominatimUserAgent: string;
   nominatimEmail?: string;
+  siteAdminEmails: string[];
 }

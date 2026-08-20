@@ -17,5 +17,5 @@ export const navigation = {
   auto: "Auto",
   signoutDescription: "Você volta para o login e pode entrar de novo quando quiser.",
   confirmSignout: "Sair",
-  profileNavigation: "Navegação do perfil", home: "Resumo", matches: "Jogos", teams: "Times", ranking: "Ranking", tournaments: "Copas", stats: "Stats", invites: "Convites", notifications: "Avisos", game: "Jogo", club: "Clube", more: "Mais", moreTabs: "Mais abas", moreDescription: "Copas, stats, convites e avisos.", goHome: "Ir para o resumo"
+  profileNavigation: "Navegação do perfil", home: "Resumo", matches: "Jogos", teams: "Times", ranking: "Ranking", venues: "Campos", tournaments: "Copas", stats: "Stats", invites: "Convites", notifications: "Avisos", game: "Jogo", club: "Clube", more: "Mais", moreTabs: "Mais abas", moreDescription: "Campos, copas, stats, convites e avisos.", goHome: "Ir para o resumo"
 } as const;

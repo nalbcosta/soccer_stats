@@ -1,7 +1,7 @@
 import type { DashboardResponse } from "../api";
 
 export interface DashboardMetric {
-  key: "teams" | "matches" | "tournaments" | "venues";
+  key: "teams" | "matches" | "tournaments";
   label: string;
   value: number;
   helper: string;
@@ -28,12 +28,6 @@ export function buildDashboardMetrics(dashboard: DashboardResponse): DashboardMe
       label: "Copas",
       value: dashboard.tournaments.length,
       helper: "Ligas da turma"
-    },
-    {
-      key: "venues",
-      label: "Locais",
-      value: dashboard.venues.length,
-      helper: "Campos salvos"
     }
   ];
 }

@@ -1,5 +1,5 @@
 import type { FastifyPluginAsync } from "fastify";
-import { inviteSchema, matchSchema, notificationSchema, playerProfileSchema, teamSchema, tournamentSchema, venueSchema } from "@soccer-stats/shared";
+import { inviteSchema, matchSchema, notificationSchema, playerProfileSchema, teamSchema, tournamentSchema } from "@soccer-stats/shared";
 import { dashboardRouteSchemas } from "../docs/openapi.js";
 import { NotificationService } from "../modules/notifications/notification.service.js";
 
@@ -18,7 +18,6 @@ export const dashboardRoutes: FastifyPluginAsync = async (app) => {
       teams.map((team) => team.id)
     );
     const invites = await app.repositories.invites.findPendingForUser(user.id, user.email);
-    const venues = await app.repositories.venues.listVisibleToUser(user.id, { pageSize: 10 });
     const notifications = await new NotificationService(app.repositories).listByUser(user.id);
     const profile = await app.repositories.playerProfiles.findByUserId(user.id);
 
@@ -28,7 +27,6 @@ export const dashboardRoutes: FastifyPluginAsync = async (app) => {
       matches: matches.map((match) => matchSchema.parse(match)),
       tournaments: tournaments.map((item) => tournamentSchema.parse(item)),
       invites: invites.map((invite) => inviteSchema.parse(invite)),
-      venues: venues.map((venue) => venueSchema.parse(venue)),
       notifications: notifications.map((notification) => notificationSchema.parse(notification))
     };
   });

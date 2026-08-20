@@ -169,6 +169,7 @@ export const authPlugin = fp<{ repositories: Repositories; config: AppConfig }>(
         locale,
         theme: options.config.defaultTheme,
         providers: ["google"],
+        platformRole: options.config.siteAdminEmails.includes(email.toLowerCase()) ? "admin" : "user",
         createdAt: now,
         updatedAt: now
       };
@@ -198,6 +199,7 @@ export const authPlugin = fp<{ repositories: Repositories; config: AppConfig }>(
         locale,
         theme: options.config.defaultTheme,
         providers: ["credentials"],
+        platformRole: options.config.siteAdminEmails.includes(email.toLowerCase()) ? "admin" : "user",
         passwordHash: hashPassword(password),
         createdAt: now,
         updatedAt: now

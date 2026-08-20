@@ -10,7 +10,8 @@ vi.mock("../app/session-provider", () => ({
       username: "camisa10",
       locale: "pt-BR",
       theme: "system",
-      providers: ["credentials"]
+      providers: ["credentials"],
+      platformRole: "user"
     },
     dashboard: {
       profile: {
@@ -53,6 +54,10 @@ vi.mock("../../composables/use-player-card", () => ({
 
 vi.mock("./profile-form", () => ({
   ProfileForm: () => <input aria-label="Nome de jogo" defaultValue="Camisa 10" />
+}));
+
+vi.mock("./athlete-skills-form", () => ({
+  AthleteSkillsForm: () => <section>Atributos do atleta</section>
 }));
 
 vi.mock("./preferences-panel", () => ({

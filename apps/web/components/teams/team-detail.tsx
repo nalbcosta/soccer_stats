@@ -10,6 +10,9 @@ import { NotFoundPanel } from "../feedback/not-found-panel";
 import { Card } from "../ui/card";
 import { InviteMemberForm } from "./invite-member-form";
 import { TeamSocialPanel } from "./team-social-panel";
+import { TeamAthletesPanel } from "./team-athletes-panel";
+import Link from "next/link";
+import { Shuffle } from "lucide-react";
 
 export function TeamDetail() {
   const params = useParams<{ teamId: string }>();
@@ -38,7 +41,7 @@ export function TeamDetail() {
 
   return (
     <>
-      <PageHeading eyebrow="Time" title={team.name} />
+      <PageHeading eyebrow="Time" title={team.name} action={canManage || membership?.role === "captain" ? <Link className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-primary px-4 text-sm font-black text-white" href={`/app/teams/${team.slug}/pelada`}><Shuffle size={17} />Sortear pelada</Link> : undefined} />
       <div className="grid gap-4 lg:grid-cols-[1fr_0.8fr]">
         <section className="grid gap-3 sm:grid-cols-3">
           <Card className="p-4">
@@ -60,17 +63,7 @@ export function TeamDetail() {
             <InviteMemberForm teamId={team.id} />
           </div>
         </section>
-        <section className="lg:col-span-2">
-          <p className="mb-3 text-sm font-bold uppercase text-muted">Elenco</p>
-          <div className="grid gap-2 sm:grid-cols-2">
-            {team.members.map((member) => (
-              <Card className="p-3" key={member.userId}>
-                <p className="font-bold">{member.username ?? (member.userId === user?.id ? user.username : "Jogador")}</p>
-                <p className="text-sm text-muted">{member.role}</p>
-              </Card>
-            ))}
-          </div>
-        </section>
+        <section className="lg:col-span-2"><TeamAthletesPanel team={team} /></section>
         {user && <section className="lg:col-span-2"><TeamSocialPanel canManage={canManage} onTeamChange={refresh} team={team} userId={user.id} /></section>}
       </div>
     </>

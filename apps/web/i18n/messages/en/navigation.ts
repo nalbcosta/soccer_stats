@@ -17,5 +17,5 @@ export const navigation = {
   signOut: "Sign out",
   signoutDescription: "You will return to the login and can log in again whenever you want.",
   confirmSignout: "Sign out",
-  profileNavigation: "Profile navigation", home: "Overview", matches: "Matches", teams: "Teams", ranking: "Ranking", tournaments: "Cups", stats: "Stats", invites: "Invites", notifications: "Notifications", game: "Game", club: "Club", more: "More", moreTabs: "More tabs", moreDescription: "Cups, stats, invites and notifications.", goHome: "Go to overview"
+  profileNavigation: "Profile navigation", home: "Overview", matches: "Matches", teams: "Teams", ranking: "Ranking", venues: "Fields", tournaments: "Cups", stats: "Stats", invites: "Invites", notifications: "Notifications", game: "Game", club: "Club", more: "More", moreTabs: "More tabs", moreDescription: "Fields, cups, stats, invites and notifications.", goHome: "Go to overview"
 } as const;

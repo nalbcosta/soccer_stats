@@ -1,4 +1,4 @@
-import type { AuditLog, Invite, Match, MatchComment, MatchJoinRequest, Notification, PlayerCardProjection, PlayerFeatureSnapshot, PlayerProfile, Team, TeamJoinRequest, TeamMessage, Tournament, Venue } from "@soccer-stats/shared";
+import type { AthleteSkillProfile, AuditLog, Invite, Match, MatchComment, MatchJoinRequest, Notification, PlayerCardProjection, PlayerFeatureSnapshot, PlayerProfile, Team, TeamAthleteSkillOverride, TeamJoinRequest, TeamMessage, Tournament, Venue, VenueChangeRequest, VenueReview } from "@soccer-stats/shared";
 import type {
   AuditLogRepository,
   InviteRepository,
@@ -18,6 +18,10 @@ import type {
   MatchCommentRepository,
   TournamentRepository,
   VenueRepository,
+  AthleteSkillProfileRepository,
+  TeamAthleteSkillOverrideRepository,
+  VenueChangeRequestRepository,
+  VenueReviewRepository,
   UserRepository
 } from "../types.js";
 
@@ -47,6 +51,27 @@ class MemoryUserRepository implements UserRepository {
     const normalizedIdentifier = publicIdentifier.trim().toUpperCase();
     return [...this.items.values()].find((item) => item.publicIdentifier === normalizedIdentifier) ?? null;
   }
+
+  async listByEmails(emails: string[]): Promise<StoredUser[]> {
+    const normalized = new Set(emails.map((email) => email.trim().toLowerCase()));
+    return [...this.items.values()].filter((item) => normalized.has(item.email.trim().toLowerCase()));
+  }
+}
+
+class MemoryAthleteSkillProfileRepository implements AthleteSkillProfileRepository {
+  private readonly items = new Map<string, AthleteSkillProfile>();
+  async upsert(profile: AthleteSkillProfile) { this.items.set(profile.userId, profile); return profile; }
+  async findByUserId(userId: string) { return this.items.get(userId) ?? null; }
+  async listByUserIds(userIds: string[]) { return userIds.map((id) => this.items.get(id)).filter((item): item is AthleteSkillProfile => Boolean(item)); }
+}
+
+class MemoryTeamAthleteSkillOverrideRepository implements TeamAthleteSkillOverrideRepository {
+  private readonly items = new Map<string, TeamAthleteSkillOverride>();
+  private key(teamId: string, userId: string) { return `${teamId}:${userId}`; }
+  async upsert(value: TeamAthleteSkillOverride) { this.items.set(this.key(value.teamId, value.userId), value); return value; }
+  async findByTeamAndUser(teamId: string, userId: string) { return this.items.get(this.key(teamId, userId)) ?? null; }
+  async listByTeam(teamId: string) { return [...this.items.values()].filter((item) => item.teamId === teamId); }
+  async deleteByTeamAndUser(teamId: string, userId: string) { this.items.delete(this.key(teamId, userId)); }
 }
 
 class MemoryPlayerProfileRepository implements PlayerProfileRepository {
@@ -256,19 +281,44 @@ class MemoryVenueRepository implements VenueRepository {
     return this.items.get(id) ?? null;
   }
 
+  async findBySlug(slug: string): Promise<Venue | null> {
+    return [...this.items.values()].find((venue) => venue.slug === slug) ?? null;
+  }
+
   async listVisibleToUser(
     userId: string,
-    filters: { city?: string; state?: string; visibility?: Venue["visibility"]; page?: number; pageSize?: number } = {}
-  ): Promise<Venue[]> {
+    filters: { q?: string; city?: string; state?: string; visibility?: Venue["visibility"]; surface?: Venue["surface"]; status?: Venue["status"]; page?: number; pageSize?: number } = {}
+  ): Promise<{ items: Venue[]; total: number }> {
     const page = filters.page ?? 1;
     const pageSize = filters.pageSize ?? 20;
-    return [...this.items.values()]
+    const visible = [...this.items.values()]
       .filter((venue) => venue.visibility === "public" || venue.ownerId === userId)
+      .filter((venue) => !filters.q || `${venue.name} ${venue.address ?? ""}`.toLowerCase().includes(filters.q.toLowerCase()))
       .filter((venue) => !filters.visibility || venue.visibility === filters.visibility)
       .filter((venue) => !filters.city || venue.city.toLowerCase() === filters.city.toLowerCase())
       .filter((venue) => !filters.state || venue.state.toLowerCase() === filters.state.toLowerCase())
-      .slice((page - 1) * pageSize, page * pageSize);
+      .filter((venue) => !filters.surface || venue.surface === filters.surface)
+      .filter((venue) => !filters.status || venue.status === filters.status);
+    return { items: visible.slice((page - 1) * pageSize, page * pageSize), total: visible.length };
   }
+}
+
+class MemoryVenueChangeRequestRepository implements VenueChangeRequestRepository {
+  private readonly items = new Map<string, VenueChangeRequest>();
+  async create(value: VenueChangeRequest) { this.items.set(value.id, value); return value; }
+  async update(value: VenueChangeRequest) { this.items.set(value.id, value); return value; }
+  async findById(id: string) { return this.items.get(id) ?? null; }
+  async list(status?: VenueChangeRequest["status"]) { return [...this.items.values()].filter((item) => !status || item.status === status); }
+}
+
+class MemoryVenueReviewRepository implements VenueReviewRepository {
+  private readonly items = new Map<string, VenueReview>();
+  async upsert(value: VenueReview) { this.items.set(value.id, value); return value; }
+  async update(value: VenueReview) { this.items.set(value.id, value); return value; }
+  async findById(id: string) { return this.items.get(id) ?? null; }
+  async findByVenueAndAuthor(venueId: string, authorId: string) { return [...this.items.values()].find((item) => item.venueId === venueId && item.authorId === authorId) ?? null; }
+  async listByVenue(venueId: string, status?: VenueReview["status"]) { return [...this.items.values()].filter((item) => item.venueId === venueId && (!status || item.status === status)); }
+  async list(status?: VenueReview["status"]) { return [...this.items.values()].filter((item) => !status || item.status === status); }
 }
 
 class MemoryInviteRepository implements InviteRepository {
@@ -406,6 +456,8 @@ class MemoryAuditLogRepository implements AuditLogRepository {
 export const createMemoryRepositories = (): Repositories => ({
   users: new MemoryUserRepository(),
   playerProfiles: new MemoryPlayerProfileRepository(),
+  athleteSkills: new MemoryAthleteSkillProfileRepository(),
+  teamAthleteSkillOverrides: new MemoryTeamAthleteSkillOverrideRepository(),
   playerFeatureSnapshots: new MemoryPlayerFeatureSnapshotRepository(),
   playerCardProjections: new MemoryPlayerCardProjectionRepository(),
   teams: new MemoryTeamRepository(),
@@ -417,6 +469,8 @@ export const createMemoryRepositories = (): Repositories => ({
   tournaments: new MemoryTournamentRepository(),
   invites: new MemoryInviteRepository(),
   venues: new MemoryVenueRepository(),
+  venueChangeRequests: new MemoryVenueChangeRequestRepository(),
+  venueReviews: new MemoryVenueReviewRepository(),
   notifications: new MemoryNotificationRepository(),
   auditLogs: new MemoryAuditLogRepository(),
   sessions: new MemorySessionRepository()

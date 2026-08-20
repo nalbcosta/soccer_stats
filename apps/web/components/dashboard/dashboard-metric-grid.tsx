@@ -1,12 +1,11 @@
-import { CalendarDays, MapPin, Trophy, Users, type LucideIcon } from "lucide-react";
+import { CalendarDays, Trophy, Users, type LucideIcon } from "lucide-react";
 import type { DashboardMetric } from "../../lib/dashboard/dashboard-metrics";
 import { Card } from "../ui/card";
 
 const metricIcons: Record<DashboardMetric["key"], LucideIcon> = {
   teams: Users,
   matches: CalendarDays,
-  tournaments: Trophy,
-  venues: MapPin
+  tournaments: Trophy
 };
 
 export function DashboardMetricGrid({ metrics }: { metrics: DashboardMetric[] }) {

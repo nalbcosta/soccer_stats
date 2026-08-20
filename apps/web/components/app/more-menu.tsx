@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRef, useState } from "react";
 import { ChevronDown, Menu, X } from "lucide-react";
 import { usePathname } from "next/navigation";
-import { secondaryNavItems } from "../../lib/routes";
+import { secondaryNavItems, venueNavItem } from "../../lib/routes";
 import { Button } from "../ui/button";
 import { MenuShell } from "./menu-shell";
 import { useTranslations } from "../../i18n/provider";
@@ -44,7 +44,7 @@ export function MoreMenu() {
 
         <div className="flex-1 overflow-y-auto p-3">
           <div className="grid gap-2">
-            {secondaryNavItems.map((item) => {
+            {[venueNavItem, ...secondaryNavItems].map((item) => {
               const Icon = item.icon;
               const active = pathname === item.href || pathname.startsWith(item.href);
 

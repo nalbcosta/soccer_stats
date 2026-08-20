@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { appNavItems, secondaryNavItems } from "../../lib/routes";
+import { appNavItems, secondaryNavItems, venueNavItem } from "../../lib/routes";
 import { useTranslations } from "../../i18n/provider";
 
 export function DesktopSidebar() {
@@ -17,6 +17,7 @@ export function DesktopSidebar() {
           {appNavItems.map((item) => (
             <SidebarLink active={pathname === item.href || (item.href !== "/app" && pathname.startsWith(item.href))} item={item} key={item.href} />
           ))}
+          <SidebarLink active={pathname === venueNavItem.href || pathname.startsWith(venueNavItem.href)} item={venueNavItem} />
         </nav>
 
         <nav className="grid gap-1" aria-label={t("club")}>

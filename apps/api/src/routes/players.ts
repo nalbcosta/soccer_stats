@@ -1,6 +1,6 @@
 import type { FastifyPluginAsync } from "fastify";
 import { extname } from "node:path";
-import { playerCardProjectionSchema, playerProfileSchema, updateProfileInputSchema } from "@soccer-stats/shared";
+import { athleteSkillProfileSchema, athleteSkillsInputSchema, playerCardProjectionSchema, playerProfileSchema, updateProfileInputSchema } from "@soccer-stats/shared";
 import { playerRouteSchemas } from "../docs/openapi.js";
 import { createId } from "../lib/ids.js";
 import { removeStoredImage, storePublicImage } from "../lib/image-storage.js";
@@ -77,6 +77,30 @@ export const playerRoutes: FastifyPluginAsync = async (app) => {
 
     const profile = await app.repositories.playerProfiles.findByUserId(user.id);
     return { profile: profile ? playerProfileSchema.parse(profile) : null };
+  });
+
+  app.get("/players/me/skills", async (request, reply) => {
+    const user = await app.auth.requireUser(request, reply);
+    if (!user) return;
+    const skills = await app.repositories.athleteSkills.findByUserId(user.id);
+    return { skills: skills ? athleteSkillProfileSchema.parse(skills) : null };
+  });
+
+  app.patch("/players/me/skills", async (request, reply) => {
+    const user = await app.auth.requireUser(request, reply);
+    if (!user) return;
+    const payload = athleteSkillsInputSchema.parse(request.body);
+    const existing = await app.repositories.athleteSkills.findByUserId(user.id);
+    const now = new Date().toISOString();
+    const skills = await app.repositories.athleteSkills.upsert({
+      userId: user.id,
+      outfield: payload.outfield,
+      isGoalkeeper: payload.isGoalkeeper,
+      ...(payload.goalkeeper ? { goalkeeper: payload.goalkeeper } : {}),
+      completedAt: existing?.completedAt ?? now,
+      updatedAt: now
+    });
+    return { skills: athleteSkillProfileSchema.parse(skills) };
   });
 
   app.put("/players/me", { schema: playerRouteSchemas.updateMe }, async (request, reply) => {

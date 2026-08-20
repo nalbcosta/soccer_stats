@@ -1,6 +1,7 @@
 import mongoose, { Schema, type Connection, type Model } from "mongoose";
-import type { AuditLog, Invite, Match, MatchComment, MatchJoinRequest, Notification, PlayerCardProjection, PlayerFeatureSnapshot, PlayerProfile, Team, TeamJoinRequest, TeamMessage, Tournament, Venue } from "@soccer-stats/shared";
+import type { AthleteSkillProfile, AuditLog, Invite, Match, MatchComment, MatchJoinRequest, Notification, PlayerCardProjection, PlayerFeatureSnapshot, PlayerProfile, Team, TeamAthleteSkillOverride, TeamJoinRequest, TeamMessage, Tournament, Venue, VenueChangeRequest, VenueReview } from "@soccer-stats/shared";
 import type {
+  AthleteSkillProfileRepository,
   AuditLogRepository,
   InviteRepository,
   MatchRepository,
@@ -19,7 +20,10 @@ import type {
   MatchCommentRepository,
   TournamentRepository,
   UserRepository,
-  VenueRepository
+  VenueRepository,
+  TeamAthleteSkillOverrideRepository,
+  VenueChangeRequestRepository,
+  VenueReviewRepository
 } from "../types.js";
 import { createPublicIdentifier, slugify } from "../lib/ids.js";
 
@@ -88,6 +92,15 @@ const matchVenueSchema = new Schema(
   { _id: false }
 );
 
+const outfieldAttributesSchema = new Schema(
+  { pac: { type: Number, required: true, min: 1, max: 5 }, sho: { type: Number, required: true, min: 1, max: 5 }, pas: { type: Number, required: true, min: 1, max: 5 }, dri: { type: Number, required: true, min: 1, max: 5 }, def: { type: Number, required: true, min: 1, max: 5 }, phy: { type: Number, required: true, min: 1, max: 5 } },
+  { _id: false }
+);
+const goalkeeperAttributesSchema = new Schema(
+  { div: { type: Number, required: true, min: 1, max: 5 }, han: { type: Number, required: true, min: 1, max: 5 }, kic: { type: Number, required: true, min: 1, max: 5 }, ref: { type: Number, required: true, min: 1, max: 5 }, spd: { type: Number, required: true, min: 1, max: 5 }, pos: { type: Number, required: true, min: 1, max: 5 } },
+  { _id: false }
+);
+
 const matchEventSchema = new Schema(
   {
     minute: { type: Number, required: true, min: 0, max: 130 },
@@ -137,6 +150,7 @@ const modelsFor = (connection: Connection) => {
       locale: { type: String, enum: ["pt-BR", "en"], required: true },
       theme: { type: String, enum: ["light", "dark", "system"], required: true },
       providers: [{ type: String, enum: ["credentials", "google"], required: true }],
+      platformRole: { type: String, enum: ["user", "admin"], required: true, default: "user", index: true },
       passwordHash: String,
       createdAt: { type: String, required: true },
       updatedAt: { type: String, required: true }
@@ -166,6 +180,34 @@ const modelsFor = (connection: Connection) => {
     },
     { collection: "player_profiles", versionKey: false }
   );
+
+  const athleteSkillProfileSchema = new Schema<Persisted<AthleteSkillProfile>>(
+    {
+      _id: { type: String, required: true },
+      userId: { type: String, required: true, unique: true, index: true },
+      outfield: { type: outfieldAttributesSchema, required: true },
+      isGoalkeeper: { type: Boolean, required: true },
+      goalkeeper: goalkeeperAttributesSchema,
+      completedAt: { type: String, required: true },
+      updatedAt: { type: String, required: true }
+    },
+    { collection: "athlete_skills", versionKey: false }
+  );
+
+  const teamAthleteSkillOverrideSchema = new Schema<Persisted<TeamAthleteSkillOverride>>(
+    {
+      _id: { type: String, required: true },
+      teamId: { type: String, required: true, index: true },
+      userId: { type: String, required: true, index: true },
+      outfield: { type: outfieldAttributesSchema, required: true },
+      isGoalkeeper: { type: Boolean, required: true },
+      goalkeeper: goalkeeperAttributesSchema,
+      updatedBy: { type: String, required: true },
+      updatedAt: { type: String, required: true }
+    },
+    { collection: "team_athlete_skill_overrides", versionKey: false }
+  );
+  teamAthleteSkillOverrideSchema.index({ teamId: 1, userId: 1 }, { unique: true });
 
   const teamSchema = new Schema<Persisted<Team>>(
     {
@@ -284,17 +326,48 @@ const modelsFor = (connection: Connection) => {
       ownerId: { type: String, required: true, index: true },
       visibility: { type: String, enum: ["private", "public"], required: true, default: "private", index: true },
       address: String,
+      postalCode: { type: String, index: true },
+      addressNumber: String,
       city: { type: String, required: true, index: true },
       state: { type: String, required: true, index: true },
       surface: { type: String, enum: ["grass", "synthetic", "court", "sand", "other"], required: true },
       latitude: { type: Number, min: -90, max: 90 },
       longitude: { type: Number, min: -180, max: 180 },
+      contactPhone: String,
+      prices: { minutes60: Number, minutes90: Number, minutes120: Number },
+      status: { type: String, enum: ["active", "closed"], required: true, default: "active", index: true },
+      ratingAverage: { type: Number, required: true, default: 0, min: 0, max: 5 },
+      ratingCount: { type: Number, required: true, default: 0, min: 0 },
+      approvedAt: String,
+      approvedBy: String,
       createdAt: { type: String, required: true },
       updatedAt: { type: String, required: true }
     },
     { collection: "venues", versionKey: false }
   );
   venueSchema.index({ city: 1, state: 1, visibility: 1 });
+
+  const venueChangeRequestSchema = new Schema<Persisted<VenueChangeRequest>>(
+    {
+      _id: { type: String, required: true }, venueId: { type: String, index: true },
+      kind: { type: String, enum: ["create", "update", "close", "reopen"], required: true },
+      changes: { type: Schema.Types.Mixed, required: true },
+      status: { type: String, enum: ["pending", "approved", "rejected"], required: true, index: true },
+      submittedBy: { type: String, required: true, index: true }, reviewedBy: String, reviewedAt: String, reviewReason: String,
+      createdAt: { type: String, required: true }, updatedAt: { type: String, required: true }
+    }, { collection: "venue_change_requests", versionKey: false }
+  );
+
+  const venueReviewSchema = new Schema<Persisted<VenueReview>>(
+    {
+      _id: { type: String, required: true }, venueId: { type: String, required: true, index: true }, authorId: { type: String, required: true, index: true },
+      rating: { type: Number, required: true, min: 1, max: 5 }, comment: String,
+      status: { type: String, enum: ["pending", "approved", "rejected"], required: true, index: true },
+      reviewedBy: String, reviewedAt: String, reviewReason: String,
+      createdAt: { type: String, required: true }, updatedAt: { type: String, required: true }
+    }, { collection: "venue_reviews", versionKey: false }
+  );
+  venueReviewSchema.index({ venueId: 1, authorId: 1 }, { unique: true });
 
   const inviteSchema = new Schema<Persisted<Invite>>(
     {
@@ -407,6 +480,8 @@ const modelsFor = (connection: Connection) => {
   return {
     users: connection.model<Persisted<StoredUser>>("User", userSchema),
     playerProfiles: connection.model<Persisted<PlayerProfile>>("PlayerProfile", playerProfileSchema),
+    athleteSkills: connection.model<Persisted<AthleteSkillProfile>>("AthleteSkillProfile", athleteSkillProfileSchema),
+    teamAthleteSkillOverrides: connection.model<Persisted<TeamAthleteSkillOverride>>("TeamAthleteSkillOverride", teamAthleteSkillOverrideSchema),
     teams: connection.model<Persisted<Team>>("Team", teamSchema),
     teamJoinRequests: connection.model<Persisted<TeamJoinRequest>>("TeamJoinRequest", teamJoinRequestSchema),
     matchJoinRequests: connection.model<Persisted<MatchJoinRequest>>("MatchJoinRequest", matchJoinRequestSchema),
@@ -415,6 +490,8 @@ const modelsFor = (connection: Connection) => {
     matches: connection.model<Persisted<Match>>("Match", matchSchema),
     tournaments: connection.model<Persisted<Tournament>>("Tournament", tournamentSchema),
     venues: connection.model<Persisted<Venue>>("Venue", venueSchema),
+    venueChangeRequests: connection.model<Persisted<VenueChangeRequest>>("VenueChangeRequest", venueChangeRequestSchema),
+    venueReviews: connection.model<Persisted<VenueReview>>("VenueReview", venueReviewSchema),
     invites: connection.model<Persisted<Invite>>("Invite", inviteSchema),
     notifications: connection.model<Persisted<Notification>>("Notification", notificationSchema),
     sessions: connection.model<Persisted<SessionRecord>>("Session", sessionSchema),
@@ -464,6 +541,12 @@ class MongooseUserRepository implements UserRepository {
       await this.model.findOne({ publicIdentifier: publicIdentifier.trim().toUpperCase() }).lean()
     );
   }
+
+  async listByEmails(emails: string[]): Promise<StoredUser[]> {
+    if (emails.length === 0) return [];
+    return (await this.model.find({ email: { $in: emails } }).collation({ locale: "en", strength: 2 }).lean())
+      .map((doc) => toDomain<StoredUser>(doc)).filter(Boolean) as StoredUser[];
+  }
 }
 
 class MongoosePlayerProfileRepository implements PlayerProfileRepository {
@@ -498,6 +581,21 @@ class MongoosePlayerProfileRepository implements PlayerProfileRepository {
       return rest as PlayerProfile;
     });
   }
+}
+
+class MongooseAthleteSkillProfileRepository implements AthleteSkillProfileRepository {
+  constructor(private readonly model: Model<Persisted<AthleteSkillProfile>>) {}
+  async upsert(profile: AthleteSkillProfile) { const { userId, ...rest } = profile; await this.model.updateOne({ _id: userId }, { $set: { ...rest, userId, _id: userId }, ...(!profile.goalkeeper ? { $unset: { goalkeeper: 1 } } : {}) }, { upsert: true, runValidators: true }); return profile; }
+  async findByUserId(userId: string) { const doc = await this.model.findById(userId).lean(); if (!doc) return null; const { _id: _ignored, ...rest } = clean(doc); return rest as AthleteSkillProfile; }
+  async listByUserIds(userIds: string[]) { return (await this.model.find({ _id: { $in: userIds } }).lean()).map((doc) => { const { _id: _ignored, ...rest } = clean(doc); return rest as AthleteSkillProfile; }); }
+}
+
+class MongooseTeamAthleteSkillOverrideRepository implements TeamAthleteSkillOverrideRepository {
+  constructor(private readonly model: Model<Persisted<TeamAthleteSkillOverride>>) {}
+  async upsert(value: TeamAthleteSkillOverride) { const { id, ...rest } = value; await this.model.updateOne({ teamId: value.teamId, userId: value.userId }, { $set: { ...rest, _id: id }, ...(!value.goalkeeper ? { $unset: { goalkeeper: 1 } } : {}) }, { upsert: true, runValidators: true }); return value; }
+  async findByTeamAndUser(teamId: string, userId: string) { return toDomain<TeamAthleteSkillOverride>(await this.model.findOne({ teamId, userId }).lean()); }
+  async listByTeam(teamId: string) { return (await this.model.find({ teamId }).lean()).map((doc) => toDomain<TeamAthleteSkillOverride>(doc)).filter(Boolean) as TeamAthleteSkillOverride[]; }
+  async deleteByTeamAndUser(teamId: string, userId: string) { await this.model.deleteOne({ teamId, userId }); }
 }
 
 class MongoosePlayerFeatureSnapshotRepository extends BaseMongooseRepository<PlayerFeatureSnapshot & { id: string }> implements PlayerFeatureSnapshotRepository {
@@ -683,25 +781,49 @@ class MongooseVenueRepository extends BaseMongooseRepository<Venue> implements V
     return toDomain<Venue>(await this.model.findById(id).lean());
   }
 
+  async findBySlug(slug: string): Promise<Venue | null> {
+    return toDomain<Venue>(await this.model.findOne({ slug }).lean());
+  }
+
   async listVisibleToUser(
     userId: string,
-    filters: { city?: string; state?: string; visibility?: Venue["visibility"]; page?: number; pageSize?: number } = {}
-  ): Promise<Venue[]> {
+    filters: { q?: string; city?: string; state?: string; visibility?: Venue["visibility"]; surface?: Venue["surface"]; status?: Venue["status"]; page?: number; pageSize?: number } = {}
+  ): Promise<{ items: Venue[]; total: number }> {
     const page = filters.page ?? 1;
     const pageSize = filters.pageSize ?? 20;
     const query: Record<string, unknown> = {
       $and: [
         { $or: [{ visibility: "public" }, { ownerId: userId }] },
         ...(filters.visibility ? [{ visibility: filters.visibility }] : []),
+        ...(filters.q ? [{ $or: [{ name: { $regex: filters.q, $options: "i" } }, { address: { $regex: filters.q, $options: "i" } }] }] : []),
         ...(filters.city ? [{ city: filters.city }] : []),
-        ...(filters.state ? [{ state: filters.state }] : [])
+        ...(filters.state ? [{ state: filters.state }] : []),
+        ...(filters.surface ? [{ surface: filters.surface }] : []),
+        ...(filters.status ? [{ status: filters.status }] : [])
       ]
     };
-
-    return (await this.model.find(query).sort({ createdAt: -1 }).skip((page - 1) * pageSize).limit(pageSize).lean())
-      .map((doc) => toDomain<Venue>(doc))
-      .filter(Boolean) as Venue[];
+    const [docs, total] = await Promise.all([
+      this.model.find(query).sort({ createdAt: -1 }).skip((page - 1) * pageSize).limit(pageSize).lean(),
+      this.model.countDocuments(query)
+    ]);
+    return { items: docs.map((doc) => toDomain<Venue>(doc)).filter(Boolean) as Venue[], total };
   }
+}
+
+class MongooseVenueChangeRequestRepository extends BaseMongooseRepository<VenueChangeRequest> implements VenueChangeRequestRepository {
+  async create(value: VenueChangeRequest) { return this.save(value); }
+  async update(value: VenueChangeRequest) { return this.save(value); }
+  async findById(id: string) { return toDomain<VenueChangeRequest>(await this.model.findById(id).lean()); }
+  async list(status?: VenueChangeRequest["status"]) { return (await this.model.find(status ? { status } : {}).sort({ createdAt: -1 }).lean()).map((doc) => toDomain<VenueChangeRequest>(doc)).filter(Boolean) as VenueChangeRequest[]; }
+}
+
+class MongooseVenueReviewRepository extends BaseMongooseRepository<VenueReview> implements VenueReviewRepository {
+  async upsert(value: VenueReview) { const existing = await this.model.findOne({ venueId: value.venueId, authorId: value.authorId }).lean(); const id = existing?._id ?? value.id; const { id: _ignored, ...rest } = value; await this.model.updateOne({ venueId: value.venueId, authorId: value.authorId }, { $set: { ...rest, _id: id }, $unset: { reviewedBy: 1, reviewedAt: 1, reviewReason: 1 } }, { upsert: true, runValidators: true }); return { ...value, id }; }
+  async update(value: VenueReview) { return this.save(value); }
+  async findById(id: string) { return toDomain<VenueReview>(await this.model.findById(id).lean()); }
+  async findByVenueAndAuthor(venueId: string, authorId: string) { return toDomain<VenueReview>(await this.model.findOne({ venueId, authorId }).lean()); }
+  async listByVenue(venueId: string, status?: VenueReview["status"]) { return (await this.model.find({ venueId, ...(status ? { status } : {}) }).sort({ createdAt: -1 }).lean()).map((doc) => toDomain<VenueReview>(doc)).filter(Boolean) as VenueReview[]; }
+  async list(status?: VenueReview["status"]) { return (await this.model.find(status ? { status } : {}).sort({ createdAt: -1 }).lean()).map((doc) => toDomain<VenueReview>(doc)).filter(Boolean) as VenueReview[]; }
 }
 
 class MongooseInviteRepository extends BaseMongooseRepository<Invite> implements InviteRepository {
@@ -824,6 +946,8 @@ export interface MongoPersistence {
 }
 
 const migratePublicIdentifiers = async (models: ReturnType<typeof modelsFor>): Promise<void> => {
+  await models.users.updateMany({ platformRole: { $exists: false } }, { $set: { platformRole: "user" } });
+  await models.venues.updateMany({ status: { $exists: false } }, { $set: { status: "active", ratingAverage: 0, ratingCount: 0 } });
   const usersWithIdentifier = await models.users.find({ publicIdentifier: { $exists: true, $ne: null } }).select({ publicIdentifier: 1 }).lean();
   const usedIdentifiers = new Set(usersWithIdentifier.map((user) => user.publicIdentifier));
   const usersWithoutIdentifier = await models.users.find({ $or: [{ publicIdentifier: { $exists: false } }, { publicIdentifier: null }] }).select({ _id: 1 }).lean();
@@ -897,6 +1021,8 @@ export const createMongoRepositories = async (uri: string, dbName: string): Prom
     repositories: {
       users: new MongooseUserRepository(models.users),
       playerProfiles: new MongoosePlayerProfileRepository(models.playerProfiles),
+      athleteSkills: new MongooseAthleteSkillProfileRepository(models.athleteSkills),
+      teamAthleteSkillOverrides: new MongooseTeamAthleteSkillOverrideRepository(models.teamAthleteSkillOverrides),
       playerFeatureSnapshots: new MongoosePlayerFeatureSnapshotRepository(models.playerFeatureSnapshots),
       playerCardProjections: new MongoosePlayerCardProjectionRepository(models.playerCardProjections),
       teams: new MongooseTeamRepository(models.teams),
@@ -907,6 +1033,8 @@ export const createMongoRepositories = async (uri: string, dbName: string): Prom
       matches: new MongooseMatchRepository(models.matches),
       tournaments: new MongooseTournamentRepository(models.tournaments),
       venues: new MongooseVenueRepository(models.venues),
+      venueChangeRequests: new MongooseVenueChangeRequestRepository(models.venueChangeRequests),
+      venueReviews: new MongooseVenueReviewRepository(models.venueReviews),
       invites: new MongooseInviteRepository(models.invites),
       notifications: new MongooseNotificationRepository(models.notifications),
       auditLogs: new MongooseAuditLogRepository(models.auditLogs),

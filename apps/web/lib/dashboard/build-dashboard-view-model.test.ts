@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { AggregatedStats, Invite, Match, Notification, PlayerRankingEntry, PublicUser, Team, Tournament, Venue } from "@soccer-stats/shared";
+import type { AggregatedStats, Invite, Match, Notification, PlayerRankingEntry, PublicUser, Team, Tournament } from "@soccer-stats/shared";
 import type { DashboardResponse } from "../api";
 import { buildDashboardViewModel } from "./build-dashboard-view-model";
 import { selectNextMatch } from "./dashboard-match-selectors";
@@ -29,7 +29,8 @@ const user: PublicUser = {
   username: "camisa10",
   locale: "pt-BR",
   theme: "system",
-  providers: ["credentials"]
+  providers: ["credentials"],
+  platformRole: "user"
 };
 
 const team: Team = {
@@ -40,19 +41,6 @@ const team: Team = {
   visibility: "private",
   members: [{ userId: "user-1", role: "owner", joinedAt: "2026-07-01T10:00:00.000Z" }],
   stats,
-  createdAt: "2026-07-01T10:00:00.000Z",
-  updatedAt: "2026-07-01T10:00:00.000Z"
-};
-
-const venue: Venue = {
-  id: "venue-1",
-  name: "Arena Bairro",
-  slug: "arena-bairro",
-  ownerId: "user-1",
-  visibility: "private",
-  city: "Sao Paulo",
-  state: "SP",
-  surface: "synthetic",
   createdAt: "2026-07-01T10:00:00.000Z",
   updatedAt: "2026-07-01T10:00:00.000Z"
 };
@@ -84,7 +72,6 @@ function makeDashboard(input: Partial<DashboardResponse> = {}): DashboardRespons
     matches: [],
     tournaments: [],
     invites: [],
-    venues: [venue],
     notifications: [],
     ...input
   };
@@ -151,7 +138,7 @@ describe("dashboard selectors", () => {
       user
     });
 
-    expect(viewModel.metrics.find((metric) => metric.key === "venues")?.value).toBe(1);
+    expect(viewModel.metrics).toHaveLength(3);
     expect(viewModel.actions[0]?.key).toBe("presence-match-1");
   });
 
