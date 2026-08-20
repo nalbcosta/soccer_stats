@@ -50,6 +50,29 @@ describe("api flows", () => {
     expect(response.cookies.some((cookie) => cookie.name.includes("soccer_stats_session"))).toBe(true);
   });
 
+  it("preserva maiusculas no apelido e impede duplicidade sem diferenciar caixa", async () => {
+    const created = await app.inject({
+      method: "POST",
+      url: "/v1/auth/signup",
+      payload: {
+        email: "capitalized@example.com",
+        username: "Camisa10",
+        password: "senha123",
+        locale: "pt-BR"
+      }
+    });
+
+    const availability = await app.inject({
+      method: "GET",
+      url: "/v1/auth/username-availability?username=camisa10"
+    });
+
+    expect(created.statusCode).toBe(200);
+    expect(created.json().user.username).toBe("Camisa10");
+    expect(availability.statusCode).toBe(200);
+    expect(availability.json().available).toBe(false);
+  });
+
   it("permite PATCH de notificacoes no preflight CORS", async () => {
     const response = await app.inject({
       method: "OPTIONS",

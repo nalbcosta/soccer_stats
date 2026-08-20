@@ -9,10 +9,10 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
 
     if (!parsed.success) {
       reply.code(400);
-      return { available: false, message: "Use 3 a 20 caracteres: letras minusculas, numeros e _." };
+      return { available: false, message: "Use 3 a 20 caracteres: letras, numeros e _." };
     }
 
-    const username = parsed.data.username.trim().toLowerCase();
+    const username = parsed.data.username.trim();
     const existing = await app.repositories.users.findByUsername(username);
 
     return {
@@ -31,7 +31,7 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
 
     const payload = parsed.data;
     const email = payload.email.trim().toLowerCase();
-    const username = payload.username.trim().toLowerCase();
+    const username = payload.username.trim();
 
     try {
       const user = await app.auth.registerWithCredentials(email, username, payload.password, payload.locale);

@@ -66,8 +66,9 @@ export function AuthForm() {
         <label className="grid gap-1.5">
           <span className="text-xs font-black uppercase tracking-[0.14em] text-muted">{t("email")}</span>
           <Input
-            autoComplete="email"
+            autoComplete={isSignUp ? "section-signup email" : "section-signin username"}
             disabled={isPending}
+            name="email"
             placeholder={t("emailPlaceholder")}
             required
             type="email"
@@ -79,15 +80,16 @@ export function AuthForm() {
           <label className="grid gap-1.5">
             <span className="text-xs font-black uppercase tracking-[0.14em] text-muted">{t("username")}</span>
             <Input
-              autoComplete="username"
+              autoComplete="section-signup nickname"
               disabled={isPending}
               maxLength={20}
               minLength={3}
-              pattern="[a-z0-9_]+"
+              name="nickname"
+              pattern="[A-Za-z0-9_]+"
               placeholder={t("usernamePlaceholder")}
               required
               value={form.username}
-              onChange={(event) => updateField("username", event.target.value.toLowerCase())}
+              onChange={(event) => updateField("username", event.target.value)}
             />
             <UsernameAvailabilityMessage message={usernameAvailability.message} status={usernameAvailability.status} />
           </label>
@@ -101,6 +103,7 @@ export function AuthForm() {
               disabled={isPending}
               maxLength={72}
               minLength={8}
+              name="password"
               placeholder={isSignUp ? t("passwordMinimum") : "•••••••••"}
               required
               type={isPasswordVisible ? "text" : "password"}
@@ -139,6 +142,7 @@ export function AuthForm() {
                 disabled={isPending}
                 maxLength={72}
                 minLength={8}
+                name="passwordConfirmation"
                 placeholder={t("repeatPassword")}
                 required
                 type={isConfirmPasswordVisible ? "text" : "password"}

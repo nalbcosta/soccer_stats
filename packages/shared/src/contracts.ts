@@ -37,7 +37,7 @@ export const notificationTypeSchema = z.enum([
 export const presenceStatusSchema = z.enum(["pending", "confirmed", "declined", "maybe"]);
 export const ratingVersionSchema = z.enum(["v1", "v2"]);
 export const matchReviewStatusSchema = z.enum(["none", "pending", "approved", "disputed"]);
-export const usernameSchema = z.string().min(3).max(20).regex(/^[a-z0-9_]+$/);
+export const usernameSchema = z.string().min(3).max(20).regex(/^[A-Za-z0-9_]+$/);
 export const passwordSchema = z
   .string()
   .min(8)

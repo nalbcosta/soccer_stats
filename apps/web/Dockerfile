@@ -15,7 +15,8 @@ RUN pnpm --filter web build
 FROM base AS dev
 COPY . .
 COPY docker/dev/web-entrypoint.sh /usr/local/bin/web-entrypoint.sh
-RUN chmod +x /usr/local/bin/web-entrypoint.sh
+RUN sed -i 's/\r$//' /usr/local/bin/web-entrypoint.sh \
+    && chmod +x /usr/local/bin/web-entrypoint.sh
 WORKDIR /app/apps/web
 CMD ["web-entrypoint.sh"]
 

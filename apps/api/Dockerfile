@@ -16,7 +16,8 @@ RUN pnpm --filter api build
 FROM base AS dev
 COPY . .
 COPY docker/dev/api-entrypoint.sh /usr/local/bin/api-entrypoint.sh
-RUN chmod +x /usr/local/bin/api-entrypoint.sh
+RUN sed -i 's/\r$//' /usr/local/bin/api-entrypoint.sh \
+    && chmod +x /usr/local/bin/api-entrypoint.sh
 WORKDIR /app/apps/api
 CMD ["api-entrypoint.sh"]
 

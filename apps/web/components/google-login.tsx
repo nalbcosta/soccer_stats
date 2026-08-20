@@ -103,10 +103,13 @@ export function GoogleLogin({
 
   if (!clientId) {
     return (
-      <Button type="button" variant="secondary" disabled className="w-full rounded-xl">
-        <GoogleMark />
-        {t("google")}
-      </Button>
+      <div className="grid gap-1.5">
+        <Button type="button" variant="secondary" disabled className="w-full rounded-xl">
+          <GoogleMark />
+          {t("google")}
+        </Button>
+        <p className="text-center text-xs font-semibold text-muted">{t("googleUnavailable")}</p>
+      </div>
     );
   }
 

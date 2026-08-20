@@ -26,7 +26,7 @@ const initialForm: AuthFormState = {
   rememberMe: false
 };
 
-const usernamePattern = /^[a-z0-9_]{3,20}$/;
+const usernamePattern = /^[A-Za-z0-9_]{3,20}$/;
 
 export function useAuthFormController() {
   const router = useRouter();
@@ -57,7 +57,7 @@ export function useAuthFormController() {
       return;
     }
 
-    const username = form.username.trim().toLowerCase();
+    const username = form.username.trim();
 
     if (!username) {
       setUsernameAvailability({ message: "", status: "idle" });
@@ -132,7 +132,7 @@ export function useAuthFormController() {
 
     startTransition(() => {
       const email = form.email.trim().toLowerCase();
-      const username = form.username.trim().toLowerCase();
+      const username = form.username.trim();
       const task =
         mode === "signup"
           ? api.signUp({ email, username, password: form.password, locale })
@@ -140,13 +140,18 @@ export function useAuthFormController() {
 
       void task
         .then(() => router.push("/app"))
-        .catch(() => setFeedback(t("signInError")));
+        .catch((error: unknown) => setFeedback(error instanceof Error ? error.message : t("signInError")));
     });
   };
 
   const signInWithGoogle = async (credential: string) => {
-    await api.signInWithGoogle({ credential, locale, rememberMe: form.rememberMe });
-    router.push("/app");
+    setFeedback("");
+    try {
+      await api.signInWithGoogle({ credential, locale, rememberMe: form.rememberMe });
+      router.push("/app");
+    } catch (error) {
+      setFeedback(error instanceof Error ? error.message : t("signInError"));
+    }
   };
 
   return {

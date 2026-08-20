@@ -1041,7 +1041,7 @@ const schemas = [
     type: "object",
     properties: {
       email: { type: "string", format: "email" },
-      username: { type: "string", minLength: 3, maxLength: 20, pattern: "^[a-z0-9_]+$" },
+      username: { type: "string", minLength: 3, maxLength: 20, pattern: "^[A-Za-z0-9_]+$" },
       password: { type: "string", minLength: 8, maxLength: 72, pattern: "^(?=.*[A-Za-z])(?=.*\\d).+$" },
       locale: { type: "string", enum: ["pt-BR", "en"] }
     },
@@ -1051,7 +1051,7 @@ const schemas = [
     $id: "usernameAvailabilityQuery",
     type: "object",
     properties: {
-      username: { type: "string", minLength: 3, maxLength: 20, pattern: "^[a-z0-9_]+$" }
+      username: { type: "string", minLength: 3, maxLength: 20, pattern: "^[A-Za-z0-9_]+$" }
     },
     required: ["username"]
   },
