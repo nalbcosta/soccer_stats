@@ -43,9 +43,9 @@ class MemoryUserRepository implements UserRepository {
     return [...this.items.values()].find((item) => item.email.trim().toLowerCase() === normalizedEmail) ?? null;
   }
 
-  async findByUsername(username: string): Promise<StoredUser | null> {
-    const normalizedUsername = username.trim().toLowerCase();
-    return [...this.items.values()].find((item) => item.username.trim().toLowerCase() === normalizedUsername) ?? null;
+  async findByPublicIdentifier(publicIdentifier: string): Promise<StoredUser | null> {
+    const normalizedIdentifier = publicIdentifier.trim().toUpperCase();
+    return [...this.items.values()].find((item) => item.publicIdentifier === normalizedIdentifier) ?? null;
   }
 }
 
@@ -288,8 +288,10 @@ class MemoryInviteRepository implements InviteRepository {
     return [...this.items.values()].find((invite) => invite.token === token) ?? null;
   }
 
-  async findPendingByEmail(email: string): Promise<Invite[]> {
-    return [...this.items.values()].filter((invite) => invite.email === email && invite.status === "pending");
+  async findPendingForUser(userId: string, email?: string): Promise<Invite[]> {
+    return [...this.items.values()].filter(
+      (invite) => invite.status === "pending" && (invite.recipientUserId === userId || (!invite.recipientUserId && email !== undefined && invite.email === email))
+    );
   }
 
   async listByResource(resourceType: "team" | "tournament", resourceId: string): Promise<Invite[]> {

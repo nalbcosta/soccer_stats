@@ -36,7 +36,7 @@ export function InvitesPageContent() {
                   <MailPlus size={19} />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="font-black">{invite.email}</p>
+                  <p className="font-mono font-black">{invite.recipientPublicIdentifier ?? invite.email}</p>
                   <p className="mt-1 text-sm font-semibold text-muted">
                     {invite.resourceType === "team" ? t("teamInvitation") : t("tournamentInvitation")} - {t("role", { role: invite.role })}
                   </p>

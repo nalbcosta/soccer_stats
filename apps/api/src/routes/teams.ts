@@ -178,25 +178,42 @@ export const teamRoutes: FastifyPluginAsync = async (app) => {
       return { message: "Sem permissao para convidar." };
     }
 
+    const invitedUser = await app.repositories.users.findByPublicIdentifier(payload.publicIdentifier);
+    if (!invitedUser) {
+      reply.code(404);
+      return { message: "Jogador nao encontrado com esse identificador." };
+    }
+    if (team.members.some((member) => member.userId === invitedUser.id)) {
+      reply.code(409);
+      return { message: "Esse jogador ja faz parte do time." };
+    }
+    const existingInvite = (await app.repositories.invites.listByResource("team", team.id)).find(
+      (item) => item.status === "pending" && item.recipientUserId === invitedUser.id
+    );
+    if (existingInvite) {
+      reply.code(409);
+      return { message: "Esse jogador ja possui um convite pendente." };
+    }
+
     const token = createId();
     const invite = await app.repositories.invites.create({
       id: createId(),
-      ...payload,
+      resourceType: payload.resourceType,
+      resourceId: payload.resourceId,
+      recipientUserId: invitedUser.id,
+      recipientPublicIdentifier: invitedUser.publicIdentifier,
+      role: payload.role,
       status: "pending",
       invitedBy: user.id,
       token,
       expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24 * 14).toISOString(),
       createdAt: new Date().toISOString()
     });
-    const invitedUser = await app.repositories.users.findByEmail(payload.email);
-
-    if (invitedUser) {
-      await new NotificationService(app.repositories).create({
-        userId: invitedUser.id,
-        type: "invite-created",
-        metadata: { teamId: team.id, inviteId: invite.id, teamName: team.name }
-      });
-    }
+    await new NotificationService(app.repositories).create({
+      userId: invitedUser.id,
+      type: "invite-created",
+      metadata: { teamId: team.id, inviteId: invite.id, teamName: team.name }
+    });
     await new AuditService(app.repositories).record({
       actorUserId: user.id,
       action: "team.invite",

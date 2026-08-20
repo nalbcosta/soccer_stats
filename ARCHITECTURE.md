@@ -126,6 +126,7 @@ erDiagram
 
   USER {
     string id
+    string publicIdentifier
     string email
     string username
     string locale

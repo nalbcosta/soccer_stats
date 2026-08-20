@@ -37,6 +37,7 @@ export type MatchReviewStatus = "none" | "pending" | "approved" | "disputed";
 
 export interface PublicUser {
   id: string;
+  publicIdentifier: string;
   email: string;
   username: string;
   locale: SupportedLocale;
@@ -228,7 +229,9 @@ export interface Invite {
   id: string;
   resourceType: "team" | "tournament";
   resourceId: string;
-  email: string;
+  recipientUserId?: string;
+  recipientPublicIdentifier?: string;
+  email?: string;
   role: Exclude<Role, "owner">;
   status: InviteStatus;
   invitedBy: string;

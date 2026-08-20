@@ -50,8 +50,8 @@ describe("api flows", () => {
     expect(response.cookies.some((cookie) => cookie.name.includes("soccer_stats_session"))).toBe(true);
   });
 
-  it("preserva maiusculas no apelido e impede duplicidade sem diferenciar caixa", async () => {
-    const created = await app.inject({
+  it("permite apelidos repetidos e gera identificadores publicos unicos", async () => {
+    const first = await app.inject({
       method: "POST",
       url: "/v1/auth/signup",
       payload: {
@@ -61,16 +61,24 @@ describe("api flows", () => {
         locale: "pt-BR"
       }
     });
-
-    const availability = await app.inject({
-      method: "GET",
-      url: "/v1/auth/username-availability?username=camisa10"
+    const second = await app.inject({
+      method: "POST",
+      url: "/v1/auth/signup",
+      payload: {
+        email: "another@example.com",
+        username: "Camisa10",
+        password: "senha123",
+        locale: "pt-BR"
+      }
     });
 
-    expect(created.statusCode).toBe(200);
-    expect(created.json().user.username).toBe("Camisa10");
-    expect(availability.statusCode).toBe(200);
-    expect(availability.json().available).toBe(false);
+    expect(first.statusCode).toBe(200);
+    expect(second.statusCode).toBe(200);
+    expect(first.json().user.username).toBe("Camisa10");
+    expect(second.json().user.username).toBe("Camisa10");
+    expect(first.json().user.publicIdentifier).toMatch(/^#[0-9A-F]{6}$/);
+    expect(second.json().user.publicIdentifier).toMatch(/^#[0-9A-F]{6}$/);
+    expect(second.json().user.publicIdentifier).not.toBe(first.json().user.publicIdentifier);
   });
 
   it("permite PATCH de notificacoes no preflight CORS", async () => {
@@ -540,30 +548,62 @@ describe("api flows", () => {
     expect(response.json().paths["/v1/auth/signup"]).toBeDefined();
   });
 
-  it("verifica disponibilidade de apelido", async () => {
-    await app.inject({
+  it("envia convite pelo identificador publico do usuario", async () => {
+    const owner = await app.inject({
       method: "POST",
       url: "/v1/auth/signup",
       payload: {
-        email: "lookup@example.com",
-        username: "lookup_one",
+        email: "invite-owner@example.com",
+        username: "Dono",
         password: "senha123",
         locale: "pt-BR"
       }
     });
-
-    const taken = await app.inject({
-      method: "GET",
-      url: "/v1/auth/username-availability?username=lookup_one"
+    const recipient = await app.inject({
+      method: "POST",
+      url: "/v1/auth/signup",
+      payload: {
+        email: "invite-recipient@example.com",
+        username: "Dono",
+        password: "senha123",
+        locale: "pt-BR"
+      }
     });
-    const available = await app.inject({
+    const recipientUser = recipient.json().user as { id: string; publicIdentifier: string };
+    expect(recipient.statusCode, recipient.body).toBe(200);
+    expect(recipientUser.publicIdentifier).toMatch(/^#[0-9A-F]{6}$/);
+    const ownerCookie = owner.cookies[0];
+    const ownerCsrf = await withCsrf(`${ownerCookie?.name}=${ownerCookie?.value}`);
+    const team = await app.inject({
+      method: "POST",
+      url: "/v1/teams",
+      headers: { cookie: ownerCsrf.cookie, "x-csrf-token": ownerCsrf.token },
+      payload: { name: "Time dos IDs" }
+    });
+    const invite = await app.inject({
+      method: "POST",
+      url: "/v1/teams/invites",
+      headers: { cookie: ownerCsrf.cookie, "x-csrf-token": ownerCsrf.token },
+      payload: {
+        resourceType: "team",
+        resourceId: team.json().team.id,
+        publicIdentifier: recipientUser.publicIdentifier.toLowerCase(),
+        role: "member"
+      }
+    });
+    const recipientCookie = recipient.cookies[0];
+    const dashboard = await app.inject({
       method: "GET",
-      url: "/v1/auth/username-availability?username=lookup_two"
+      url: "/v1/dashboard",
+      headers: { cookie: `${recipientCookie?.name}=${recipientCookie?.value}` }
     });
 
-    expect(taken.statusCode).toBe(200);
-    expect(taken.json().available).toBe(false);
-    expect(available.statusCode).toBe(200);
-    expect(available.json().available).toBe(true);
+    expect(invite.statusCode, invite.body).toBe(200);
+    expect(invite.json().invite).toMatchObject({
+      recipientUserId: recipientUser.id,
+      recipientPublicIdentifier: recipientUser.publicIdentifier
+    });
+    expect(dashboard.statusCode).toBe(200);
+    expect(dashboard.json().invites).toHaveLength(1);
   });
 });

@@ -7,6 +7,7 @@ import { DashboardOverview } from "./dashboard-overview";
 
 const user: PublicUser = {
   id: "user-1",
+  publicIdentifier: "#331AF5",
   email: "jogador@nabola.com",
   username: "camisa10",
   locale: "pt-BR",

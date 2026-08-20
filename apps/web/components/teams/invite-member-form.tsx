@@ -9,8 +9,9 @@ import { Input } from "../ui/input";
 
 export function InviteMemberForm({ teamId }: { teamId: string }) {
   const { refresh, setFeedback } = useSession();
-  const [email, setEmail] = useState("");
+  const [publicIdentifier, setPublicIdentifier] = useState("");
   const [isPending, startTransition] = useTransition();
+  const isValidIdentifier = /^#[0-9A-F]{6}$/.test(publicIdentifier);
 
   return (
     <form
@@ -19,17 +20,26 @@ export function InviteMemberForm({ teamId }: { teamId: string }) {
         event.preventDefault();
         startTransition(() => {
           void api
-            .createInvite({ resourceType: "team", resourceId: teamId, email, role: "member" })
+            .createInvite({ resourceType: "team", resourceId: teamId, publicIdentifier, role: "member" })
             .then(async () => {
-              setEmail("");
+              setPublicIdentifier("");
               setFeedback("Convite enviado.");
               await refresh();
-            });
+            })
+            .catch((error: Error) => setFeedback(error.message));
         });
       }}
     >
-      <Input placeholder="email@jogador.com" type="email" value={email} onChange={(event) => setEmail(event.target.value)} />
-      <Button disabled={isPending || !email} type="submit">
+      <Input
+        aria-label="Identificador público"
+        maxLength={7}
+        placeholder="#331AF5"
+        spellCheck={false}
+        type="text"
+        value={publicIdentifier}
+        onChange={(event) => setPublicIdentifier(event.target.value.trim().toUpperCase())}
+      />
+      <Button disabled={isPending || !isValidIdentifier} type="submit">
         <Send size={18} />
         Convidar
       </Button>

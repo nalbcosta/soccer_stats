@@ -1,6 +1,8 @@
-import { randomUUID } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
 
 export const createId = (): string => randomUUID();
+
+export const createPublicIdentifier = (): string => `#${randomBytes(3).toString("hex").toUpperCase()}`;
 
 export const slugify = (value: string): string =>
   value

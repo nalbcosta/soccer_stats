@@ -1,5 +1,5 @@
-import { render, screen } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AppHeader } from "./app-header";
 
 const navigationState = vi.hoisted(() => ({
@@ -25,6 +25,7 @@ vi.mock("./session-provider", () => ({
       profile: null
     },
     user: {
+      publicIdentifier: "#331AF5",
       username: "nalbertcosta"
     }
   })
@@ -43,6 +44,8 @@ vi.mock("next-themes", () => ({
 }));
 
 describe("AppHeader", () => {
+  afterEach(cleanup);
+
   beforeEach(() => {
     navigationState.pathname = "/app";
     navigationState.back.mockClear();
@@ -62,5 +65,13 @@ describe("AppHeader", () => {
     render(<AppHeader />);
 
     expect(screen.getByLabelText("Voltar")).toBeInTheDocument();
+  });
+
+  it("mostra o identificador no cabecalho e no perfil da conta", () => {
+    render(<AppHeader />);
+
+    expect(screen.getAllByText("#331AF5")).toHaveLength(1);
+    fireEvent.click(screen.getByRole("button", { name: "Abrir menu da conta" }));
+    expect(screen.getAllByText("#331AF5")).toHaveLength(2);
   });
 });

@@ -19,6 +19,7 @@ export const demoStats: AggregatedStats = {
 
 export const demoUser: PublicUser = {
   id: "demo-user",
+  publicIdentifier: "#10B0A1",
   email: "leo10@nabola.app",
   username: "leo10",
   locale: "pt-BR",
@@ -28,6 +29,7 @@ export const demoUser: PublicUser = {
 
 export const demoAssistUser: PublicUser = {
   id: "demo-assist",
+  publicIdentifier: "#A55157",
   email: "dudu7@nabola.app",
   username: "dudu7",
   locale: "pt-BR",

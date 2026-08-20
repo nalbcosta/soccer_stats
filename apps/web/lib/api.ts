@@ -154,8 +154,6 @@ export const api = {
     request<{ user: PublicUser }>("/auth/signup", { method: "POST", body: JSON.stringify(input) }),
   signIn: (input: { email: string; password: string; rememberMe?: boolean }) =>
     request<{ user: PublicUser }>("/auth/signin", { method: "POST", body: JSON.stringify(input) }),
-  checkUsernameAvailability: (username: string) =>
-    request<{ available: boolean; message: string }>(`/auth/username-availability?username=${encodeURIComponent(username)}`),
   signInWithGoogle: (input: { credential: string; locale: "pt-BR" | "en"; rememberMe?: boolean }) =>
     request<{ user: PublicUser }>("/auth/google", { method: "POST", body: JSON.stringify(input) }),
   signOut: () => request<{ ok: true }>("/auth/signout", { method: "POST" }),
@@ -244,7 +242,7 @@ export const api = {
     return response.json() as Promise<{ profile: PlayerProfile }>;
   },
   createTeam: (input: { name: string; visibility?: Team["visibility"]; joinPolicy?: "closed" | "request"; description?: string; city?: string; state?: string; latitude?: number; longitude?: number }) => request<{ team: Team }>("/teams", { method: "POST", body: JSON.stringify(input) }),
-  createInvite: (input: { resourceType: "team" | "tournament"; resourceId: string; email: string; role: "admin" | "member" }) =>
+  createInvite: (input: { resourceType: "team" | "tournament"; resourceId: string; publicIdentifier: string; role: "admin" | "captain" | "member" }) =>
     request<{ invite: Invite }>("/teams/invites", { method: "POST", body: JSON.stringify(input) }),
   createTournament: (input: { name: string; teamIds: string[] }) =>
     request<{ tournament: Tournament }>("/tournaments", { method: "POST", body: JSON.stringify(input) }),

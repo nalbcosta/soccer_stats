@@ -63,7 +63,7 @@ export interface UserRepository {
   update(user: StoredUser): Promise<StoredUser>;
   findById(id: string): Promise<StoredUser | null>;
   findByEmail(email: string): Promise<StoredUser | null>;
-  findByUsername(username: string): Promise<StoredUser | null>;
+  findByPublicIdentifier(publicIdentifier: string): Promise<StoredUser | null>;
 }
 
 export interface PlayerProfileRepository {
@@ -155,7 +155,7 @@ export interface InviteRepository {
   update(invite: Invite): Promise<Invite>;
   findById(id: string): Promise<Invite | null>;
   findByToken(token: string): Promise<Invite | null>;
-  findPendingByEmail(email: string): Promise<Invite[]>;
+  findPendingForUser(userId: string, email?: string): Promise<Invite[]>;
   listByResource(resourceType: "team" | "tournament", resourceId: string): Promise<Invite[]>;
 }
 

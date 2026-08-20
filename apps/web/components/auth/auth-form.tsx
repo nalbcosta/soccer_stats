@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle2, Eye, EyeOff, Loader2, LogIn, UserPlus, XCircle } from "lucide-react";
+import { CheckCircle2, Eye, EyeOff, LogIn, UserPlus, XCircle } from "lucide-react";
 import { GoogleLogin } from "../google-login";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
@@ -17,6 +17,7 @@ export function AuthForm() {
     isPasswordValid,
     isPasswordVisible,
     mode,
+    isUsernameValid,
     passwordRules,
     passwordsMatch,
     setIsConfirmPasswordVisible,
@@ -24,11 +25,10 @@ export function AuthForm() {
     setMode,
     signInWithGoogle,
     submit,
-    updateField,
-    usernameAvailability
+    updateField
   } = useAuthFormController();
   const isSignUp = mode === "signup";
-  const canSubmit = !isPending && (!isSignUp || (isPasswordValid && passwordsMatch && usernameAvailability.status === "available"));
+  const canSubmit = !isPending && (!isSignUp || (isPasswordValid && isUsernameValid && passwordsMatch));
 
   return (
     <form
@@ -91,7 +91,7 @@ export function AuthForm() {
               value={form.username}
               onChange={(event) => updateField("username", event.target.value)}
             />
-            <UsernameAvailabilityMessage message={usernameAvailability.message} status={usernameAvailability.status} />
+            {form.username && !isUsernameValid ? <span className="text-xs font-bold text-error">{t("usernameInvalid")}</span> : null}
           </label>
         ) : null}
         <label className="grid gap-1.5">
@@ -205,31 +205,5 @@ export function AuthForm() {
         ) : null}
       </div>
     </form>
-  );
-}
-
-function UsernameAvailabilityMessage({
-  message,
-  status
-}: {
-  message: string;
-  status: "idle" | "invalid" | "checking" | "available" | "taken" | "error";
-}) {
-  if (!message) {
-    return null;
-  }
-
-  const tone =
-    status === "available"
-      ? "text-primary-strong"
-      : status === "checking"
-        ? "text-muted"
-        : "text-error";
-
-  return (
-    <span className={`flex items-center gap-2 text-xs font-bold ${tone}`}>
-      {status === "checking" ? <Loader2 className="animate-spin" size={14} /> : status === "available" ? <CheckCircle2 size={14} /> : <XCircle size={14} />}
-      {message}
-    </span>
   );
 }

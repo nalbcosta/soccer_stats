@@ -15,7 +15,7 @@ export const inviteRoutes: FastifyPluginAsync = async (app) => {
       return;
     }
 
-    const invites = await app.repositories.invites.findPendingByEmail(user.email);
+    const invites = await app.repositories.invites.findPendingForUser(user.id, user.email);
     return { invites: invites.map((invite) => inviteSchema.parse(invite)) };
   });
 
@@ -29,7 +29,8 @@ export const inviteRoutes: FastifyPluginAsync = async (app) => {
     const { token } = request.params as { token: string };
     const invite = await app.repositories.invites.findByToken(token);
 
-    if (!invite || invite.status !== "pending" || invite.email !== user.email) {
+    const belongsToUser = invite?.recipientUserId === user.id || (!invite?.recipientUserId && invite?.email === user.email);
+    if (!invite || invite.status !== "pending" || !belongsToUser) {
       reply.code(404);
       return { message: "Convite nao encontrado." };
     }
@@ -60,7 +61,12 @@ export const inviteRoutes: FastifyPluginAsync = async (app) => {
           members: [...team.members, { userId: user.id, role: invite.role, joinedAt: now }],
           updatedAt: now
         });
-    const updatedInvite = await app.repositories.invites.update({ ...invite, status: "accepted" });
+    const updatedInvite = await app.repositories.invites.update({
+      ...invite,
+      recipientUserId: user.id,
+      recipientPublicIdentifier: user.publicIdentifier,
+      status: "accepted"
+    });
 
     await new NotificationService(app.repositories).notifyUsers(adminMemberIds(updatedTeam.members), {
       type: "invite-accepted",

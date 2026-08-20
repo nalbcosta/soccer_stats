@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "../../lib/api";
 import { useLocale } from "../../i18n/provider";
@@ -15,8 +15,6 @@ type AuthFormState = {
   confirmPassword: string;
   rememberMe: boolean;
 };
-
-type UsernameAvailabilityStatus = "idle" | "invalid" | "checking" | "available" | "taken" | "error";
 
 const initialForm: AuthFormState = {
   email: "",
@@ -38,73 +36,14 @@ export function useAuthFormController() {
   const [isConfirmPasswordVisible, setIsConfirmPasswordVisible] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [form, setForm] = useState(initialForm);
-  const [usernameAvailability, setUsernameAvailability] = useState<{
-    message: string;
-    status: UsernameAvailabilityStatus;
-  }>({ message: "", status: "idle" });
-
   const passwordRules = [
     { label: t("passwordRuleLength"), valid: form.password.length >= 8 },
     { label: t("passwordRuleLetter"), valid: /[a-zA-Z]/.test(form.password) },
     { label: t("passwordRuleNumber"), valid: /[0-9]/.test(form.password) }
   ];
   const isPasswordValid = passwordRules.every((rule) => rule.valid);
+  const isUsernameValid = usernamePattern.test(form.username.trim());
   const passwordsMatch = form.confirmPassword.length > 0 && form.password === form.confirmPassword;
-
-  useEffect(() => {
-    if (mode !== "signup") {
-      setUsernameAvailability({ message: "", status: "idle" });
-      return;
-    }
-
-    const username = form.username.trim();
-
-    if (!username) {
-      setUsernameAvailability({ message: "", status: "idle" });
-      return;
-    }
-
-    if (!usernamePattern.test(username)) {
-      setUsernameAvailability({
-        message: t("usernameInvalid"),
-        status: "invalid"
-      });
-      return;
-    }
-
-    setUsernameAvailability({ message: t("checkingUsername"), status: "checking" });
-
-    let active = true;
-    const timeout = window.setTimeout(() => {
-      void api
-        .checkUsernameAvailability(username)
-        .then((result) => {
-          if (!active) {
-            return;
-          }
-
-          setUsernameAvailability({
-            message: result.available ? t("usernameAvailable") : t("usernameTaken"),
-            status: result.available ? "available" : "taken"
-          });
-        })
-        .catch(() => {
-          if (!active) {
-            return;
-          }
-
-          setUsernameAvailability({
-            message: t("usernameUnavailable"),
-            status: "error"
-          });
-        });
-    }, 350);
-
-    return () => {
-      active = false;
-      window.clearTimeout(timeout);
-    };
-  }, [form.username, mode]);
 
   const updateField = <Field extends keyof AuthFormState>(field: Field, value: AuthFormState[Field]) => {
     setForm((state) => ({ ...state, [field]: value }));
@@ -124,8 +63,8 @@ export function useAuthFormController() {
         return;
       }
 
-      if (usernameAvailability.status !== "available") {
-        setFeedback(t("usernameRequired"));
+      if (!isUsernameValid) {
+        setFeedback(t("usernameInvalid"));
         return;
       }
     }
@@ -161,6 +100,7 @@ export function useAuthFormController() {
     isPending,
     isPasswordVisible,
     isPasswordValid,
+    isUsernameValid,
     mode,
     passwordRules,
     passwordsMatch,
@@ -169,7 +109,6 @@ export function useAuthFormController() {
     setMode,
     signInWithGoogle,
     submit,
-    updateField,
-    usernameAvailability
+    updateField
   };
 }

@@ -21,6 +21,7 @@ import type {
   UserRepository,
   VenueRepository
 } from "../types.js";
+import { createPublicIdentifier } from "../lib/ids.js";
 
 type Persisted<T> = Omit<T, "id"> & { _id: string };
 
@@ -129,8 +130,9 @@ const modelsFor = (connection: Connection) => {
   const userSchema = new Schema<Persisted<StoredUser>>(
     {
       _id: { type: String, required: true },
+      publicIdentifier: { type: String, required: true, unique: true, index: true, match: /^#[0-9A-F]{6}$/ },
       email: { type: String, required: true, unique: true, index: true },
-      username: { type: String, required: true, unique: true, index: true },
+      username: { type: String, required: true, index: true },
       locale: { type: String, enum: ["pt-BR", "en"], required: true },
       theme: { type: String, enum: ["light", "dark", "system"], required: true },
       providers: [{ type: String, enum: ["credentials", "google"], required: true }],
@@ -298,8 +300,10 @@ const modelsFor = (connection: Connection) => {
       _id: { type: String, required: true },
       resourceType: { type: String, enum: ["team", "tournament"], required: true },
       resourceId: { type: String, required: true, index: true },
-      email: { type: String, required: true, index: true },
-      role: { type: String, enum: ["admin", "member"], required: true },
+      recipientUserId: { type: String, index: true },
+      recipientPublicIdentifier: String,
+      email: String,
+      role: { type: String, enum: ["admin", "captain", "member"], required: true },
       status: { type: String, enum: ["pending", "accepted", "revoked"], required: true, index: true },
       invitedBy: { type: String, required: true },
       token: { type: String, index: true },
@@ -454,9 +458,9 @@ class MongooseUserRepository implements UserRepository {
     );
   }
 
-  async findByUsername(username: string): Promise<StoredUser | null> {
+  async findByPublicIdentifier(publicIdentifier: string): Promise<StoredUser | null> {
     return toDomain<StoredUser>(
-      await this.model.findOne({ username: username.trim() }).collation({ locale: "en", strength: 2 }).lean()
+      await this.model.findOne({ publicIdentifier: publicIdentifier.trim().toUpperCase() }).lean()
     );
   }
 }
@@ -712,8 +716,12 @@ class MongooseInviteRepository extends BaseMongooseRepository<Invite> implements
     return toDomain<Invite>(await this.model.findOne({ token }).lean());
   }
 
-  async findPendingByEmail(email: string): Promise<Invite[]> {
-    return (await this.model.find({ email, status: "pending" }).lean()).map((doc) => toDomain<Invite>(doc)).filter(Boolean) as Invite[];
+  async findPendingForUser(userId: string, email?: string): Promise<Invite[]> {
+    const recipients: Array<Record<string, unknown>> = [{ recipientUserId: userId }];
+    if (email) {
+      recipients.push({ recipientUserId: { $exists: false }, email });
+    }
+    return (await this.model.find({ status: "pending", $or: recipients }).lean()).map((doc) => toDomain<Invite>(doc)).filter(Boolean) as Invite[];
   }
 
   async listByResource(resourceType: "team" | "tournament", resourceId: string): Promise<Invite[]> {
@@ -810,9 +818,39 @@ export interface MongoPersistence {
   repositories: Repositories;
 }
 
+const migratePublicIdentifiers = async (models: ReturnType<typeof modelsFor>): Promise<void> => {
+  const usersWithIdentifier = await models.users.find({ publicIdentifier: { $exists: true, $ne: null } }).select({ publicIdentifier: 1 }).lean();
+  const usedIdentifiers = new Set(usersWithIdentifier.map((user) => user.publicIdentifier));
+  const usersWithoutIdentifier = await models.users.find({ $or: [{ publicIdentifier: { $exists: false } }, { publicIdentifier: null }] }).select({ _id: 1 }).lean();
+
+  for (const user of usersWithoutIdentifier) {
+    let publicIdentifier = createPublicIdentifier();
+    while (usedIdentifiers.has(publicIdentifier)) {
+      publicIdentifier = createPublicIdentifier();
+    }
+    await models.users.updateOne({ _id: user._id }, { $set: { publicIdentifier } });
+    usedIdentifiers.add(publicIdentifier);
+  }
+
+  const legacyInvites = await models.invites.find({ recipientUserId: { $exists: false }, email: { $type: "string" } }).lean();
+  for (const invite of legacyInvites) {
+    if (!invite.email) {
+      continue;
+    }
+    const recipient = await models.users.findOne({ email: invite.email.trim().toLowerCase() }).lean();
+    if (recipient?.publicIdentifier) {
+      await models.invites.updateOne(
+        { _id: invite._id },
+        { $set: { recipientUserId: recipient._id, recipientPublicIdentifier: recipient.publicIdentifier } }
+      );
+    }
+  }
+};
+
 export const createMongoRepositories = async (uri: string, dbName: string): Promise<MongoPersistence> => {
-  const connection = await mongoose.createConnection(uri, { dbName }).asPromise();
+  const connection = await mongoose.createConnection(uri, { dbName, autoIndex: false }).asPromise();
   const models = modelsFor(connection);
+  await migratePublicIdentifiers(models);
   await connection.syncIndexes();
 
   return {

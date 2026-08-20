@@ -24,6 +24,7 @@ const stats: AggregatedStats = {
 
 const user: PublicUser = {
   id: "user-1",
+  publicIdentifier: "#331AF5",
   email: "jogador@nabola.com",
   username: "camisa10",
   locale: "pt-BR",
@@ -135,7 +136,8 @@ describe("dashboard selectors", () => {
       id: "invite-1",
       resourceType: "team",
       resourceId: "team-1",
-      email: user.email,
+      recipientUserId: user.id,
+      recipientPublicIdentifier: user.publicIdentifier,
       role: "member",
       status: "pending",
       invitedBy: "user-2",

@@ -89,7 +89,8 @@ Coberturas atuais:
 - signup e sessao.
 - criacao de time, campeonato e partida.
 - OpenAPI JSON.
-- disponibilidade de username.
+- apelidos repetidos com identificadores publicos unicos.
+- convite de jogador por identificador publico.
 - venue + snapshot em partida.
 - lineup, check-in e revisao de sumula.
 - validacao de placar contra sumula.

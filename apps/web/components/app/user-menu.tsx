@@ -23,6 +23,7 @@ export function UserMenu({ mode }: { mode: UserMenuMode }) {
     displayName,
     initials,
     photoUrl,
+    publicIdentifier,
     localeLabel,
     logout,
     open,
@@ -54,7 +55,10 @@ export function UserMenu({ mode }: { mode: UserMenuMode }) {
         <UserAvatar alt={text("profilePhotoAlt")} className="h-9 w-9" initials={initials} src={photoUrl} />
         {isHeader ? (
           <>
-            <span className="hidden max-w-32 truncate text-sm font-bold md:inline">@{displayName}</span>
+            <span className="hidden min-w-0 max-w-32 flex-col items-start md:flex">
+              <span className="w-full truncate text-sm font-bold leading-4">@{displayName}</span>
+              {publicIdentifier ? <span className="font-mono text-[10px] font-black leading-3 text-primary-strong">{publicIdentifier}</span> : null}
+            </span>
             <ChevronDown className={`hidden text-muted transition-transform md:block ${open ? "rotate-180" : ""}`} size={16} />
           </>
         ) : (
@@ -67,9 +71,12 @@ export function UserMenu({ mode }: { mode: UserMenuMode }) {
           <div className="flex items-start justify-between gap-3">
             <div className="flex min-w-0 items-center gap-3">
               <UserAvatar alt={text("profilePhotoAlt")} className="h-11 w-11 rounded-xl text-sm" initials={initials} src={photoUrl} />
-              <div className="min-w-0">
+              <div className="min-w-0 flex-1">
                 <p className="text-[11px] font-black uppercase tracking-[0.14em] text-muted">{text("account")}</p>
-                <p className="truncate text-lg font-black leading-tight">{displayName}</p>
+                <div className="flex min-w-0 items-baseline gap-2">
+                  <p className="min-w-0 truncate text-lg font-black leading-tight">{displayName}</p>
+                  {publicIdentifier ? <p className="shrink-0 font-mono text-sm font-black text-primary-strong">{publicIdentifier}</p> : null}
+                </div>
                 <p className="mt-1 line-clamp-2 text-sm font-semibold leading-5 text-muted">{accountSummary}</p>
               </div>
             </div>

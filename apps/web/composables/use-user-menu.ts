@@ -55,6 +55,7 @@ export function useUserMenu() {
     displayName,
     initials,
     photoUrl,
+    publicIdentifier: user?.publicIdentifier ?? "",
     localeLabel: localeLabels[locale],
     logout,
     open,

@@ -4,7 +4,7 @@ import { createHash } from "node:crypto";
 import { OAuth2Client } from "google-auth-library";
 import { createEmptyStats } from "@soccer-stats/shared";
 import type { AppConfig, AppContext, Repositories, SessionRecord, StoredUser } from "../types.js";
-import { createId } from "../lib/ids.js";
+import { createId, createPublicIdentifier } from "../lib/ids.js";
 import { hashPassword, verifyPassword } from "../lib/auth.js";
 import { issueCsrfToken } from "../modules/auth/csrf.js";
 
@@ -67,6 +67,16 @@ const findOrCreateProfile = async (repositories: Repositories, user: StoredUser)
       stats: createEmptyStats()
     });
   }
+};
+
+const issuePublicIdentifier = async (repositories: Repositories): Promise<string> => {
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    const candidate = createPublicIdentifier();
+    if (!await repositories.users.findByPublicIdentifier(candidate)) {
+      return candidate;
+    }
+  }
+  throw new Error("Nao foi possivel gerar um identificador publico.");
 };
 
 export const authPlugin = fp<{ repositories: Repositories; config: AppConfig }>(
@@ -147,20 +157,15 @@ export const authPlugin = fp<{ repositories: Repositories; config: AppConfig }>(
         return updated;
       }
 
-      const baseUsername = (email.split("@")[0] ?? "player").replace(/[^a-z0-9_]/gi, "").toLowerCase() || "player";
-      let candidate = baseUsername;
-      let suffix = 1;
-
-      while (await options.repositories.users.findByUsername(candidate)) {
-        suffix += 1;
-        candidate = `${baseUsername}${suffix}`;
-      }
+      const emailUsername = (email.split("@")[0] ?? "player").replace(/[^a-z0-9_]/gi, "").slice(0, 20);
+      const username = emailUsername.length >= 3 ? emailUsername : "player";
 
       const now = new Date().toISOString();
       const user: StoredUser = {
         id: createId(),
+        publicIdentifier: await issuePublicIdentifier(options.repositories),
         email,
-        username: candidate,
+        username,
         locale,
         theme: options.config.defaultTheme,
         providers: ["google"],
@@ -178,22 +183,16 @@ export const authPlugin = fp<{ repositories: Repositories; config: AppConfig }>(
       password: string,
       locale: StoredUser["locale"]
     ) => {
-      const [existingEmail, existingUsername] = await Promise.all([
-        options.repositories.users.findByEmail(email),
-        options.repositories.users.findByUsername(username)
-      ]);
+      const existingEmail = await options.repositories.users.findByEmail(email);
 
       if (existingEmail) {
         throw new Error("Email ja cadastrado.");
       }
 
-      if (existingUsername) {
-        throw new Error("Username ja cadastrado.");
-      }
-
       const now = new Date().toISOString();
       const user: StoredUser = {
         id: createId(),
+        publicIdentifier: await issuePublicIdentifier(options.repositories),
         email,
         username,
         locale,

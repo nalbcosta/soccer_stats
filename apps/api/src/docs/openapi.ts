@@ -15,15 +15,6 @@ const messageResponse = {
 const authSecurity = [{ sessionCookie: [] }] as const;
 
 export const authRouteSchemas = {
-  usernameAvailability: {
-    tags: ["auth"],
-    summary: "Verifica disponibilidade de apelido",
-    querystring: { $ref: "usernameAvailabilityQuery#" },
-    response: {
-      200: { $ref: "usernameAvailabilityResponse#" },
-      400: { $ref: "usernameAvailabilityResponse#" }
-    }
-  } satisfies FastifySchema,
   signUp: {
     tags: ["auth"],
     summary: "Cria uma conta com email, username e senha",
@@ -212,7 +203,9 @@ export const teamRouteSchemas = {
       200: { $ref: "inviteEnvelope#" },
       400: { $ref: "messageResponse#" },
       403: { $ref: "messageResponse#" },
-      401: { $ref: "messageResponse#" }
+      401: { $ref: "messageResponse#" },
+      404: { $ref: "messageResponse#" },
+      409: { $ref: "messageResponse#" }
     }
   } satisfies FastifySchema
 };
@@ -722,6 +715,7 @@ const schemas = [
     type: "object",
     properties: {
       id,
+      publicIdentifier: { type: "string", pattern: "^#[0-9A-F]{6}$" },
       email: { type: "string", format: "email" },
       username: { type: "string" },
       locale: { type: "string", enum: ["pt-BR", "en"] },
@@ -731,7 +725,7 @@ const schemas = [
         items: { type: "string", enum: ["credentials", "google"] }
       }
     },
-    required: ["id", "email", "username", "locale", "theme", "providers"]
+    required: ["id", "publicIdentifier", "email", "username", "locale", "theme", "providers"]
   },
   {
     $id: "playerProfile",
@@ -806,15 +800,17 @@ const schemas = [
       id,
       resourceType: { type: "string", enum: ["team", "tournament"] },
       resourceId: id,
+      recipientUserId: id,
+      recipientPublicIdentifier: { type: "string", pattern: "^#[0-9A-F]{6}$" },
       email: { type: "string", format: "email" },
-      role: { type: "string", enum: ["admin", "member"] },
+      role: { type: "string", enum: ["admin", "captain", "member"] },
       status: { type: "string", enum: ["pending", "accepted", "revoked"] },
       invitedBy: id,
       token: { type: "string" },
       expiresAt: isoDate,
       createdAt: isoDate
     },
-    required: ["id", "resourceType", "resourceId", "email", "role", "status", "invitedBy", "createdAt"]
+    required: ["id", "resourceType", "resourceId", "role", "status", "invitedBy", "createdAt"]
   },
   {
     $id: "matchEvent",
@@ -1048,23 +1044,6 @@ const schemas = [
     required: ["email", "username", "password"]
   },
   {
-    $id: "usernameAvailabilityQuery",
-    type: "object",
-    properties: {
-      username: { type: "string", minLength: 3, maxLength: 20, pattern: "^[A-Za-z0-9_]+$" }
-    },
-    required: ["username"]
-  },
-  {
-    $id: "usernameAvailabilityResponse",
-    type: "object",
-    properties: {
-      available: { type: "boolean" },
-      message: { type: "string" }
-    },
-    required: ["available", "message"]
-  },
-  {
     $id: "signInInput",
     type: "object",
     properties: {
@@ -1157,10 +1136,10 @@ const schemas = [
     properties: {
       resourceType: { type: "string", enum: ["team", "tournament"] },
       resourceId: id,
-      email: { type: "string", format: "email" },
-      role: { type: "string", enum: ["admin", "member"] }
+      publicIdentifier: { type: "string", pattern: "^#[0-9A-Fa-f]{6}$" },
+      role: { type: "string", enum: ["admin", "captain", "member"] }
     },
-    required: ["resourceType", "resourceId", "email", "role"]
+    required: ["resourceType", "resourceId", "publicIdentifier", "role"]
   },
   {
     $id: "createMatchInput",

@@ -38,6 +38,10 @@ export const presenceStatusSchema = z.enum(["pending", "confirmed", "declined", 
 export const ratingVersionSchema = z.enum(["v1", "v2"]);
 export const matchReviewStatusSchema = z.enum(["none", "pending", "approved", "disputed"]);
 export const usernameSchema = z.string().min(3).max(20).regex(/^[A-Za-z0-9_]+$/);
+export const publicIdentifierSchema = z.preprocess(
+  (value) => typeof value === "string" ? value.trim().toUpperCase() : value,
+  z.string().regex(/^#[0-9A-F]{6}$/)
+);
 export const passwordSchema = z
   .string()
   .min(8)
@@ -68,6 +72,7 @@ export const statsSchema = z.object({
 
 export const publicUserSchema = z.object({
   id: z.string(),
+  publicIdentifier: publicIdentifierSchema,
   email: z.email(),
   username: usernameSchema,
   locale: localeSchema,
@@ -242,7 +247,9 @@ export const inviteSchema = z.object({
   id: z.string(),
   resourceType: z.enum(["team", "tournament"]),
   resourceId: z.string(),
-  email: z.email(),
+  recipientUserId: z.string().optional(),
+  recipientPublicIdentifier: publicIdentifierSchema.optional(),
+  email: z.email().optional(),
   role: inviteRoleSchema,
   status: inviteStatusSchema,
   invitedBy: z.string(),
@@ -361,10 +368,6 @@ export const signInInputSchema = z.object({
   rememberMe: z.boolean().default(false)
 });
 
-export const usernameAvailabilityQuerySchema = z.object({
-  username: usernameSchema
-});
-
 export const googleAuthInputSchema = z.object({
   credential: z.string().min(1),
   locale: localeSchema.default("pt-BR"),
@@ -426,7 +429,7 @@ export const createTeamInputSchema = z.object({
 export const createInviteInputSchema = z.object({
   resourceType: z.enum(["team", "tournament"]),
   resourceId: z.string(),
-  email: z.email(),
+  publicIdentifier: publicIdentifierSchema,
   role: inviteRoleSchema
 });
 

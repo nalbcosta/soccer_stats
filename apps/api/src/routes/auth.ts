@@ -1,26 +1,9 @@
 import type { FastifyPluginAsync } from "fastify";
-import { googleAuthInputSchema, publicUserSchema, signInInputSchema, signUpInputSchema, usernameAvailabilityQuerySchema } from "@soccer-stats/shared";
+import { googleAuthInputSchema, publicUserSchema, signInInputSchema, signUpInputSchema } from "@soccer-stats/shared";
 import { authRouteSchemas } from "../docs/openapi.js";
 import { AuditService } from "../modules/audit/audit.service.js";
 
 export const authRoutes: FastifyPluginAsync = async (app) => {
-  app.get("/auth/username-availability", { schema: authRouteSchemas.usernameAvailability, config: { rateLimit: { max: 30, timeWindow: "1 minute" } } }, async (request, reply) => {
-    const parsed = usernameAvailabilityQuerySchema.safeParse(request.query);
-
-    if (!parsed.success) {
-      reply.code(400);
-      return { available: false, message: "Use 3 a 20 caracteres: letras, numeros e _." };
-    }
-
-    const username = parsed.data.username.trim();
-    const existing = await app.repositories.users.findByUsername(username);
-
-    return {
-      available: !existing,
-      message: existing ? "Apelido ja esta em uso." : "Apelido disponivel."
-    };
-  });
-
   app.post("/auth/signup", { schema: authRouteSchemas.signUp, config: { rateLimit: { max: 8, timeWindow: "1 minute" } } }, async (request, reply) => {
     const parsed = signUpInputSchema.safeParse(request.body);
 

@@ -93,19 +93,18 @@ sequenceDiagram
   Admin->>API: POST /v1/teams/invites
   API->>Repo: teams.findById()
   API->>API: verifica owner/admin
+  API->>Repo: users.findByPublicIdentifier()
   API->>Repo: invites.create()
-  API->>Repo: users.findByEmail()
-  alt Usuario ja existe
-    API->>Notif: create(invite-created)
-  end
+  API->>Notif: create(invite-created)
   API-->>Admin: invite
 ```
 
 Regras:
 
 - Apenas owner/admin do time pode convidar.
+- O destinatario e localizado pelo identificador publico `#XXXXXX`, nao pelo apelido.
 - Convite tem `token` e `expiresAt`.
-- Se o e-mail ja pertence a usuario existente, cria notificacao in-app.
+- O usuario convidado recebe notificacao in-app.
 
 ## Cadastro e uso de local
 

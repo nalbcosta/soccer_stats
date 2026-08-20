@@ -27,6 +27,7 @@ erDiagram
 
   USERS {
     string _id
+    string publicIdentifier
     string email
     string username
     string locale
@@ -298,8 +299,9 @@ Campos:
 | Campo | Tipo | Obrigatorio | Observacao |
 |---|---|---:|---|
 | `_id` | string | Sim | ID de dominio |
+| `publicIdentifier` | string | Sim | Codigo publico hexadecimal unico, no formato `#331AF5` |
 | `email` | string | Sim | Unico |
-| `username` | string | Sim | Unico |
+| `username` | string | Sim | Apelido de exibicao; pode se repetir |
 | `locale` | `pt-BR | en` | Sim | Preferencia |
 | `theme` | `light | dark | system` | Sim | Preferencia |
 | `providers` | array | Sim | `credentials` e/ou `google` |
@@ -310,7 +312,8 @@ Campos:
 Indices:
 
 - `email` unico.
-- `username` unico.
+- `publicIdentifier` unico.
+- `username` nao unico.
 
 ### `player_profiles`
 
@@ -471,8 +474,10 @@ Campos:
 | `_id` | string | Sim | ID de dominio |
 | `resourceType` | enum | Sim | `team` ou `tournament` |
 | `resourceId` | string | Sim | Recurso alvo |
-| `email` | string | Sim | Convidado |
-| `role` | enum | Sim | `admin` ou `member` |
+| `recipientUserId` | string | Sim | ID interno do usuario convidado |
+| `recipientPublicIdentifier` | string | Sim | Identificador publico usado no convite |
+| `email` | string | Nao | Compatibilidade com convites antigos |
+| `role` | enum | Sim | `admin`, `captain` ou `member` |
 | `status` | enum | Sim | `pending`, `accepted`, `revoked` |
 | `invitedBy` | string | Sim | Usuario que convidou |
 | `token` | string | Nao | Token para aceite futuro |
@@ -482,7 +487,7 @@ Campos:
 Indices:
 
 - `resourceId`.
-- `email`.
+- `recipientUserId`.
 - `status`.
 - `token`.
 

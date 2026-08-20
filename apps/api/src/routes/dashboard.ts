@@ -17,7 +17,7 @@ export const dashboardRoutes: FastifyPluginAsync = async (app) => {
       user.id,
       teams.map((team) => team.id)
     );
-    const invites = await app.repositories.invites.findPendingByEmail(user.email);
+    const invites = await app.repositories.invites.findPendingForUser(user.id, user.email);
     const venues = await app.repositories.venues.listVisibleToUser(user.id, { pageSize: 10 });
     const notifications = await new NotificationService(app.repositories).listByUser(user.id);
     const profile = await app.repositories.playerProfiles.findByUserId(user.id);
