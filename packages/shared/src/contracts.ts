@@ -129,14 +129,18 @@ export const teamAthleteSkillOverrideSchema = z.object({
   updatedBy: z.string(),
   updatedAt: z.string()
 });
+export const teamAthleteSkillChangeRequestSchema = z.object({
+  id: z.string(), teamId: z.string(), userId: z.string(), outfield: outfieldAttributesSchema, isGoalkeeper: z.boolean(), goalkeeper: goalkeeperAttributesSchema.optional(),
+  status: z.enum(["pending", "approved", "rejected"]), requestedAt: z.string(), reviewedAt: z.string().optional(), reviewedBy: z.string().optional()
+});
 export const teamAthleteSchema = z.object({
   userId: z.string(),
   username: usernameSchema.optional(),
   displayName: z.string(),
   role: roleSchema,
-  skills: athleteSkillProfileSchema.optional(),
   effectiveSkills: athleteSkillProfileSchema.optional(),
   skillOverride: teamAthleteSkillOverrideSchema.optional(),
+  skillChangeRequest: teamAthleteSkillChangeRequestSchema.optional(),
   skillOverrideByName: z.string().optional(),
   hasSkillOverride: z.boolean()
 });
@@ -175,6 +179,7 @@ export const teamSchema = z.object({
   visibility: entityVisibilitySchema.default("private"),
   joinPolicy: teamJoinPolicySchema.default("closed"),
   description: z.string().max(240).optional(),
+  whatsappGroupUrl: z.url().max(500).optional(),
   logoUrl: photoUrlSchema.optional(),
   logoMetadata: z.object({ fileName: z.string(), mimeType: z.enum(["image/jpeg", "image/png", "image/webp"]), size: z.number().int().positive(), uploadedAt: z.string() }).optional(),
   city: z.string().min(2).max(80).optional(),
@@ -509,7 +514,6 @@ export const updateProfileInputSchema = z.object({
 
 export const teamJoinRequestSchema = z.object({ id: z.string(), teamId: z.string(), userId: z.string(), status: requestStatusSchema, requestedAt: z.string(), reviewedAt: z.string().optional(), reviewedBy: z.string().optional() });
 export const matchJoinRequestSchema = z.object({ id: z.string(), matchId: z.string(), userId: z.string(), status: requestStatusSchema, side: z.enum(["home", "away"]).optional(), requestedAt: z.string(), reviewedAt: z.string().optional(), reviewedBy: z.string().optional() });
-export const teamMessageSchema = z.object({ id: z.string(), teamId: z.string(), authorId: z.string(), text: z.string().min(1).max(1000), createdAt: z.string() });
 export const matchCommentSchema = z.object({ id: z.string(), matchId: z.string(), authorId: z.string(), text: z.string().min(1).max(1000), createdAt: z.string() });
 
 export const playerCardFactorKeySchema = z.enum([
@@ -543,10 +547,28 @@ export const createTeamInputSchema = z.object({
   visibility: entityVisibilitySchema.default("private"),
   joinPolicy: teamJoinPolicySchema.default("closed"),
   description: z.string().trim().max(240).optional(),
+  whatsappGroupUrl: z.url().max(500).optional(),
   city: z.string().min(2).max(80).optional(),
   state: z.string().min(2).max(2).optional(),
   latitude: z.number().min(-90).max(90).optional(),
   longitude: z.number().min(-180).max(180).optional()
+});
+
+export const updateAccountInputSchema = z.object({
+  username: usernameSchema.optional(),
+  currentPassword: z.string().min(8).max(72).optional(),
+  newPassword: passwordSchema.optional()
+}).superRefine((value, context) => {
+  if (!value.username && !value.newPassword) {
+    context.addIssue({ code: "custom", message: "Informe um apelido ou uma nova senha." });
+  }
+  if (value.newPassword && !value.currentPassword) {
+    context.addIssue({ code: "custom", path: ["currentPassword"], message: "Informe a senha atual." });
+  }
+});
+
+export const updateTeamInputSchema = createTeamInputSchema.partial().extend({
+  whatsappGroupUrl: z.url().max(500).nullable().optional()
 });
 
 export const createInviteInputSchema = z.object({

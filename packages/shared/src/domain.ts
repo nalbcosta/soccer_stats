@@ -85,14 +85,27 @@ export interface TeamAthleteSkillOverride {
   updatedAt: string;
 }
 
+export interface TeamAthleteSkillChangeRequest {
+  id: string;
+  teamId: string;
+  userId: string;
+  outfield: OutfieldAttributes;
+  isGoalkeeper: boolean;
+  goalkeeper?: GoalkeeperAttributes;
+  status: "pending" | "approved" | "rejected";
+  requestedAt: string;
+  reviewedAt?: string;
+  reviewedBy?: string;
+}
+
 export interface TeamAthlete {
   userId: string;
   username?: string;
   displayName: string;
   role: Role;
-  skills?: AthleteSkillProfile;
   effectiveSkills?: AthleteSkillProfile;
   skillOverride?: TeamAthleteSkillOverride;
+  skillChangeRequest?: TeamAthleteSkillChangeRequest;
   skillOverrideByName?: string;
   hasSkillOverride: boolean;
 }
@@ -167,6 +180,7 @@ export interface Team {
   visibility: EntityVisibility;
   joinPolicy?: TeamJoinPolicy;
   description?: string;
+  whatsappGroupUrl?: string;
   logoUrl?: string;
   logoMetadata?: PlayerProfile["photoMetadata"];
   city?: string;
@@ -426,7 +440,6 @@ export interface PlayerCardV2 {
 
 export interface TeamJoinRequest { id: string; teamId: string; userId: string; status: RequestStatus; requestedAt: string; reviewedAt?: string; reviewedBy?: string; }
 export interface MatchJoinRequest { id: string; matchId: string; userId: string; status: RequestStatus; side?: "home" | "away"; requestedAt: string; reviewedAt?: string; reviewedBy?: string; }
-export interface TeamMessage { id: string; teamId: string; authorId: string; text: string; createdAt: string; }
 export interface MatchComment { id: string; matchId: string; authorId: string; text: string; createdAt: string; }
 
 export type PlayerCardFactorKey =

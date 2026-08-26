@@ -11,7 +11,7 @@ import type {
   PublicUser,
   Team,
   TeamJoinRequest,
-  TeamMessage,
+  TeamAthleteSkillChangeRequest,
   Tournament,
   Venue,
   AthleteSkillProfile,
@@ -168,6 +168,8 @@ export const api = {
     request<{ user: PublicUser }>("/auth/signup", { method: "POST", body: JSON.stringify(input) }),
   signIn: (input: { email: string; password: string; rememberMe?: boolean }) =>
     request<{ user: PublicUser }>("/auth/signin", { method: "POST", body: JSON.stringify(input) }),
+  updateAccount: (input: { username?: string; currentPassword?: string; newPassword?: string }) =>
+    request<{ user: PublicUser }>("/auth/account", { method: "PATCH", body: JSON.stringify(input) }),
   signInWithGoogle: (input: { credential: string; locale: "pt-BR" | "en"; rememberMe?: boolean }) =>
     request<{ user: PublicUser }>("/auth/google", { method: "POST", body: JSON.stringify(input) }),
   signOut: () => request<{ ok: true }>("/auth/signout", { method: "POST" }),
@@ -207,8 +209,8 @@ export const api = {
     ),
   listTeams: (filters: TeamListFilters = {}) => request<{ teams: Team[]; pagination?: PaginationMeta }>(`/teams${toQueryString({ scope: filters.scope, q: filters.q, city: filters.city, state: filters.state, latitude: filters.latitude, longitude: filters.longitude, radiusKm: filters.radiusKm, page: filters.page, pageSize: filters.pageSize })}`),
   listTeamAthletes: (teamId: string) => request<{ athletes: TeamAthlete[]; canOrganize: boolean }>(`/teams/${encodeURIComponent(teamId)}/athletes`),
-  updateTeamAthleteSkills: (teamId: string, userId: string, input: Pick<AthleteSkillProfile, "outfield" | "isGoalkeeper" | "goalkeeper">) => request(`/teams/${encodeURIComponent(teamId)}/athletes/${encodeURIComponent(userId)}/skill-override`, { method: "PUT", body: JSON.stringify(input) }),
-  resetTeamAthleteSkills: (teamId: string, userId: string) => request<{ ok: true }>(`/teams/${encodeURIComponent(teamId)}/athletes/${encodeURIComponent(userId)}/skill-override`, { method: "DELETE" }),
+  updateTeamAthleteSkills: (teamId: string, userId: string, input: Pick<AthleteSkillProfile, "outfield" | "isGoalkeeper" | "goalkeeper">) => request<{ skillOverride?: unknown; skillChangeRequest?: TeamAthleteSkillChangeRequest }>(`/teams/${encodeURIComponent(teamId)}/athletes/${encodeURIComponent(userId)}/skill-override`, { method: "PUT", body: JSON.stringify(input) }),
+  reviewTeamAthleteSkillChange: (teamId: string, userId: string, requestId: string, decision: "approve" | "reject") => request<{ request: TeamAthleteSkillChangeRequest }>(`/teams/${encodeURIComponent(teamId)}/athletes/${encodeURIComponent(userId)}/skill-change-requests/${encodeURIComponent(requestId)}/${decision}`, { method: "POST" }),
   requestTeamJoin: (teamId: string) => request<{ request: TeamJoinRequest }>(`/teams/${encodeURIComponent(teamId)}/join-requests`, { method: "POST" }),
   listTeamJoinRequests: (teamId: string) => request<{ requests: TeamJoinRequest[] }>(`/teams/${encodeURIComponent(teamId)}/join-requests`),
   reviewTeamJoinRequest: (teamId: string, requestId: string, decision: "approve" | "reject") => request<{ request: TeamJoinRequest }>(`/teams/${encodeURIComponent(teamId)}/join-requests/${encodeURIComponent(requestId)}/${decision}`, { method: "POST" }),
@@ -220,12 +222,10 @@ export const api = {
     return response.json() as Promise<{ team: Team }>;
   },
   removeTeamLogo: (teamId: string) => request<{ team: Team }>(`/teams/${encodeURIComponent(teamId)}/logo`, { method: "DELETE" }),
+  updateTeam: (teamId: string, input: { whatsappGroupUrl?: string | null }) => request<{ team: Team }>(`/teams/${encodeURIComponent(teamId)}`, { method: "PATCH", body: JSON.stringify(input) }),
   requestMatchJoin: (matchId: string) => request<{ request: MatchJoinRequest }>(`/matches/${encodeURIComponent(matchId)}/join-requests`, { method: "POST" }),
   listMatchJoinRequests: (matchId: string) => request<{ requests: MatchJoinRequest[] }>(`/matches/${encodeURIComponent(matchId)}/join-requests`),
   reviewMatchJoinRequest: (matchId: string, requestId: string, decision: "approve" | "reject", side?: "home" | "away") => request<{ request: MatchJoinRequest }>(`/matches/${encodeURIComponent(matchId)}/join-requests/${encodeURIComponent(requestId)}/${decision}`, { method: "POST", ...(side ? { body: JSON.stringify({ side }) } : {}) }),
-  listTeamMessages: (teamId: string, page = 1) => request<{ messages: TeamMessage[] }>(`/teams/${encodeURIComponent(teamId)}/messages${toQueryString({ page })}`),
-  sendTeamMessage: (teamId: string, text: string) => request<{ message: TeamMessage }>(`/teams/${encodeURIComponent(teamId)}/messages`, { method: "POST", body: JSON.stringify({ text }) }),
-  deleteTeamMessage: (teamId: string, messageId: string) => request<{ ok: true }>(`/teams/${encodeURIComponent(teamId)}/messages/${encodeURIComponent(messageId)}`, { method: "DELETE" }),
   listMatchComments: (matchId: string, page = 1) => request<{ comments: MatchComment[] }>(`/matches/${encodeURIComponent(matchId)}/comments${toQueryString({ page })}`),
   sendMatchComment: (matchId: string, text: string) => request<{ comment: MatchComment }>(`/matches/${encodeURIComponent(matchId)}/comments`, { method: "POST", body: JSON.stringify({ text }) }),
   deleteMatchComment: (matchId: string, commentId: string) => request<{ ok: true }>(`/matches/${encodeURIComponent(matchId)}/comments/${encodeURIComponent(commentId)}`, { method: "DELETE" }),

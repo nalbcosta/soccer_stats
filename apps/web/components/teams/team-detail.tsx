@@ -64,7 +64,7 @@ export function TeamDetail() {
           </div>
         </section>
         <section className="lg:col-span-2"><TeamAthletesPanel team={team} /></section>
-        {user && <section className="lg:col-span-2"><TeamSocialPanel canManage={canManage} onTeamChange={refresh} team={team} userId={user.id} /></section>}
+        {user && <section className="lg:col-span-2"><TeamSocialPanel canManage={canManage} onTeamChange={refresh} team={team} /></section>}
       </div>
     </>
   );

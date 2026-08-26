@@ -1,5 +1,5 @@
 import mongoose, { Schema, type Connection, type Model } from "mongoose";
-import type { AthleteSkillProfile, AuditLog, Invite, Match, MatchComment, MatchJoinRequest, Notification, PlayerCardProjection, PlayerFeatureSnapshot, PlayerProfile, Team, TeamAthleteSkillOverride, TeamJoinRequest, TeamMessage, Tournament, Venue, VenueChangeRequest, VenueReview } from "@soccer-stats/shared";
+import type { AthleteSkillProfile, AuditLog, Invite, Match, MatchComment, MatchJoinRequest, Notification, PlayerCardProjection, PlayerFeatureSnapshot, PlayerProfile, Team, TeamAthleteSkillChangeRequest, TeamAthleteSkillOverride, TeamJoinRequest, Tournament, Venue, VenueChangeRequest, VenueReview } from "@soccer-stats/shared";
 import type {
   AthleteSkillProfileRepository,
   AuditLogRepository,
@@ -16,12 +16,12 @@ import type {
   TeamRepository,
   TeamJoinRequestRepository,
   MatchJoinRequestRepository,
-  TeamMessageRepository,
   MatchCommentRepository,
   TournamentRepository,
   UserRepository,
   VenueRepository,
   TeamAthleteSkillOverrideRepository,
+  TeamAthleteSkillChangeRequestRepository,
   VenueChangeRequestRepository,
   VenueReviewRepository
 } from "../types.js";
@@ -208,6 +208,8 @@ const modelsFor = (connection: Connection) => {
     { collection: "team_athlete_skill_overrides", versionKey: false }
   );
   teamAthleteSkillOverrideSchema.index({ teamId: 1, userId: 1 }, { unique: true });
+  const teamAthleteSkillChangeRequestSchema = new Schema<Persisted<TeamAthleteSkillChangeRequest>>({ _id: { type: String, required: true }, teamId: { type: String, required: true, index: true }, userId: { type: String, required: true, index: true }, outfield: { type: outfieldAttributesSchema, required: true }, isGoalkeeper: { type: Boolean, required: true }, goalkeeper: goalkeeperAttributesSchema, status: { type: String, enum: ["pending", "approved", "rejected"], required: true, index: true }, requestedAt: { type: String, required: true }, reviewedAt: String, reviewedBy: String }, { collection: "team_athlete_skill_change_requests", versionKey: false });
+  teamAthleteSkillChangeRequestSchema.index({ teamId: 1, userId: 1 }, { unique: true });
 
   const teamSchema = new Schema<Persisted<Team>>(
     {
@@ -218,6 +220,7 @@ const modelsFor = (connection: Connection) => {
       visibility: { type: String, enum: ["private", "public"], required: true, default: "private", index: true },
       joinPolicy: { type: String, enum: ["closed", "request"], required: true, default: "closed", index: true },
       description: String,
+      whatsappGroupUrl: String,
       logoUrl: String,
       logoMetadata: { fileName: String, mimeType: { type: String, enum: ["image/jpeg", "image/png", "image/webp"] }, size: Number, uploadedAt: String },
       city: String,
@@ -270,7 +273,6 @@ const modelsFor = (connection: Connection) => {
   teamJoinRequestSchema.index({ teamId: 1, userId: 1, status: 1 });
   const matchJoinRequestSchema = new Schema<Persisted<MatchJoinRequest>>({ _id: { type: String, required: true }, matchId: { type: String, required: true, index: true }, userId: { type: String, required: true, index: true }, status: { type: String, enum: ["pending", "approved", "rejected", "cancelled"], required: true, index: true }, side: { type: String, enum: ["home", "away"] }, requestedAt: { type: String, required: true }, reviewedAt: String, reviewedBy: String }, { collection: "match_join_requests", versionKey: false });
   matchJoinRequestSchema.index({ matchId: 1, userId: 1, status: 1 });
-  const teamMessageSchema = new Schema<Persisted<TeamMessage>>({ _id: { type: String, required: true }, teamId: { type: String, required: true, index: true }, authorId: { type: String, required: true }, text: { type: String, required: true, maxlength: 1000 }, createdAt: { type: String, required: true, index: true } }, { collection: "team_messages", versionKey: false });
   const matchCommentSchema = new Schema<Persisted<MatchComment>>({ _id: { type: String, required: true }, matchId: { type: String, required: true, index: true }, authorId: { type: String, required: true }, text: { type: String, required: true, maxlength: 1000 }, createdAt: { type: String, required: true, index: true } }, { collection: "match_comments", versionKey: false });
 
   const tournamentSchema = new Schema<Persisted<Tournament>>(
@@ -482,10 +484,10 @@ const modelsFor = (connection: Connection) => {
     playerProfiles: connection.model<Persisted<PlayerProfile>>("PlayerProfile", playerProfileSchema),
     athleteSkills: connection.model<Persisted<AthleteSkillProfile>>("AthleteSkillProfile", athleteSkillProfileSchema),
     teamAthleteSkillOverrides: connection.model<Persisted<TeamAthleteSkillOverride>>("TeamAthleteSkillOverride", teamAthleteSkillOverrideSchema),
+    teamAthleteSkillChangeRequests: connection.model<Persisted<TeamAthleteSkillChangeRequest>>("TeamAthleteSkillChangeRequest", teamAthleteSkillChangeRequestSchema),
     teams: connection.model<Persisted<Team>>("Team", teamSchema),
     teamJoinRequests: connection.model<Persisted<TeamJoinRequest>>("TeamJoinRequest", teamJoinRequestSchema),
     matchJoinRequests: connection.model<Persisted<MatchJoinRequest>>("MatchJoinRequest", matchJoinRequestSchema),
-    teamMessages: connection.model<Persisted<TeamMessage>>("TeamMessage", teamMessageSchema),
     matchComments: connection.model<Persisted<MatchComment>>("MatchComment", matchCommentSchema),
     matches: connection.model<Persisted<Match>>("Match", matchSchema),
     tournaments: connection.model<Persisted<Tournament>>("Tournament", tournamentSchema),
@@ -595,7 +597,22 @@ class MongooseTeamAthleteSkillOverrideRepository implements TeamAthleteSkillOver
   async upsert(value: TeamAthleteSkillOverride) { const { id, ...rest } = value; await this.model.updateOne({ teamId: value.teamId, userId: value.userId }, { $set: { ...rest, _id: id }, ...(!value.goalkeeper ? { $unset: { goalkeeper: 1 } } : {}) }, { upsert: true, runValidators: true }); return value; }
   async findByTeamAndUser(teamId: string, userId: string) { return toDomain<TeamAthleteSkillOverride>(await this.model.findOne({ teamId, userId }).lean()); }
   async listByTeam(teamId: string) { return (await this.model.find({ teamId }).lean()).map((doc) => toDomain<TeamAthleteSkillOverride>(doc)).filter(Boolean) as TeamAthleteSkillOverride[]; }
-  async deleteByTeamAndUser(teamId: string, userId: string) { await this.model.deleteOne({ teamId, userId }); }
+}
+
+class MongooseTeamAthleteSkillChangeRequestRepository implements TeamAthleteSkillChangeRequestRepository {
+  constructor(private readonly model: Model<Persisted<TeamAthleteSkillChangeRequest>>) {}
+  async upsert(value: TeamAthleteSkillChangeRequest) {
+    const { id, ...rest } = value;
+    const unset = {
+      ...(!value.goalkeeper ? { goalkeeper: 1 } : {}),
+      ...(!value.reviewedAt ? { reviewedAt: 1 } : {}),
+      ...(!value.reviewedBy ? { reviewedBy: 1 } : {})
+    };
+    await this.model.updateOne({ teamId: value.teamId, userId: value.userId }, { $set: { ...rest, _id: id }, ...(Object.keys(unset).length ? { $unset: unset } : {}) }, { upsert: true, runValidators: true });
+    return value;
+  }
+  async findByTeamAndUser(teamId: string, userId: string) { return toDomain<TeamAthleteSkillChangeRequest>(await this.model.findOne({ teamId, userId }).lean()); }
+  async listByTeam(teamId: string) { return (await this.model.find({ teamId }).lean()).map((doc) => toDomain<TeamAthleteSkillChangeRequest>(doc)).filter(Boolean) as TeamAthleteSkillChangeRequest[]; }
 }
 
 class MongoosePlayerFeatureSnapshotRepository extends BaseMongooseRepository<PlayerFeatureSnapshot & { id: string }> implements PlayerFeatureSnapshotRepository {
@@ -665,13 +682,6 @@ class MongooseMatchJoinRequestRepository extends BaseMongooseRepository<MatchJoi
   async listByMatch(matchId: string): Promise<MatchJoinRequest[]> { return (await this.model.find({ matchId }).sort({ requestedAt: -1 }).lean()).map((doc) => toDomain<MatchJoinRequest>(doc)).filter(Boolean) as MatchJoinRequest[]; }
 }
 
-class MongooseTeamMessageRepository extends BaseMongooseRepository<TeamMessage> implements TeamMessageRepository {
-  async create(message: TeamMessage): Promise<TeamMessage> { return this.save(message); }
-  async findById(id: string): Promise<TeamMessage | null> { return toDomain<TeamMessage>(await this.model.findById(id).lean()); }
-  async listByTeam(teamId: string, page: number, pageSize: number): Promise<TeamMessage[]> { return (await this.model.find({ teamId }).sort({ createdAt: -1 }).skip((page - 1) * pageSize).limit(pageSize).lean()).map((doc) => toDomain<TeamMessage>(doc)).filter(Boolean) as TeamMessage[]; }
-  async deleteById(id: string): Promise<void> { await this.model.deleteOne({ _id: id }); }
-}
-
 class MongooseMatchCommentRepository extends BaseMongooseRepository<MatchComment> implements MatchCommentRepository {
   async create(comment: MatchComment): Promise<MatchComment> { return this.save(comment); }
   async findById(id: string): Promise<MatchComment | null> { return toDomain<MatchComment>(await this.model.findById(id).lean()); }
@@ -686,7 +696,7 @@ class MongooseTeamRepository extends BaseMongooseRepository<Team> implements Tea
 
   async update(team: Team): Promise<Team> {
     const { id, ...rest } = team;
-    const unset = Object.fromEntries(["description", "logoUrl", "logoMetadata", "city", "state", "latitude", "longitude"].filter((field) => team[field as keyof Team] === undefined).map((field) => [field, 1]));
+    const unset = Object.fromEntries(["description", "whatsappGroupUrl", "logoUrl", "logoMetadata", "city", "state", "latitude", "longitude"].filter((field) => team[field as keyof Team] === undefined).map((field) => [field, 1]));
     await this.model.updateOne({ _id: id }, { $set: { ...rest, _id: id }, ...(Object.keys(unset).length ? { $unset: unset } : {}) }, { upsert: true, runValidators: true });
     return team;
   }
@@ -1023,12 +1033,12 @@ export const createMongoRepositories = async (uri: string, dbName: string): Prom
       playerProfiles: new MongoosePlayerProfileRepository(models.playerProfiles),
       athleteSkills: new MongooseAthleteSkillProfileRepository(models.athleteSkills),
       teamAthleteSkillOverrides: new MongooseTeamAthleteSkillOverrideRepository(models.teamAthleteSkillOverrides),
+      teamAthleteSkillChangeRequests: new MongooseTeamAthleteSkillChangeRequestRepository(models.teamAthleteSkillChangeRequests),
       playerFeatureSnapshots: new MongoosePlayerFeatureSnapshotRepository(models.playerFeatureSnapshots),
       playerCardProjections: new MongoosePlayerCardProjectionRepository(models.playerCardProjections),
       teams: new MongooseTeamRepository(models.teams),
       teamJoinRequests: new MongooseTeamJoinRequestRepository(models.teamJoinRequests),
       matchJoinRequests: new MongooseMatchJoinRequestRepository(models.matchJoinRequests),
-      teamMessages: new MongooseTeamMessageRepository(models.teamMessages),
       matchComments: new MongooseMatchCommentRepository(models.matchComments),
       matches: new MongooseMatchRepository(models.matches),
       tournaments: new MongooseTournamentRepository(models.tournaments),

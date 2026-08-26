@@ -10,9 +10,7 @@ const fallbackMessages: Record<string, string> = {
 
 export interface PlayerCardViewModel {
   identity: { name: string; username: string; teamName?: string; shirtNumber: string; position: string; positionCode: string; photoUrl?: string; photoAlt: string };
-  overall: number;
-  confidence: { label: string; description: string; isForming: boolean };
-  labels: { cardName: string; overall: string; position: string; realData: string; performance: string; moment: string };
+  labels: { cardName: string; position: string; realData: string; performance: string; moment: string };
   realMetrics: Array<{ key: string; label: string; value: number }>;
   attributes: Array<{ key: string; label: string; value: number }>;
   moment: { label: string; form: PlayerCardProjection["stats"]["form"] };
@@ -48,13 +46,7 @@ export function buildPlayerCardViewModel(profile: PlayerProfile | null, user: Pu
       ...(profile?.photoUrl ? { photoUrl: resolveApiAssetUrl(profile.photoUrl) } : {}),
       photoAlt: t("cardPhotoAlt", { name: profile?.displayName ?? user.username })
     },
-    overall: card?.score ?? 35,
-    confidence: {
-      label: card?.confidence === "forming" ? t("cardForming") : t("cardEstablished"),
-      description: card?.confidence === "forming" ? t("cardFormingDescription") : t("cardEstablishedDescription"),
-      isForming: card?.confidence !== "established"
-    },
-    labels: { cardName: t("cardName"), overall: t("cardOverall"), position: t("preferredPosition"), realData: t("cardRealData"), performance: t("cardPerformance"), moment: t("cardMoment") },
+    labels: { cardName: t("cardName"), position: t("preferredPosition"), realData: t("cardRealData"), performance: t("cardPerformance"), moment: t("cardMoment") },
     realMetrics: stats ? [
       { key: "matches", label: t("cardMatches"), value: stats.matchesPlayed }, { key: "wins", label: t("cardWins"), value: stats.wins },
       { key: "goals", label: t("cardGoals"), value: stats.goals }, { key: isGoalkeeper ? "clean-sheets" : "assists", label: isGoalkeeper ? t("cardCleanSheets") : t("cardAssists"), value: isGoalkeeper ? stats.cleanSheets : stats.assists }

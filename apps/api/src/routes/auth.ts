@@ -1,7 +1,8 @@
 import type { FastifyPluginAsync } from "fastify";
-import { googleAuthInputSchema, publicUserSchema, signInInputSchema, signUpInputSchema } from "@soccer-stats/shared";
+import { googleAuthInputSchema, publicUserSchema, signInInputSchema, signUpInputSchema, updateAccountInputSchema } from "@soccer-stats/shared";
 import { authRouteSchemas } from "../docs/openapi.js";
 import { AuditService } from "../modules/audit/audit.service.js";
+import { hashPassword, verifyPassword } from "../lib/auth.js";
 
 export const authRoutes: FastifyPluginAsync = async (app) => {
   app.post("/auth/signup", { schema: authRouteSchemas.signUp, config: { rateLimit: { max: 8, timeWindow: "1 minute" } } }, async (request, reply) => {
@@ -165,5 +166,44 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
     }
 
     return { user: publicUserSchema.parse(user) };
+  });
+
+  app.patch("/auth/account", { schema: authRouteSchemas.updateAccount }, async (request, reply) => {
+    const user = await app.auth.requireUser(request, reply);
+    if (!user) return;
+
+    const payload = updateAccountInputSchema.parse(request.body);
+    if (payload.newPassword) {
+      if (!user.passwordHash || !payload.currentPassword || !verifyPassword(payload.currentPassword, user.passwordHash)) {
+        reply.code(400);
+        return { message: "A senha atual não confere." };
+      }
+    }
+
+    const username = payload.username?.trim() ?? user.username;
+    const updated = await app.repositories.users.update({
+      ...user,
+      username,
+      ...(payload.newPassword ? { passwordHash: hashPassword(payload.newPassword) } : {}),
+      updatedAt: new Date().toISOString()
+    });
+
+    if (username !== user.username) {
+      const teams = await app.repositories.teams.listByMember(user.id);
+      await Promise.all(teams.map((team) => app.repositories.teams.update({
+        ...team,
+        members: team.members.map((member) => member.userId === user.id ? { ...member, username } : member),
+        updatedAt: new Date().toISOString()
+      })));
+    }
+
+    await new AuditService(app.repositories).record({
+      actorUserId: user.id,
+      action: "auth.account.update",
+      resourceType: "user",
+      resourceId: user.id,
+      metadata: { usernameChanged: String(username !== user.username), passwordChanged: String(Boolean(payload.newPassword)) }
+    });
+    return { user: publicUserSchema.parse(updated) };
   });
 };

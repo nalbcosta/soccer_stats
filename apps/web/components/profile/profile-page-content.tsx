@@ -9,7 +9,6 @@ import { ProfileForm } from "./profile-form";
 import { useTranslations } from "../../i18n/provider";
 import { useProfilePage } from "../../composables/use-profile-page";
 import { buildPlayerCardViewModel } from "../../lib/player-card/build-player-card-view-model";
-import { AthleteSkillsForm } from "./athlete-skills-form";
 
 export function ProfilePageContent() {
   const { card, profile, teams, user, isLoading } = useProfilePage();
@@ -40,14 +39,13 @@ export function ProfilePageContent() {
           </Card>
         </div>
         <div className="grid gap-4">
-        <AthleteSkillsForm required={teams.length > 0} />
-        <section className="rounded-xl border border-border bg-surface p-4 shadow-line sm:p-5">
+          <section className="rounded-xl border border-border bg-surface p-4 shadow-line sm:p-5">
           <div className="mb-6 border-b border-border pb-5">
             <h2 className="text-lg font-black">{t("playerData")}</h2>
             <p className="mt-1 text-sm leading-6 text-muted">{t("editDescription")}</p>
           </div>
           <ProfileForm profile={profile} teams={teams} />
-        </section>
+          </section>
         </div>
       </div>
     </>

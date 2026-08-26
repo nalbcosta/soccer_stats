@@ -1,6 +1,6 @@
 import type { FastifyPluginAsync } from "fastify";
 import { extname } from "node:path";
-import { athleteSkillProfileSchema, athleteSkillsInputSchema, createEmptyStats, createInviteInputSchema, createTeamInputSchema, inviteSchema, listTeamsQuerySchema, teamAthleteSchema, teamAthleteSkillOverrideSchema, teamJoinRequestSchema, teamSchema, updateMembershipRoleInputSchema } from "@soccer-stats/shared";
+import { athleteSkillsInputSchema, createEmptyStats, createInviteInputSchema, createTeamInputSchema, inviteSchema, listTeamsQuerySchema, teamAthleteSchema, teamAthleteSkillChangeRequestSchema, teamAthleteSkillOverrideSchema, teamJoinRequestSchema, teamSchema, updateMembershipRoleInputSchema, updateTeamInputSchema } from "@soccer-stats/shared";
 import { teamRouteSchemas } from "../docs/openapi.js";
 import { createId, slugify } from "../lib/ids.js";
 import { removeStoredImage, storePublicImage } from "../lib/image-storage.js";
@@ -112,6 +112,7 @@ export const teamRoutes: FastifyPluginAsync = async (app) => {
       visibility: payload.visibility,
       joinPolicy: payload.joinPolicy,
       ...(payload.description ? { description: payload.description } : {}),
+      ...(payload.whatsappGroupUrl ? { whatsappGroupUrl: payload.whatsappGroupUrl } : {}),
       ...(payload.city ? { city: payload.city } : {}),
       ...(payload.state ? { state: payload.state.toUpperCase() } : {}),
       ...(payload.latitude !== undefined ? { latitude: payload.latitude } : {}),
@@ -139,7 +140,7 @@ export const teamRoutes: FastifyPluginAsync = async (app) => {
     }
 
     const { teamId } = request.params as { teamId: string };
-    const payload = createTeamInputSchema.partial().parse(request.body);
+    const payload = updateTeamInputSchema.parse(request.body);
     const team = await ensureTeamPermission(teamId, user.id, app);
 
     if (!team) {
@@ -147,7 +148,7 @@ export const teamRoutes: FastifyPluginAsync = async (app) => {
       return { message: "Sem permissao para editar este time." };
     }
 
-    const updated = await app.repositories.teams.update({
+    const updatedTeam = {
       ...team,
       ...(payload.name ? { name: payload.name } : {}),
       ...(payload.visibility ? { visibility: payload.visibility } : {}),
@@ -158,7 +159,10 @@ export const teamRoutes: FastifyPluginAsync = async (app) => {
       ...(payload.latitude !== undefined ? { latitude: payload.latitude } : {}),
       ...(payload.longitude !== undefined ? { longitude: payload.longitude } : {}),
       updatedAt: new Date().toISOString()
-    });
+    };
+    if (payload.whatsappGroupUrl === null) delete updatedTeam.whatsappGroupUrl;
+    else if (payload.whatsappGroupUrl !== undefined) updatedTeam.whatsappGroupUrl = payload.whatsappGroupUrl;
+    const updated = await app.repositories.teams.update(updatedTeam);
     await new AuditService(app.repositories).record({
       actorUserId: user.id,
       action: "team.update",
@@ -332,33 +336,32 @@ export const teamRoutes: FastifyPluginAsync = async (app) => {
     const requestingMembership = team?.members.find((member) => member.userId === user.id);
     if (!team || !requestingMembership) { reply.code(404); return { message: "Time nao encontrado." }; }
     const userIds = team.members.map((member) => member.userId);
-    const [profiles, skills, overrides] = await Promise.all([
+    const [profiles, overrides, changeRequests] = await Promise.all([
       app.repositories.playerProfiles.listByUserIds(userIds),
-      app.repositories.athleteSkills.listByUserIds(userIds),
-      app.repositories.teamAthleteSkillOverrides.listByTeam(team.id)
+      app.repositories.teamAthleteSkillOverrides.listByTeam(team.id),
+      app.repositories.teamAthleteSkillChangeRequests.listByTeam(team.id)
     ]);
     const profileByUser = new Map(profiles.map((profile) => [profile.userId, profile]));
-    const skillsByUser = new Map(skills.map((item) => [item.userId, item]));
     const overrideByUser = new Map(overrides.map((item) => [item.userId, item]));
+    const changeRequestByUser = new Map(changeRequests.map((item) => [item.userId, item]));
     const organizer = isOrganizer(requestingMembership.role);
     const athletes = team.members.map((member) => {
-      const base = skillsByUser.get(member.userId);
-      const canSeeOverride = organizer || member.userId === user.id;
-      const override = canSeeOverride ? overrideByUser.get(member.userId) : undefined;
+      const override = overrideByUser.get(member.userId);
+      const changeRequest = organizer || member.userId === user.id ? changeRequestByUser.get(member.userId) : undefined;
       const effectiveSkills = override ? {
         userId: member.userId, outfield: override.outfield, isGoalkeeper: override.isGoalkeeper,
         ...(override.goalkeeper ? { goalkeeper: override.goalkeeper } : {}),
-        completedAt: base?.completedAt ?? override.updatedAt, updatedAt: override.updatedAt
-      } : base;
+        completedAt: override.updatedAt, updatedAt: override.updatedAt
+      } : undefined;
       return teamAthleteSchema.parse({
         userId: member.userId,
         ...(member.username ? { username: member.username } : {}),
         displayName: profileByUser.get(member.userId)?.displayName ?? member.username ?? "Jogador",
         role: member.role,
-        ...(base ? { skills: athleteSkillProfileSchema.parse(base) } : {}),
         ...(effectiveSkills ? { effectiveSkills } : {}),
         ...(override ? { skillOverride: teamAthleteSkillOverrideSchema.parse(override) } : {}),
         ...(override ? { skillOverrideByName: team.members.find((item) => item.userId === override.updatedBy)?.username ?? "Organizador" } : {}),
+        ...(changeRequest ? { skillChangeRequest: teamAthleteSkillChangeRequestSchema.parse(changeRequest) } : {}),
         hasSkillOverride: Boolean(override)
       });
     });
@@ -371,28 +374,52 @@ export const teamRoutes: FastifyPluginAsync = async (app) => {
     const { teamId, userId } = request.params as { teamId: string; userId: string };
     const team = await app.repositories.teams.findById(teamId);
     const membership = team?.members.find((member) => member.userId === user.id);
-    if (!team || !membership || !isOrganizer(membership.role)) { reply.code(403); return { message: "Sem permissao para avaliar atletas." }; }
+    if (!team || !membership || (!isOrganizer(membership.role) && user.id !== userId)) { reply.code(403); return { message: "Sem permissao para avaliar este atleta." }; }
     if (!team.members.some((member) => member.userId === userId)) { reply.code(404); return { message: "Atleta nao encontrado no time." }; }
     const payload = athleteSkillsInputSchema.parse(request.body);
-    const now = new Date().toISOString();
     const current = await app.repositories.teamAthleteSkillOverrides.findByTeamAndUser(teamId, userId);
+    const isSelfService = !isOrganizer(membership.role) && user.id === userId;
+    const now = new Date().toISOString();
+    if (isSelfService && current) {
+      const existingRequest = await app.repositories.teamAthleteSkillChangeRequests.findByTeamAndUser(teamId, userId);
+      const requestedChange = await app.repositories.teamAthleteSkillChangeRequests.upsert({
+        id: existingRequest?.id ?? createId(), teamId, userId, outfield: payload.outfield, isGoalkeeper: payload.isGoalkeeper,
+        ...(payload.goalkeeper ? { goalkeeper: payload.goalkeeper } : {}), status: "pending", requestedAt: now
+      });
+      await new AuditService(app.repositories).record({ actorUserId: user.id, action: "team.athlete-skills.request", resourceType: "team", resourceId: teamId, metadata: { athleteUserId: userId } });
+      return { skillChangeRequest: teamAthleteSkillChangeRequestSchema.parse(requestedChange) };
+    }
     const value = await app.repositories.teamAthleteSkillOverrides.upsert({
       id: current?.id ?? createId(), teamId, userId, outfield: payload.outfield, isGoalkeeper: payload.isGoalkeeper,
       ...(payload.goalkeeper ? { goalkeeper: payload.goalkeeper } : {}), updatedBy: user.id, updatedAt: now
     });
-    await new AuditService(app.repositories).record({ actorUserId: user.id, action: "team.athlete-skills.update", resourceType: "team", resourceId: teamId, metadata: { athleteUserId: userId } });
+    await new AuditService(app.repositories).record({ actorUserId: user.id, action: current ? "team.athlete-skills.update" : "team.athlete-skills.initial-assessment", resourceType: "team", resourceId: teamId, metadata: { athleteUserId: userId } });
     return { skillOverride: teamAthleteSkillOverrideSchema.parse(value) };
   });
 
-  app.delete("/teams/:teamId/athletes/:userId/skill-override", async (request, reply) => {
-    const user = await app.auth.requireUser(request, reply);
-    if (!user) return;
-    const { teamId, userId } = request.params as { teamId: string; userId: string };
-    const team = await app.repositories.teams.findById(teamId);
-    const membership = team?.members.find((member) => member.userId === user.id);
-    if (!team || !membership || !isOrganizer(membership.role)) { reply.code(403); return { message: "Sem permissao para remover a avaliacao." }; }
-    await app.repositories.teamAthleteSkillOverrides.deleteByTeamAndUser(teamId, userId);
-    await new AuditService(app.repositories).record({ actorUserId: user.id, action: "team.athlete-skills.reset", resourceType: "team", resourceId: teamId, metadata: { athleteUserId: userId } });
-    return { ok: true };
-  });
+  for (const decision of ["approve", "reject"] as const) {
+    app.post(`/teams/:teamId/athletes/:userId/skill-change-requests/:requestId/${decision}`, async (request, reply) => {
+      const user = await app.auth.requireUser(request, reply);
+      if (!user) return;
+      const { teamId, userId, requestId } = request.params as { teamId: string; userId: string; requestId: string };
+      const team = await app.repositories.teams.findById(teamId);
+      const membership = team?.members.find((member) => member.userId === user.id);
+      if (!team || !membership || !isOrganizer(membership.role)) { reply.code(403); return { message: "Sem permissao para analisar esta solicitacao." }; }
+      const requestedChange = await app.repositories.teamAthleteSkillChangeRequests.findByTeamAndUser(teamId, userId);
+      if (!requestedChange || requestedChange.id !== requestId) { reply.code(404); return { message: "Solicitacao de alteracao nao encontrada." }; }
+      if (requestedChange.status !== "pending") { reply.code(409); return { message: "Esta solicitacao ja foi analisada." }; }
+      const now = new Date().toISOString();
+      const reviewedRequest = await app.repositories.teamAthleteSkillChangeRequests.upsert({ ...requestedChange, status: decision === "approve" ? "approved" : "rejected", reviewedAt: now, reviewedBy: user.id });
+      if (decision === "approve") {
+        const current = await app.repositories.teamAthleteSkillOverrides.findByTeamAndUser(teamId, userId);
+        await app.repositories.teamAthleteSkillOverrides.upsert({
+          id: current?.id ?? createId(), teamId, userId, outfield: requestedChange.outfield, isGoalkeeper: requestedChange.isGoalkeeper,
+          ...(requestedChange.goalkeeper ? { goalkeeper: requestedChange.goalkeeper } : {}), updatedBy: user.id, updatedAt: now
+        });
+      }
+      await new AuditService(app.repositories).record({ actorUserId: user.id, action: `team.athlete-skills.request.${decision}`, resourceType: "team", resourceId: teamId, metadata: { athleteUserId: userId, requestId } });
+      return { request: teamAthleteSkillChangeRequestSchema.parse(reviewedRequest) };
+    });
+  }
+
 };

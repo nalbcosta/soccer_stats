@@ -16,7 +16,7 @@ export function TeamDiscovery() {
 
   if (loading) return <LoadingState label={t("discoveryLoading")} />;
   if (error) return <div className="space-y-3"><EmptyState title={t("discoveryError")} description={error} /><Button onClick={() => void reload()}>{t("tryAgain")}</Button></div>;
-  if (!teams.length) return <EmptyState title={t("discoveryEmptyTitle")} description={t("discoveryEmptyDescription")} />;
+  if (!teams.length) return null;
 
   return <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{teams.map((team) => <Card className="p-4" key={team.id}>
     <div className="flex items-start gap-3">

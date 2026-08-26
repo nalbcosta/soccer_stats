@@ -13,11 +13,11 @@ import type {
   SupportedLocale,
   Team,
   TeamJoinRequest,
-  TeamMessage,
   ThemeMode,
   Tournament,
   Venue,
   TeamAthleteSkillOverride,
+  TeamAthleteSkillChangeRequest,
   VenueChangeRequest,
   VenueReview
 } from "@soccer-stats/shared";
@@ -48,12 +48,12 @@ export interface Repositories {
   playerProfiles: PlayerProfileRepository;
   athleteSkills: AthleteSkillProfileRepository;
   teamAthleteSkillOverrides: TeamAthleteSkillOverrideRepository;
+  teamAthleteSkillChangeRequests: TeamAthleteSkillChangeRequestRepository;
   playerFeatureSnapshots: PlayerFeatureSnapshotRepository;
   playerCardProjections: PlayerCardProjectionRepository;
   teams: TeamRepository;
   teamJoinRequests: TeamJoinRequestRepository;
   matchJoinRequests: MatchJoinRequestRepository;
-  teamMessages: TeamMessageRepository;
   matchComments: MatchCommentRepository;
   matches: MatchRepository;
   tournaments: TournamentRepository;
@@ -91,7 +91,12 @@ export interface TeamAthleteSkillOverrideRepository {
   upsert(override: TeamAthleteSkillOverride): Promise<TeamAthleteSkillOverride>;
   findByTeamAndUser(teamId: string, userId: string): Promise<TeamAthleteSkillOverride | null>;
   listByTeam(teamId: string): Promise<TeamAthleteSkillOverride[]>;
-  deleteByTeamAndUser(teamId: string, userId: string): Promise<void>;
+}
+
+export interface TeamAthleteSkillChangeRequestRepository {
+  upsert(request: TeamAthleteSkillChangeRequest): Promise<TeamAthleteSkillChangeRequest>;
+  findByTeamAndUser(teamId: string, userId: string): Promise<TeamAthleteSkillChangeRequest | null>;
+  listByTeam(teamId: string): Promise<TeamAthleteSkillChangeRequest[]>;
 }
 
 export interface PlayerFeatureSnapshotRepository {
@@ -130,13 +135,6 @@ export interface MatchJoinRequestRepository {
   findById(id: string): Promise<MatchJoinRequest | null>;
   findByMatchAndUser(matchId: string, userId: string): Promise<MatchJoinRequest | null>;
   listByMatch(matchId: string): Promise<MatchJoinRequest[]>;
-}
-
-export interface TeamMessageRepository {
-  create(message: TeamMessage): Promise<TeamMessage>;
-  findById(id: string): Promise<TeamMessage | null>;
-  listByTeam(teamId: string, page: number, pageSize: number): Promise<TeamMessage[]>;
-  deleteById(id: string): Promise<void>;
 }
 
 export interface MatchCommentRepository {

@@ -136,7 +136,7 @@ vi.mock("../../composables/use-dashboard-home", () => ({
 }));
 
 vi.mock("../sports/player-card", () => ({
-  PlayerCard: ({ viewModel }: { viewModel: { overall: number } }) => <article>NaBola Card {viewModel.overall}</article>
+  PlayerCard: () => <article>NaBola Card</article>
 }));
 
 describe("DashboardOverview", () => {
@@ -198,7 +198,7 @@ describe("DashboardOverview", () => {
 
     render(<DashboardOverview />);
 
-    expect(screen.getByText("NaBola Card 82")).toBeInTheDocument();
+    expect(screen.getByText("NaBola Card")).toBeInTheDocument();
   });
 
   it("usa fallback de profile quando card v2 nao existe", () => {
@@ -210,6 +210,6 @@ describe("DashboardOverview", () => {
 
     render(<DashboardOverview />);
 
-    expect(screen.getByText("NaBola Card 35")).toBeInTheDocument();
+    expect(screen.getByText("NaBola Card")).toBeInTheDocument();
   });
 });

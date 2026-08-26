@@ -1,5 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
+import { createElement } from "react";
 import { ProfilePageContent } from "./profile-page-content";
 
 vi.mock("../app/session-provider", () => ({
@@ -53,20 +54,20 @@ vi.mock("../../composables/use-player-card", () => ({
 }));
 
 vi.mock("./profile-form", () => ({
-  ProfileForm: () => <input aria-label="Nome de jogo" defaultValue="Camisa 10" />
+  ProfileForm: () => createElement("input", { ariaLabel: "Nome de jogo", defaultValue: "Camisa 10" })
 }));
 
 vi.mock("./athlete-skills-form", () => ({
-  AthleteSkillsForm: () => <section>Atributos do atleta</section>
+  AthleteSkillsForm: () => createElement("section", null, "Atributos do atleta")
 }));
 
 vi.mock("./preferences-panel", () => ({
-  PreferencesPanel: () => <section>Preferencias</section>
+  PreferencesPanel: () => createElement("section", null, "Preferencias")
 }));
 
 describe("ProfilePageContent", () => {
   it("renderiza formulario de perfil quando ha sessao", () => {
-    render(<ProfilePageContent />);
+    render(createElement(ProfilePageContent));
 
     expect(screen.getByText("Seu card no NaBola")).toBeInTheDocument();
     expect(screen.getByDisplayValue("Camisa 10")).toBeInTheDocument();

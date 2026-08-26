@@ -1,4 +1,4 @@
-import type { AthleteSkillProfile, AuditLog, Invite, Match, MatchComment, MatchJoinRequest, Notification, PlayerCardProjection, PlayerFeatureSnapshot, PlayerProfile, Team, TeamAthleteSkillOverride, TeamJoinRequest, TeamMessage, Tournament, Venue, VenueChangeRequest, VenueReview } from "@soccer-stats/shared";
+import type { AthleteSkillProfile, AuditLog, Invite, Match, MatchComment, MatchJoinRequest, Notification, PlayerCardProjection, PlayerFeatureSnapshot, PlayerProfile, Team, TeamAthleteSkillChangeRequest, TeamAthleteSkillOverride, TeamJoinRequest, Tournament, Venue, VenueChangeRequest, VenueReview } from "@soccer-stats/shared";
 import type {
   AuditLogRepository,
   InviteRepository,
@@ -14,12 +14,12 @@ import type {
   TeamRepository,
   TeamJoinRequestRepository,
   MatchJoinRequestRepository,
-  TeamMessageRepository,
   MatchCommentRepository,
   TournamentRepository,
   VenueRepository,
   AthleteSkillProfileRepository,
   TeamAthleteSkillOverrideRepository,
+  TeamAthleteSkillChangeRequestRepository,
   VenueChangeRequestRepository,
   VenueReviewRepository,
   UserRepository
@@ -71,7 +71,14 @@ class MemoryTeamAthleteSkillOverrideRepository implements TeamAthleteSkillOverri
   async upsert(value: TeamAthleteSkillOverride) { this.items.set(this.key(value.teamId, value.userId), value); return value; }
   async findByTeamAndUser(teamId: string, userId: string) { return this.items.get(this.key(teamId, userId)) ?? null; }
   async listByTeam(teamId: string) { return [...this.items.values()].filter((item) => item.teamId === teamId); }
-  async deleteByTeamAndUser(teamId: string, userId: string) { this.items.delete(this.key(teamId, userId)); }
+}
+
+class MemoryTeamAthleteSkillChangeRequestRepository implements TeamAthleteSkillChangeRequestRepository {
+  private readonly items = new Map<string, TeamAthleteSkillChangeRequest>();
+  private key(teamId: string, userId: string) { return `${teamId}:${userId}`; }
+  async upsert(value: TeamAthleteSkillChangeRequest) { this.items.set(this.key(value.teamId, value.userId), value); return value; }
+  async findByTeamAndUser(teamId: string, userId: string) { return this.items.get(this.key(teamId, userId)) ?? null; }
+  async listByTeam(teamId: string) { return [...this.items.values()].filter((item) => item.teamId === teamId); }
 }
 
 class MemoryPlayerProfileRepository implements PlayerProfileRepository {
@@ -222,14 +229,6 @@ class MemoryMatchJoinRequestRepository implements MatchJoinRequestRepository {
   async findById(id: string): Promise<MatchJoinRequest | null> { return this.items.get(id) ?? null; }
   async findByMatchAndUser(matchId: string, userId: string): Promise<MatchJoinRequest | null> { return [...this.items.values()].find((item) => item.matchId === matchId && item.userId === userId && item.status === "pending") ?? null; }
   async listByMatch(matchId: string): Promise<MatchJoinRequest[]> { return [...this.items.values()].filter((item) => item.matchId === matchId).sort((a, b) => b.requestedAt.localeCompare(a.requestedAt)); }
-}
-
-class MemoryTeamMessageRepository implements TeamMessageRepository {
-  private readonly items = new Map<string, TeamMessage>();
-  async create(message: TeamMessage): Promise<TeamMessage> { this.items.set(message.id, message); return message; }
-  async findById(id: string): Promise<TeamMessage | null> { return this.items.get(id) ?? null; }
-  async listByTeam(teamId: string, page: number, pageSize: number): Promise<TeamMessage[]> { return [...this.items.values()].filter((item) => item.teamId === teamId).sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice((page - 1) * pageSize, page * pageSize); }
-  async deleteById(id: string): Promise<void> { this.items.delete(id); }
 }
 
 class MemoryMatchCommentRepository implements MatchCommentRepository {
@@ -458,12 +457,12 @@ export const createMemoryRepositories = (): Repositories => ({
   playerProfiles: new MemoryPlayerProfileRepository(),
   athleteSkills: new MemoryAthleteSkillProfileRepository(),
   teamAthleteSkillOverrides: new MemoryTeamAthleteSkillOverrideRepository(),
+  teamAthleteSkillChangeRequests: new MemoryTeamAthleteSkillChangeRequestRepository(),
   playerFeatureSnapshots: new MemoryPlayerFeatureSnapshotRepository(),
   playerCardProjections: new MemoryPlayerCardProjectionRepository(),
   teams: new MemoryTeamRepository(),
   teamJoinRequests: new MemoryTeamJoinRequestRepository(),
   matchJoinRequests: new MemoryMatchJoinRequestRepository(),
-  teamMessages: new MemoryTeamMessageRepository(),
   matchComments: new MemoryMatchCommentRepository(),
   matches: new MemoryMatchRepository(),
   tournaments: new MemoryTournamentRepository(),

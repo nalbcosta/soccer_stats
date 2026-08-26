@@ -66,6 +66,17 @@ export const authRouteSchemas = {
       401: { $ref: "messageResponse#" }
     }
   } satisfies FastifySchema,
+  updateAccount: {
+    tags: ["auth"],
+    summary: "Atualiza apelido ou senha do usuário autenticado",
+    security: authSecurity,
+    body: { $ref: "updateAccountInput#" },
+    response: {
+      200: { $ref: "publicUserEnvelope#" },
+      400: { $ref: "messageResponse#" },
+      401: { $ref: "messageResponse#" }
+    }
+  } satisfies FastifySchema,
   sessions: {
     tags: ["auth"],
     summary: "Lista sessoes do usuario autenticado",
@@ -777,6 +788,7 @@ const schemas = [
       visibility: { type: "string", enum: ["private", "public"] },
       joinPolicy: { type: "string", enum: ["closed", "request"] },
       description: { type: "string", maxLength: 240 },
+      whatsappGroupUrl: { type: "string", format: "uri", maxLength: 500 },
       logoUrl: { type: "string" },
       logoMetadata: {
         type: "object", properties: { fileName: { type: "string" }, mimeType: { type: "string", enum: ["image/jpeg", "image/png", "image/webp"] }, size: { type: "integer" }, uploadedAt: isoDate }, required: ["fileName", "mimeType", "size", "uploadedAt"]
@@ -1058,6 +1070,15 @@ const schemas = [
     required: ["email", "password"]
   },
   {
+    $id: "updateAccountInput",
+    type: "object",
+    properties: {
+      username: { type: "string", minLength: 3, maxLength: 20, pattern: "^[A-Za-z0-9_]+$" },
+      currentPassword: { type: "string", minLength: 8, maxLength: 72 },
+      newPassword: { type: "string", minLength: 8, maxLength: 72, pattern: "^(?=.*[A-Za-z])(?=.*\\d).+$" }
+    }
+  },
+  {
     $id: "googleAuthInput",
     type: "object",
     properties: {
@@ -1119,6 +1140,7 @@ const schemas = [
     properties: {
       name: { type: "string", minLength: 2, maxLength: 40 },
       visibility: { type: "string", enum: ["private", "public"], default: "private" },
+      whatsappGroupUrl: { type: "string", format: "uri", maxLength: 500 },
       city: { type: "string", minLength: 2, maxLength: 80 },
       state: { type: "string", minLength: 2, maxLength: 2 }
     },
@@ -1130,6 +1152,7 @@ const schemas = [
     properties: {
       name: { type: "string", minLength: 2, maxLength: 40 },
       visibility: { type: "string", enum: ["private", "public"] },
+      whatsappGroupUrl: { type: "string", format: "uri", maxLength: 500, nullable: true },
       city: { type: "string", minLength: 2, maxLength: 80 },
       state: { type: "string", minLength: 2, maxLength: 2 }
     }

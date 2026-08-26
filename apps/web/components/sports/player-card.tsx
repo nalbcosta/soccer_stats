@@ -1,6 +1,6 @@
 import clsx from "clsx";
 import type { ReactNode } from "react";
-import { Award, CalendarDays, Goal, ShieldCheck, Sparkles, Trophy } from "lucide-react";
+import { Award, CalendarDays, Goal, ShieldCheck, Trophy } from "lucide-react";
 import { FormDots } from "./form-dots";
 import type { PlayerCardViewModel } from "../../lib/player-card/build-player-card-view-model";
 
@@ -19,11 +19,7 @@ export function PlayerCard({ viewModel, size = "compact", className }: { viewMod
         <div aria-hidden="true" className="absolute inset-x-0 bottom-0 h-1/2 bg-[linear-gradient(0deg,rgba(7,18,15,.62),transparent)]" />
         <div className="relative flex h-full flex-col justify-between gap-7 sm:gap-10">
           <div className="flex items-start justify-between gap-3">
-            <div className="rounded-xl border border-white/15 bg-black/20 px-3 py-2.5 backdrop-blur-sm">
-              <p className="text-[10px] font-black uppercase tracking-[.18em] text-white/75">{viewModel.labels.cardName}</p>
-              <p className="mt-1 text-[10px] font-black uppercase tracking-[.12em] text-white/60">{viewModel.labels.overall}</p>
-              <p className="mt-1 text-5xl font-black leading-none tabular-nums sm:text-6xl">{viewModel.overall}</p>
-            </div>
+            <p className="rounded-xl border border-white/15 bg-black/20 px-3 py-2.5 text-[10px] font-black uppercase tracking-[.18em] text-white/75 backdrop-blur-sm">{viewModel.labels.cardName}</p>
             <div className="rounded-xl border border-white/15 bg-black/20 px-3 py-2 text-right backdrop-blur-sm">
               <p className="text-[10px] font-black uppercase tracking-[.16em] text-white/70">{viewModel.labels.position}</p>
               <p className="mt-1 text-lg font-black">{viewModel.identity.positionCode}</p>
@@ -41,10 +37,6 @@ export function PlayerCard({ viewModel, size = "compact", className }: { viewMod
       </header>
 
       <div className="space-y-5 p-4 sm:p-5">
-        <div className={clsx("rounded-xl border px-3 py-3", viewModel.confidence.isForming ? "border-warning/35 bg-warning-soft" : "border-primary/25 bg-primary-soft")}>
-          <div className="flex items-start gap-2"><Sparkles className="mt-0.5 shrink-0" size={16} /><div><p className="text-xs font-black uppercase tracking-[.12em]">{viewModel.confidence.label}</p><p className="mt-1 text-sm font-semibold leading-5 text-muted">{viewModel.confidence.description}</p></div></div>
-        </div>
-
         <section>
           <p className="text-xs font-black uppercase tracking-[.14em] text-muted">{viewModel.labels.realData}</p>
           <div className="mt-2 grid grid-cols-2 gap-2">

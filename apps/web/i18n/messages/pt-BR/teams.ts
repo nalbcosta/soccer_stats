@@ -18,8 +18,6 @@ export const teams = {
   criteriaDescription: "O ranking usa pontos, gols e forma recente como leitura rápida. No próximo ciclo ele pode ganhar filtros por jogadores, artilharia e presença.",
   discoveryLoading: "Buscando times abertos...",
   discoveryError: "Não foi possível carregar os times",
-  discoveryEmptyTitle: "Nenhum time aberto por aqui",
-  discoveryEmptyDescription: "Ajuste sua região ou volte mais tarde para encontrar novas turmas.",
   requestJoin: "Solicitar entrada",
   requesting: "Enviando solicitação...",
   tryAgain: "Tentar novamente"

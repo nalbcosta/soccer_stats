@@ -18,8 +18,6 @@ export const teams = {
   criteriaDescription: "The ranking uses points, goals and recent form as a quick read. In the next cycle, it can gain filters for players, scorers and attendance.",
   discoveryLoading: "Finding open teams...",
   discoveryError: "Could not load teams",
-  discoveryEmptyTitle: "No open teams nearby",
-  discoveryEmptyDescription: "Adjust your region or come back later to find new crews.",
   requestJoin: "Request to join",
   requesting: "Sending request...",
   tryAgain: "Try again"

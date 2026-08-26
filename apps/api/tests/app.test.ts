@@ -404,22 +404,39 @@ describe("api flows", () => {
       effectiveSkills: { outfield: { pac: 5, sho: 5 } }
     });
 
-    const reset = await app.inject({
-      method: "DELETE",
-      url: `/v1/teams/${teamId}/athletes/${userId}/skill-override`,
-      headers: { cookie: csrf.cookie, "x-csrf-token": csrf.token }
-    });
-    expect(reset.statusCode).toBe(200);
+  });
 
-    const rosterAfterReset = await app.inject({
-      method: "GET",
-      url: `/v1/teams/${teamId}/athletes`,
-      headers: { cookie: csrf.cookie }
-    });
-    expect(rosterAfterReset.json().athletes[0]).toMatchObject({
-      hasSkillOverride: false,
-      effectiveSkills: { outfield: { pac: 4, pas: 5 } }
-    });
+  it("aplica a primeira avaliacao do atleta e exige aprovacao para alteracoes posteriores", async () => {
+    const ownerSignup = await app.inject({ method: "POST", url: "/v1/auth/signup", payload: { email: "team-owner@example.com", username: "dono_time", password: "senha123", locale: "pt-BR" } });
+    const ownerCookie = ownerSignup.cookies[0];
+    const ownerCsrf = await withCsrf(`${ownerCookie?.name}=${ownerCookie?.value}`);
+    const teamResponse = await app.inject({ method: "POST", url: "/v1/teams", headers: { cookie: ownerCsrf.cookie, "x-csrf-token": ownerCsrf.token }, payload: { name: "Time da Aprovacao" } });
+    const teamId = teamResponse.json().team.id as string;
+    const athleteSignup = await app.inject({ method: "POST", url: "/v1/auth/signup", payload: { email: "request-athlete@example.com", username: "atleta_pedido", password: "senha123", locale: "pt-BR" } });
+    const athleteId = athleteSignup.json().user.id as string;
+    const athleteCookie = athleteSignup.cookies[0];
+    const athleteCsrf = await withCsrf(`${athleteCookie?.name}=${athleteCookie?.value}`);
+    const storedTeam = await app.repositories.teams.findById(teamId);
+    await app.repositories.teams.update({ ...storedTeam!, members: [...storedTeam!.members, { userId: athleteId, username: "atleta_pedido", role: "member", joinedAt: new Date().toISOString() }], updatedAt: new Date().toISOString() });
+
+    const firstAssessment = await app.inject({ method: "PUT", url: `/v1/teams/${teamId}/athletes/${athleteId}/skill-override`, headers: { cookie: athleteCsrf.cookie, "x-csrf-token": athleteCsrf.token }, payload: { outfield: { pac: 3, sho: 3, pas: 3, dri: 3, def: 3, phy: 3 }, isGoalkeeper: false } });
+    expect(firstAssessment.statusCode).toBe(200);
+    expect(firstAssessment.json().skillOverride.outfield.pac).toBe(3);
+
+    const requestedChange = await app.inject({ method: "PUT", url: `/v1/teams/${teamId}/athletes/${athleteId}/skill-override`, headers: { cookie: athleteCsrf.cookie, "x-csrf-token": athleteCsrf.token }, payload: { outfield: { pac: 5, sho: 4, pas: 4, dri: 4, def: 3, phy: 4 }, isGoalkeeper: false } });
+    expect(requestedChange.statusCode).toBe(200);
+    expect(requestedChange.json().skillChangeRequest.status).toBe("pending");
+
+    const beforeApproval = await app.inject({ method: "GET", url: `/v1/teams/${teamId}/athletes`, headers: { cookie: athleteCsrf.cookie } });
+    const athleteBeforeApproval = beforeApproval.json().athletes.find((item: { userId: string }) => item.userId === athleteId);
+    expect(athleteBeforeApproval.effectiveSkills.outfield.pac).toBe(3);
+
+    const approval = await app.inject({ method: "POST", url: `/v1/teams/${teamId}/athletes/${athleteId}/skill-change-requests/${requestedChange.json().skillChangeRequest.id}/approve`, headers: { cookie: ownerCsrf.cookie, "x-csrf-token": ownerCsrf.token } });
+    expect(approval.statusCode).toBe(200);
+
+    const afterApproval = await app.inject({ method: "GET", url: `/v1/teams/${teamId}/athletes`, headers: { cookie: athleteCsrf.cookie } });
+    const athleteAfterApproval = afterApproval.json().athletes.find((item: { userId: string }) => item.userId === athleteId);
+    expect(athleteAfterApproval.effectiveSkills.outfield.pac).toBe(5);
   });
 
   it("cadastra local, cria partida com snapshot, encerra por sumula e gera notificacoes", async () => {
