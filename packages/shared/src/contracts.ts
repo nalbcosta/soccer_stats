@@ -175,6 +175,7 @@ export const teamSchema = z.object({
   id: z.string(),
   name: z.string(),
   slug: z.string(),
+  publicCode: publicIdentifierSchema,
   ownerId: z.string(),
   visibility: entityVisibilitySchema.default("private"),
   joinPolicy: teamJoinPolicySchema.default("closed"),

@@ -28,7 +28,7 @@ export function TeamList() {
           <Card className="p-4 transition hover:-translate-y-0.5">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="font-black">{team.name}</p>
+                <p className="font-black">{team.name} <span className="font-mono text-xs text-primary-strong">{team.publicCode}</span></p>
                 <p className="mt-1 text-sm text-muted">{team.members.length} {t("members")}</p>
               </div>
               <Users className="text-primary-strong" size={20} />

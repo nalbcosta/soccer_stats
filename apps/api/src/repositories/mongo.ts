@@ -216,6 +216,7 @@ const modelsFor = (connection: Connection) => {
       _id: { type: String, required: true },
       name: { type: String, required: true },
       slug: { type: String, required: true, unique: true, index: true },
+      publicCode: { type: String, required: true, unique: true, index: true, match: /^#[0-9A-F]{6}$/ },
       ownerId: { type: String, required: true, index: true },
       visibility: { type: String, enum: ["private", "public"], required: true, default: "private", index: true },
       joinPolicy: { type: String, enum: ["closed", "request"], required: true, default: "closed", index: true },
@@ -709,6 +710,10 @@ class MongooseTeamRepository extends BaseMongooseRepository<Team> implements Tea
     return toDomain<Team>(await this.model.findOne({ slug }).lean());
   }
 
+  async findByPublicCode(publicCode: string): Promise<Team | null> {
+    return toDomain<Team>(await this.model.findOne({ publicCode: publicCode.trim().toUpperCase() }).lean());
+  }
+
   async listByMember(userId: string): Promise<Team[]> {
     return (await this.model.find({ "members.userId": userId }).lean()).map((doc) => toDomain<Team>(doc)).filter(Boolean) as Team[];
   }
@@ -1017,6 +1022,16 @@ const migratePublicIdentifiers = async (models: ReturnType<typeof modelsFor>): P
   }
   for (const update of slugUpdates) {
     await models.teams.updateOne({ _id: update.id }, { $set: { slug: update.slug } });
+  }
+
+  const teamsWithCode = await models.teams.find({ publicCode: { $exists: true, $ne: null } }).select({ publicCode: 1 }).lean();
+  const usedTeamCodes = new Set(teamsWithCode.map((team) => team.publicCode));
+  const teamsWithoutCode = await models.teams.find({ $or: [{ publicCode: { $exists: false } }, { publicCode: null }] }).select({ _id: 1 }).lean();
+  for (const team of teamsWithoutCode) {
+    let publicCode = createPublicIdentifier();
+    while (usedTeamCodes.has(publicCode)) publicCode = createPublicIdentifier();
+    await models.teams.updateOne({ _id: team._id }, { $set: { publicCode } });
+    usedTeamCodes.add(publicCode);
   }
 };
 

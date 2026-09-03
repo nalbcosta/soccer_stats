@@ -7,6 +7,7 @@ const team: Team = {
   id: "team-1",
   name: "Azuis",
   slug: "azuis",
+  publicCode: "#A1B2C3",
   ownerId: "u1",
   visibility: "private",
   members: [{ userId: "u1", role: "owner", joinedAt: new Date().toISOString() }],

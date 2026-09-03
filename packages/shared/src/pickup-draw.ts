@@ -5,6 +5,8 @@ export interface PickupParticipant {
   name: string;
   source: "member" | "guest";
   outfield: OutfieldAttributes;
+  /** A goalkeeper-only guest is not eligible to fill an outfield slot. */
+  canPlayOutfield?: boolean;
   isGoalkeeper: boolean;
   goalkeeper?: GoalkeeperAttributes;
 }
@@ -12,17 +14,22 @@ export interface PickupParticipant {
 export interface PickupDrawInput {
   participants: PickupParticipant[];
   teamCount: number;
-  squadSize: 5 | 6;
+  outfieldPlayersPerTeam: number;
+  goalkeepersPerTeam: number;
   seed: string | number;
 }
 
 export interface PickupDrawTeam {
   index: number;
   participants: PickupParticipant[];
+  outfieldPlayers: PickupParticipant[];
+  goalkeepers: PickupParticipant[];
   lineOverall: number;
   goalkeeperOverall: number | null;
   estimatedStrength: number;
   hasNaturalGoalkeeper: boolean;
+  outfieldVacancies: number;
+  goalkeeperVacancies: number;
 }
 
 export interface PickupDrawResult {
@@ -68,79 +75,91 @@ function shuffled<T>(values: T[], random: () => number): T[] {
   return result;
 }
 
-function summarize(participants: PickupParticipant[], index: number): PickupDrawTeam {
-  const lineOverall = average(participants.map((participant) => calculateLineOverall(participant.outfield)));
-  const goalkeeperOverall = participants
-    .filter((participant) => participant.isGoalkeeper && participant.goalkeeper)
-    .map((participant) => calculateGoalkeeperOverall(participant.goalkeeper))
-    .sort((left, right) => right - left)[0] ?? null;
-  const estimatedStrength = lineOverall + (goalkeeperOverall === null ? 0 : goalkeeperOverall / Math.max(1, participants.length));
+type TeamBuckets = { goalkeepers: PickupParticipant[]; outfieldPlayers: PickupParticipant[] };
+
+function summarize(bucket: TeamBuckets, index: number, input: Pick<PickupDrawInput, "outfieldPlayersPerTeam" | "goalkeepersPerTeam">): PickupDrawTeam {
+  const lineScores = bucket.outfieldPlayers.map((participant) => calculateLineOverall(participant.outfield));
+  const goalkeeperScores = bucket.goalkeepers.map((participant) => calculateGoalkeeperOverall(participant.goalkeeper));
+  const goalkeeperOverall = goalkeeperScores.length ? average(goalkeeperScores) : null;
   return {
     index,
-    participants,
-    lineOverall,
+    participants: [...bucket.goalkeepers, ...bucket.outfieldPlayers],
+    goalkeepers: bucket.goalkeepers,
+    outfieldPlayers: bucket.outfieldPlayers,
+    lineOverall: average(lineScores),
     goalkeeperOverall,
-    estimatedStrength,
-    hasNaturalGoalkeeper: goalkeeperOverall !== null
+    estimatedStrength: average([...lineScores, ...goalkeeperScores]),
+    hasNaturalGoalkeeper: bucket.goalkeepers.length > 0,
+    outfieldVacancies: input.outfieldPlayersPerTeam - bucket.outfieldPlayers.length,
+    goalkeeperVacancies: input.goalkeepersPerTeam - bucket.goalkeepers.length
   };
 }
 
 function scoreTeams(teams: PickupDrawTeam[]): number {
-  const goalkeepers = teams.map((team) => team.participants.filter((participant) => participant.isGoalkeeper).length);
-  const goalkeeperCoveragePenalty = teams.filter((team) => !team.hasNaturalGoalkeeper).length;
-  const goalkeeperSpread = Math.max(...goalkeepers) - Math.min(...goalkeepers);
   const strengths = teams.map((team) => team.estimatedStrength);
   const strengthSpread = Math.max(...strengths) - Math.min(...strengths);
+  const lineSpread = Math.max(...teams.map((team) => team.lineOverall)) - Math.min(...teams.map((team) => team.lineOverall));
+  const goalkeeperScores = teams.map((team) => team.goalkeeperOverall ?? 0);
+  const goalkeeperSpread = Math.max(...goalkeeperScores) - Math.min(...goalkeeperScores);
   const attributeSpread = outfieldKeys.reduce((total, key) => {
-    const means = teams.map((team) => average(team.participants.map((participant) => participant.outfield[key])));
+    const means = teams.map((team) => average(team.outfieldPlayers.map((participant) => participant.outfield[key])));
     return total + Math.max(...means) - Math.min(...means);
   }, 0);
-  return goalkeeperCoveragePenalty * 100_000 + goalkeeperSpread * 10_000 + strengthSpread * 100 + attributeSpread;
+  return goalkeeperSpread * 10_000 + strengthSpread * 100 + lineSpread * 10 + attributeSpread;
 }
 
 export function balancePickupTeams(input: PickupDrawInput): PickupDrawResult {
   if (!Number.isInteger(input.teamCount) || input.teamCount < 2) throw new Error("Informe ao menos dois times.");
-  const capacity = input.teamCount * input.squadSize;
-  const eligible = input.participants.slice(0, capacity);
-  const excluded = input.participants.slice(capacity);
-  if (eligible.length < input.teamCount) throw new Error("Nao ha participantes suficientes para formar os times.");
+  if (!Number.isInteger(input.outfieldPlayersPerTeam) || input.outfieldPlayersPerTeam < 0) throw new Error("Informe uma quantidade valida de jogadores de linha.");
+  if (!Number.isInteger(input.goalkeepersPerTeam) || input.goalkeepersPerTeam < 0) throw new Error("Informe uma quantidade valida de goleiros.");
+  if (input.outfieldPlayersPerTeam + input.goalkeepersPerTeam < 1) throw new Error("Cada time precisa ter ao menos um jogador.");
 
+  const goalkeeperSlots = input.teamCount * input.goalkeepersPerTeam;
+  const outfieldSlots = input.teamCount * input.outfieldPlayersPerTeam;
+  const naturalGoalkeepers = input.participants.filter((participant) => participant.isGoalkeeper && participant.goalkeeper);
+  const selectedGoalkeepers = naturalGoalkeepers.slice(0, goalkeeperSlots);
+  const selectedGoalkeeperIds = new Set(selectedGoalkeepers.map((participant) => participant.id));
+  const selectedOutfield = input.participants
+    .filter((participant) => !selectedGoalkeeperIds.has(participant.id) && participant.canPlayOutfield !== false)
+    .slice(0, outfieldSlots);
+  const selectedIds = new Set([...selectedGoalkeepers, ...selectedOutfield].map((participant) => participant.id));
+  const excluded = input.participants.filter((participant) => !selectedIds.has(participant.id));
   const seed = String(input.seed);
   const random = randomFactory(seed);
-  const baseSize = Math.floor(eligible.length / input.teamCount);
-  const remainder = eligible.length % input.teamCount;
-  const targetSizes = Array.from({ length: input.teamCount }, (_, index) => baseSize + (index < remainder ? 1 : 0));
   let best: PickupDrawTeam[] | null = null;
   let bestScore = Number.POSITIVE_INFINITY;
 
-  for (let attempt = 0; attempt < Math.max(120, eligible.length * 20); attempt += 1) {
-    const buckets = Array.from({ length: input.teamCount }, () => [] as PickupParticipant[]);
-    const goalkeepers = shuffled(eligible.filter((participant) => participant.isGoalkeeper && participant.goalkeeper), random);
-    const others = shuffled(eligible.filter((participant) => !goalkeepers.some((goalkeeper) => goalkeeper.id === participant.id)), random);
+  const selectedParticipants = selectedGoalkeepers.length + selectedOutfield.length;
+  if (!selectedParticipants) throw new Error("Selecione ao menos um participante que possa ocupar uma vaga da formação.");
 
-    goalkeepers.forEach((participant) => {
-      const candidates = buckets
-        .map((bucket, index) => ({ index, keeperCount: bucket.filter((item) => item.isGoalkeeper).length, remaining: targetSizes[index]! - bucket.length, tie: random() }))
-        .filter((candidate) => candidate.remaining > 0)
-        .sort((left, right) => left.keeperCount - right.keeperCount || right.remaining - left.remaining || left.tie - right.tie);
-      const destination = candidates[0];
-      if (destination) buckets[destination.index]!.push(participant);
-    });
+  for (let attempt = 0; attempt < Math.max(120, selectedParticipants * 20); attempt += 1) {
+    const buckets = Array.from({ length: input.teamCount }, () => ({ goalkeepers: [], outfieldPlayers: [] } as TeamBuckets));
 
-    others.forEach((participant) => {
+    for (const participant of shuffled(selectedGoalkeepers, random)) {
       const candidates = buckets
-        .map((bucket, index) => ({ index, remaining: targetSizes[index]! - bucket.length, tie: random() }))
+        .map((bucket, index) => ({ index, members: bucket.goalkeepers.length + bucket.outfieldPlayers.length, remaining: input.goalkeepersPerTeam - bucket.goalkeepers.length, tie: random() }))
         .filter((candidate) => candidate.remaining > 0)
         .map((candidate) => {
-          const trial = buckets.map((bucket, index) => summarize(index === candidate.index ? [...bucket, participant] : bucket, index));
+          const trial = buckets.map((bucket, index) => summarize(index === candidate.index ? { ...bucket, goalkeepers: [...bucket.goalkeepers, participant] } : bucket, index, input));
           return { ...candidate, score: scoreTeams(trial) };
         })
-        .sort((left, right) => left.score - right.score || right.remaining - left.remaining || left.tie - right.tie);
-      const destination = candidates[0];
-      if (destination) buckets[destination.index]!.push(participant);
-    });
+        .sort((left, right) => left.members - right.members || left.score - right.score || right.remaining - left.remaining || left.tie - right.tie);
+      buckets[candidates[0]!.index]!.goalkeepers.push(participant);
+    }
 
-    const summarized = buckets.map((bucket, index) => summarize(bucket, index));
+    for (const participant of shuffled(selectedOutfield, random)) {
+      const candidates = buckets
+        .map((bucket, index) => ({ index, members: bucket.goalkeepers.length + bucket.outfieldPlayers.length, remaining: input.outfieldPlayersPerTeam - bucket.outfieldPlayers.length, tie: random() }))
+        .filter((candidate) => candidate.remaining > 0)
+        .map((candidate) => {
+          const trial = buckets.map((bucket, index) => summarize(index === candidate.index ? { ...bucket, outfieldPlayers: [...bucket.outfieldPlayers, participant] } : bucket, index, input));
+          return { ...candidate, score: scoreTeams(trial) };
+        })
+        .sort((left, right) => left.members - right.members || left.score - right.score || right.remaining - left.remaining || left.tie - right.tie);
+      buckets[candidates[0]!.index]!.outfieldPlayers.push(participant);
+    }
+
+    const summarized = buckets.map((bucket, index) => summarize(bucket, index, input));
     const candidateScore = scoreTeams(summarized);
     if (candidateScore < bestScore) {
       best = summarized;

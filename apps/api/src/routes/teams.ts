@@ -2,7 +2,7 @@ import type { FastifyPluginAsync } from "fastify";
 import { extname } from "node:path";
 import { athleteSkillsInputSchema, createEmptyStats, createInviteInputSchema, createTeamInputSchema, inviteSchema, listTeamsQuerySchema, teamAthleteSchema, teamAthleteSkillChangeRequestSchema, teamAthleteSkillOverrideSchema, teamJoinRequestSchema, teamSchema, updateMembershipRoleInputSchema, updateTeamInputSchema } from "@soccer-stats/shared";
 import { teamRouteSchemas } from "../docs/openapi.js";
-import { createId, slugify } from "../lib/ids.js";
+import { createId, createPublicIdentifier, slugify } from "../lib/ids.js";
 import { removeStoredImage, storePublicImage } from "../lib/image-storage.js";
 import { NotificationService } from "../modules/notifications/notification.service.js";
 import { AuditService } from "../modules/audit/audit.service.js";
@@ -30,6 +30,13 @@ const issueTeamSlug = async (name: string, app: Parameters<FastifyPluginAsync>[0
     suffix += 1;
   }
   return slug;
+};
+const issueTeamPublicCode = async (app: Parameters<FastifyPluginAsync>[0]) => {
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    const candidate = createPublicIdentifier();
+    if (!await app.repositories.teams.findByPublicCode(candidate)) return candidate;
+  }
+  throw new Error("Nao foi possivel gerar um codigo publico para o time.");
 };
 const degreesToRadians = (value: number) => (value * Math.PI) / 180;
 const distanceInKm = (from: { latitude: number; longitude: number }, to: { latitude: number; longitude: number }) => {
@@ -65,7 +72,7 @@ export const teamRoutes: FastifyPluginAsync = async (app) => {
     const search = query.q ? normalizeSearch(query.q) : undefined;
     const filtered = teams
       .filter((team) => query.scope === "mine" || (team.visibility === "public" && team.joinPolicy === "request"))
-      .filter((team) => !search || [team.name, team.city, team.state, team.description].filter((value): value is string => Boolean(value)).map(normalizeSearch).join(" ").includes(search))
+      .filter((team) => !search || [team.name, team.publicCode, team.city, team.state, team.description].filter((value): value is string => Boolean(value)).map(normalizeSearch).join(" ").includes(search))
       .filter((team) => !query.city || normalizeSearch(team.city ?? "") === normalizeSearch(query.city))
       .filter((team) => !query.state || (team.state ?? "").toLowerCase() === query.state.toLowerCase())
       .filter((team) => {
@@ -85,7 +92,7 @@ export const teamRoutes: FastifyPluginAsync = async (app) => {
     }
 
     const { teamId } = request.params as { teamId: string };
-    const team = await app.repositories.teams.findById(teamId) ?? await app.repositories.teams.findBySlug(teamId);
+    const team = await app.repositories.teams.findById(teamId) ?? await app.repositories.teams.findBySlug(teamId) ?? await app.repositories.teams.findByPublicCode(teamId);
 
     if (!team || (team.visibility !== "public" && !team.members.some((member) => member.userId === user.id))) {
       reply.code(404);
@@ -108,6 +115,7 @@ export const teamRoutes: FastifyPluginAsync = async (app) => {
       id: createId(),
       name: payload.name,
       slug: await issueTeamSlug(payload.name, app),
+      publicCode: await issueTeamPublicCode(app),
       ownerId: user.id,
       visibility: payload.visibility,
       joinPolicy: payload.joinPolicy,

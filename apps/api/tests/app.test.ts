@@ -81,6 +81,40 @@ describe("api flows", () => {
     expect(second.json().user.publicIdentifier).not.toBe(first.json().user.publicIdentifier);
   });
 
+  it("gera codigo publico para o time e o encontra na descoberta", async () => {
+    const owner = await app.inject({
+      method: "POST",
+      url: "/v1/auth/signup",
+      payload: { email: "team-code-owner@example.com", username: "team_code_owner", password: "senha123", locale: "pt-BR" }
+    });
+    const ownerCookie = `${owner.cookies[0]?.name}=${owner.cookies[0]?.value}`;
+    const ownerCsrf = await withCsrf(ownerCookie);
+    const created = await app.inject({
+      method: "POST",
+      url: "/v1/teams",
+      headers: { cookie: ownerCsrf.cookie, "x-csrf-token": ownerCsrf.token },
+      payload: { name: "Time Codigo", visibility: "public", joinPolicy: "request" }
+    });
+
+    expect(created.statusCode).toBe(200);
+    expect(created.json().team.publicCode).toMatch(/^#[0-9A-F]{6}$/);
+
+    const athlete = await app.inject({
+      method: "POST",
+      url: "/v1/auth/signup",
+      payload: { email: "team-code-athlete@example.com", username: "team_code_athlete", password: "senha123", locale: "pt-BR" }
+    });
+    const athleteCookie = `${athlete.cookies[0]?.name}=${athlete.cookies[0]?.value}`;
+    const publicCode = created.json().team.publicCode as string;
+    const discovery = await app.inject({ method: "GET", url: `/v1/teams?scope=discover&q=${encodeURIComponent(publicCode)}`, headers: { cookie: athleteCookie } });
+    expect(discovery.json().teams).toHaveLength(1);
+    expect(discovery.json().teams[0].id).toBe(created.json().team.id);
+
+    const athleteCsrf = await withCsrf(athleteCookie);
+    const joinRequest = await app.inject({ method: "POST", url: `/v1/teams/${created.json().team.id}/join-requests`, headers: { cookie: athleteCsrf.cookie, "x-csrf-token": athleteCsrf.token } });
+    expect(joinRequest.statusCode).toBe(200);
+  });
+
   it("permite PATCH de notificacoes no preflight CORS", async () => {
     const response = await app.inject({
       method: "OPTIONS",

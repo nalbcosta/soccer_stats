@@ -784,6 +784,7 @@ const schemas = [
       id,
       name: { type: "string" },
       slug: { type: "string" },
+      publicCode: { type: "string", pattern: "^#[0-9A-F]{6}$" },
       ownerId: id,
       visibility: { type: "string", enum: ["private", "public"] },
       joinPolicy: { type: "string", enum: ["closed", "request"] },
@@ -805,7 +806,7 @@ const schemas = [
       createdAt: isoDate,
       updatedAt: isoDate
     },
-    required: ["id", "name", "slug", "ownerId", "visibility", "members", "stats", "createdAt", "updatedAt"]
+    required: ["id", "name", "slug", "publicCode", "ownerId", "visibility", "members", "stats", "createdAt", "updatedAt"]
   },
   {
     $id: "invite",

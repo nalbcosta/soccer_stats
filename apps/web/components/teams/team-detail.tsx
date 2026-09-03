@@ -41,7 +41,7 @@ export function TeamDetail() {
 
   return (
     <>
-      <PageHeading eyebrow="Time" title={team.name} action={canManage || membership?.role === "captain" ? <Link className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-primary px-4 text-sm font-black text-white" href={`/app/teams/${team.slug}/pelada`}><Shuffle size={17} />Sortear pelada</Link> : undefined} />
+      <PageHeading eyebrow={`Time · ${team.publicCode}`} title={team.name} action={canManage || membership?.role === "captain" ? <Link className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-primary px-4 text-sm font-black text-white" href={`/app/pelada/${team.slug}`}><Shuffle size={17} />Sortear pelada</Link> : undefined} />
       <div className="grid gap-4 lg:grid-cols-[1fr_0.8fr]">
         <section className="grid gap-3 sm:grid-cols-3">
           <Card className="p-4">

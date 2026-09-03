@@ -24,6 +24,7 @@ const team: Team = {
   id: "team-1",
   name: "Bola FC",
   slug: "bola-fc",
+  publicCode: "#A1B2C3",
   ownerId: "user-1",
   visibility: "private",
   city: "Sao Paulo",

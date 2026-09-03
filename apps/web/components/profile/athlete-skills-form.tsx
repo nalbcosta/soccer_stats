@@ -18,15 +18,19 @@ export interface SkillDraft {
   goalkeeper?: GoalkeeperAttributes;
 }
 
-export function SkillFields({ value, onChange }: { value: SkillDraft; onChange: (value: SkillDraft) => void }) {
+export type SkillRole = "outfield" | "goalkeeper" | "both";
+
+export function SkillFields({ value, onChange, role }: { value: SkillDraft; onChange: (value: SkillDraft) => void; role?: SkillRole }) {
+  const showsOutfield = role !== "goalkeeper";
+  const showsGoalkeeper = role ? role !== "outfield" : value.isGoalkeeper;
   return (
     <div className="grid gap-5">
-      <AttributeGroup labels={outfieldLabels} values={value.outfield} onChange={(key, rating) => onChange({ ...value, outfield: { ...value.outfield, [key]: rating } })} />
-      <label className="flex min-h-11 items-center gap-3 rounded-lg border border-border bg-canvas px-3 font-bold">
+      {showsOutfield ? <AttributeGroup labels={outfieldLabels} values={value.outfield} onChange={(key, rating) => onChange({ ...value, outfield: { ...value.outfield, [key]: rating } })} /> : null}
+      {!role ? <label className="flex min-h-11 items-center gap-3 rounded-lg border border-border bg-canvas px-3 font-bold">
         <input checked={value.isGoalkeeper} type="checkbox" onChange={(event) => { const { goalkeeper: _ignored, ...base } = value; onChange(event.target.checked ? { ...base, isGoalkeeper: true, goalkeeper: value.goalkeeper ?? defaultGoalkeeper } : { ...base, isGoalkeeper: false }); }} />
         Também sou goleiro
-      </label>
-      {value.isGoalkeeper && value.goalkeeper ? <AttributeGroup labels={goalkeeperLabels} values={value.goalkeeper} onChange={(key, rating) => onChange({ ...value, goalkeeper: { ...value.goalkeeper!, [key]: rating } })} /> : null}
+      </label> : null}
+      {showsGoalkeeper ? <AttributeGroup labels={goalkeeperLabels} values={value.goalkeeper ?? defaultGoalkeeper} onChange={(key, rating) => onChange({ ...value, isGoalkeeper: true, goalkeeper: { ...(value.goalkeeper ?? defaultGoalkeeper), [key]: rating } })} /> : null}
     </div>
   );
 }

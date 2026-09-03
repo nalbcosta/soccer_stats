@@ -37,6 +37,7 @@ const team: Team = {
   id: "team-1",
   name: "Bola FC",
   slug: "bola-fc",
+  publicCode: "#A1B2C3",
   ownerId: "user-1",
   visibility: "private",
   members: [{ userId: "user-1", role: "owner", joinedAt: "2026-07-01T10:00:00.000Z" }],

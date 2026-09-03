@@ -164,6 +164,11 @@ class MemoryTeamRepository implements TeamRepository {
     return [...this.items.values()].find((team) => team.slug === slug) ?? null;
   }
 
+  async findByPublicCode(publicCode: string): Promise<Team | null> {
+    const normalizedCode = publicCode.trim().toUpperCase();
+    return [...this.items.values()].find((team) => team.publicCode === normalizedCode) ?? null;
+  }
+
   async listByMember(userId: string): Promise<Team[]> {
     return [...this.items.values()].filter((team) => team.members.some((member) => member.userId === userId));
   }

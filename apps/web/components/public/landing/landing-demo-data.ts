@@ -55,6 +55,7 @@ export const demoHomeTeam: Team = {
   id: "demo-home-team",
   name: "Azuis",
   slug: "azuis",
+  publicCode: "#A2B3C4",
   ownerId: demoUser.id,
   visibility: "public",
   members: [
@@ -70,6 +71,7 @@ export const demoAwayTeam: Team = {
   id: "demo-away-team",
   name: "Coletes",
   slug: "coletes",
+  publicCode: "#D5E6F7",
   ownerId: "demo-away-9",
   visibility: "public",
   members: [

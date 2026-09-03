@@ -11,19 +11,37 @@ const player = (index: number, goalkeeper = false): PickupParticipant => ({
 });
 
 describe("balancePickupTeams", () => {
-  it("distribui 16 atletas em times 6, 5 e 5", () => {
-    const result = balancePickupTeams({ participants: Array.from({ length: 16 }, (_, index) => player(index, index < 3)), teamCount: 3, squadSize: 6, seed: "rodada-1" });
-    expect(result.teams.map((team) => team.participants.length)).toEqual([6, 5, 5]);
-    expect(result.teams.every((team) => team.hasNaturalGoalkeeper)).toBe(true);
+  it("preenche exatamente as vagas de linha e gol de cada time", () => {
+    const result = balancePickupTeams({ participants: Array.from({ length: 16 }, (_, index) => player(index, index < 3)), teamCount: 3, outfieldPlayersPerTeam: 4, goalkeepersPerTeam: 1, seed: "rodada-1" });
+    expect(result.teams.every((team) => team.outfieldPlayers.length === 4)).toBe(true);
+    expect(result.teams.every((team) => team.goalkeepers.length === 1)).toBe(true);
+    expect(result.teams.every((team) => team.participants.length === 5)).toBe(true);
+    expect(result.excluded).toHaveLength(1);
   });
 
-  it("exclui excedentes pela ordem de entrada", () => {
-    const participants = Array.from({ length: 12 }, (_, index) => player(index));
-    const result = balancePickupTeams({ participants, teamCount: 2, squadSize: 5, seed: "lotado" });
-    expect(result.excluded.map((item) => item.id)).toEqual(["p-10", "p-11"]);
+  it("permite sorteio parcial e reparte os presentes em quantidades iguais", () => {
+    const goalkeepers = [player(10, true), player(11, true)].map((participant) => ({ ...participant, canPlayOutfield: false }));
+    const result = balancePickupTeams({
+      participants: [...Array.from({ length: 10 }, (_, index) => player(index)), ...goalkeepers],
+      teamCount: 3,
+      outfieldPlayersPerTeam: 4,
+      goalkeepersPerTeam: 1,
+      seed: 1,
+    });
+    expect(result.teams.map((team) => team.participants.length).sort()).toEqual([4, 4, 4]);
+    expect(result.teams.reduce((total, team) => total + team.goalkeeperVacancies, 0)).toBe(1);
+    expect(result.teams.reduce((total, team) => total + team.outfieldVacancies, 0)).toBe(2);
   });
 
-  it("rejeita menos participantes do que times", () => {
-    expect(() => balancePickupTeams({ participants: [player(1)], teamCount: 2, squadSize: 5, seed: 1 })).toThrow(/participantes suficientes/i);
+  it("não coloca goleiro exclusivo em vaga de linha", () => {
+    const goalkeeperOnly = { ...player(1, true), canPlayOutfield: false };
+    const result = balancePickupTeams({ participants: [goalkeeperOnly], teamCount: 2, outfieldPlayersPerTeam: 1, goalkeepersPerTeam: 1, seed: 1 });
+    expect(result.teams.flatMap((team) => team.outfieldPlayers)).not.toContainEqual(goalkeeperOnly);
+    expect(result.teams.reduce((total, team) => total + team.outfieldVacancies, 0)).toBe(2);
+  });
+
+  it("aceita formacao sem vagas de goleiro", () => {
+    const result = balancePickupTeams({ participants: Array.from({ length: 4 }, (_, index) => player(index)), teamCount: 2, outfieldPlayersPerTeam: 2, goalkeepersPerTeam: 0, seed: "sem-gol" });
+    expect(result.teams.every((team) => team.goalkeepers.length === 0)).toBe(true);
   });
 });

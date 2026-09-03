@@ -176,6 +176,7 @@ export interface Team {
   id: string;
   name: string;
   slug: string;
+  publicCode: string;
   ownerId: string;
   visibility: EntityVisibility;
   joinPolicy?: TeamJoinPolicy;
